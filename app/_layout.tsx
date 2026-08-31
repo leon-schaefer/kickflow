@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/auth/AuthProvider';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { queryClient } from '@/queries/queryClient';
 import { navigationTheme, stackScreenOptions } from '@/theme/navigationTheme';
 import { colors } from '@/theme/tokens';
@@ -24,6 +25,7 @@ export default function RootLayout() {
             </ThemeProvider>
           </AuthProvider>
         </QueryClientProvider>
+        <UpdateBanner />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
