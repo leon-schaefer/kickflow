@@ -12,6 +12,7 @@ import type {
   RawLineupOverview,
   RawLineupPlayer,
   RawLoginResponse,
+  RawMarketOffer,
   RawMarketPlayer,
   RawMarketValueHistory,
   RawPerformanceResponse,
@@ -22,6 +23,7 @@ import type {
   AuthSession,
   LeagueSummary,
   LineupData,
+  MarketOffer,
   MarketPlayer,
   MarketValueHistory,
   MatchdayPerformance,
@@ -190,6 +192,15 @@ export function toSquadPlayer(
   };
 }
 
+export function toMarketOffer(raw: RawMarketOffer): MarketOffer {
+  return {
+    userId: raw.u ?? null,
+    userName: raw.unm ?? null,
+    price: raw.uop ?? 0,
+    userImageUrl: imageUrl(raw.uim),
+  };
+}
+
 export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
   const marketValue = raw.mv ?? 0;
   const totalPoints = raw.p ?? 0;
@@ -216,6 +227,13 @@ export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
     sellerName: raw.u?.n ?? null,
     offerCount: raw.ofc ?? 0,
     listedAt: raw.dt ?? null,
+
+    // `iposl` bewusst nicht gemappt: laut echter API-Antwort redundant zu
+    // `uop` gesetzt/undefined, siehe scripts/.probe-output/market-after-offer.json.
+    expiresInSeconds: raw.exs ?? null,
+    ownOfferPrice: raw.uop ?? null,
+    ownOfferId: raw.uoid ?? null,
+    offers: (raw.ofs ?? []).map(toMarketOffer),
   };
 }
 

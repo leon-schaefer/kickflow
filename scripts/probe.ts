@@ -21,6 +21,7 @@ config({ path: path.join(__dirname, '..', '.env.local') });
 const BASE_URL = 'https://api.kickbase.com';
 const OUTPUT_DIR = path.join(__dirname, '.probe-output');
 const SAVE_LINEUP = process.argv.includes('--save-lineup');
+const PROBE_OFFERS = process.argv.includes('--offers');
 
 async function main() {
   const email = process.env.KICKBASE_EMAIL;
@@ -210,6 +211,10 @@ async function main() {
   const marketItems = market.it ?? market.items ?? [];
   console.log(`  ${marketItems.length} Spieler auf dem Markt. Erster Eintrag:`, marketItems[0]);
 
+  if (PROBE_OFFERS) {
+    await probeOffers(token, leagueId, marketItems);
+  }
+
   console.log(`\nAlle Rohantworten liegen in ${OUTPUT_DIR}`);
 }
 
@@ -241,6 +246,153 @@ async function tryPostLineup(
   const responseBody = await res.json().catch(() => null);
   console.log(`  ${label} → ${res.status}`, responseBody ?? '');
   return res.ok;
+}
+
+/**
+ * Generischer Request für --offers: loggt IMMER Status + Body (auch bei
+ * 4xx/5xx), wirft nie — anders als getJson/tryPostLineup, weil hier bewusst
+ * mehrere unbelegte Pfad-/Body-Varianten durchprobiert werden.
+ */
+async function tryRequest(
+  method: 'GET' | 'POST' | 'DELETE',
+  urlPath: string,
+  token: string,
+  body?: unknown,
+  label?: string,
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const res = await fetch(`${BASE_URL}${urlPath}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      Authorization: `Bearer ${token}`,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const responseBody = await res.text().then((t) => (t.length ? safeJsonParse(t) : null));
+  console.log(`  ${label ?? `${method} ${urlPath}`} → ${res.status}`, responseBody ?? '');
+  return { ok: res.ok, status: res.status, body: responseBody };
+}
+
+function safeJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * NUR mit --offers: gibt ein echtes Gebot in der echten Liga ab und zieht es
+ * wieder zurück. Zweck: Pfad, Body-Feldnamen und Offer-ID-Quelle für
+ * placeOffer/removeOffer (src/api/kickbase/endpoints.ts) verifizieren, bevor
+ * dort Code dagegen verdrahtet wird — siehe Kommentar über saveLineup für
+ * dasselbe Vorgehen bei der Aufstellung.
+ *
+ * Zielspieler: billigstes Kickbase-Listing (kein Verkäufer `u`) OHNE eigenes
+ * Gebot (`iposl` nicht true) — damit ist der Schaden im schlimmsten Fall
+ * minimal, und der Vorher/Nachher-Vergleich ist eindeutig.
+ */
+async function probeOffers(token: string, leagueId: string, marketItems: any[]): Promise<void> {
+  console.log('\n=== --offers: Gebot abgeben/zurückziehen verifizieren ===');
+
+  const candidates = marketItems.filter((p) => !p.u && p.iposl !== true && typeof p.prc === 'number');
+  if (candidates.length === 0) {
+    console.warn('Kein passendes Kickbase-Listing ohne eigenes Gebot gefunden — --offers übersprungen.');
+    return;
+  }
+  const target = candidates.sort((a, b) => a.prc - b.prc)[0];
+  console.log(`Zielspieler: ${target.fn ?? ''} ${target.n} (${target.i}), Angebotspreis ${target.prc}`);
+
+  console.log('\n-- 1. Lesend prüfen, ob es einen eigenen Offers-Endpoint gibt --');
+  await tryRequest('GET', `/v4/leagues/${leagueId}/market/${target.i}/offers`, token, undefined, 'GET .../offers (Spieler)');
+  await tryRequest('GET', `/v4/leagues/${leagueId}/market/offers`, token, undefined, 'GET .../market/offers (Liga)');
+
+  console.log('\n-- 2. Gebot abgeben --');
+  const placed = await tryRequest(
+    'POST',
+    `/v4/leagues/${leagueId}/market/${target.i}/offers`,
+    token,
+    { price: target.prc },
+    'POST .../offers {price}',
+  );
+  if (!placed.ok) {
+    console.error('Gebots-POST nicht erfolgreich — --offers bricht ab, es wurde nichts geboten.');
+    return;
+  }
+  // Verifiziert am 31.08.2026: Antwort ist { ofi: "<eigene User-ID>" } — die
+  // "Offer-ID" ist schlicht die eigene User-ID (ein Gebot pro Nutzer/Spieler).
+  const offerId = (placed.body as any)?.ofi;
+
+  const afterOffer = await getJson(`/v4/leagues/${leagueId}/market`, token);
+  await dump('market-after-offer', afterOffer);
+  const afterItem = (afterOffer.it ?? []).find((p: any) => p.i === target.i);
+  console.log('Zielspieler nach dem Gebot (ofc/uop/uoid/iposl/ofs):', {
+    ofc: afterItem?.ofc,
+    uop: afterItem?.uop,
+    uoid: afterItem?.uoid,
+    iposl: afterItem?.iposl,
+    ofs: afterItem?.ofs,
+  });
+
+  console.log('\n-- 2b. Gebot per erneutem POST ändern (Upsert-Verhalten prüfen) --');
+  const higherPrice = target.prc + 1;
+  await tryRequest(
+    'POST',
+    `/v4/leagues/${leagueId}/market/${target.i}/offers`,
+    token,
+    { price: higherPrice },
+    'POST .../offers {price: higher} (soll überschreiben, nicht duplizieren)',
+  );
+  const afterChange = await getJson(`/v4/leagues/${leagueId}/market`, token);
+  const afterChangeItem = (afterChange.it ?? []).find((p: any) => p.i === target.i);
+  console.log('Zielspieler nach geändertem Gebot (ofc sollte weiterhin 1 sein, uop = neuer Preis):', {
+    ofc: afterChangeItem?.ofc,
+    uop: afterChangeItem?.uop,
+    ofs: afterChangeItem?.ofs,
+  });
+
+  console.log('\n-- 3. Gebot zurückziehen --');
+  let removed = { ok: false, status: 0, body: null as unknown };
+  if (offerId) {
+    removed = await tryRequest(
+      'DELETE',
+      `/v4/leagues/${leagueId}/market/${target.i}/offers/${offerId}`,
+      token,
+      undefined,
+      'DELETE .../offers/{offerId}',
+    );
+  }
+  if (!removed.ok) {
+    removed = await tryRequest(
+      'DELETE',
+      `/v4/leagues/${leagueId}/market/${target.i}/offers`,
+      token,
+      undefined,
+      'DELETE .../offers (ohne ID)',
+    );
+  }
+
+  const afterRemove = await getJson(`/v4/leagues/${leagueId}/market`, token);
+  await dump('market-after-remove-offer', afterRemove);
+  const afterRemoveItem = (afterRemove.it ?? []).find((p: any) => p.i === target.i);
+  console.log('Zielspieler nach dem Zurückziehen (ofc/uop/uoid/iposl/ofs):', {
+    ofc: afterRemoveItem?.ofc,
+    uop: afterRemoveItem?.uop,
+    uoid: afterRemoveItem?.uoid,
+    iposl: afterRemoveItem?.iposl,
+    ofs: afterRemoveItem?.ofs,
+  });
+
+  const cleanedUp = !afterRemoveItem?.uop && afterRemoveItem?.iposl !== true;
+  if (cleanedUp) {
+    console.log('✓ Gebot erfolgreich zurückgezogen — Ausgangszustand wiederhergestellt.');
+  } else {
+    console.error(
+      `✗ ACHTUNG: Das Gebot auf ${target.fn ?? ''} ${target.n} scheint noch offen zu sein! ` +
+        'Bitte manuell in der Kickbase-App zurückziehen.',
+    );
+  }
 }
 
 main().catch((err) => {

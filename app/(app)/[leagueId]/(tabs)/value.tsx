@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import type { MarketPlayer } from '@/api/kickbase';
+import { OfferModal } from '@/components/OfferModal';
 import { QueryState } from '@/components/QueryState';
 import type { ValueRowPlayer } from '@/components/ValueRow';
 import { ValueRow } from '@/components/ValueRow';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
+import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLineup, useMarket } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -24,8 +27,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 export default function ValueScreen() {
   const leagueId = useLeagueId();
   const router = useRouter();
+  const league = useCurrentLeague();
   const [segment, setSegment] = useState<Segment>('squad');
   const [sortKey, setSortKey] = useState<SortKey>('avg');
+  const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
 
   const lineup = useLineup(leagueId);
   const market = useMarket(leagueId, { enabled: segment === 'market' });
@@ -41,6 +46,12 @@ export default function ValueScreen() {
   function openPlayer(player: ValueRowPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
   }
+
+  // Nur im Transfermarkt-Segment gesetzt — im Kader-Segment bleibt ValueRow
+  // ohne Gebotslage/Bieten-Button (onBid === undefined). `sorted` enthält in
+  // diesem Segment tatsächlich MarketPlayer-Objekte, nur strukturell als
+  // ValueRowPlayer typisiert.
+  const bidHandler = segment === 'market' ? (player: ValueRowPlayer) => setOfferTarget(player as MarketPlayer) : undefined;
 
   return (
     <View style={styles.container}>
@@ -81,7 +92,7 @@ export default function ValueScreen() {
           refreshControl={
             <RefreshControl refreshing={active.isRefetching} onRefresh={active.refetch} tintColor={colors.accent} />
           }
-          renderItem={({ item }) => <ValueRow player={item} onPress={openPlayer} />}
+          renderItem={({ item }) => <ValueRow player={item} onPress={openPlayer} onBid={bidHandler} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -90,6 +101,8 @@ export default function ValueScreen() {
           }
         />
       )}
+
+      <OfferModal player={offerTarget} budget={league?.budget ?? null} onClose={() => setOfferTarget(null)} />
     </View>
   );
 }

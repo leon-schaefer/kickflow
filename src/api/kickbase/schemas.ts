@@ -114,6 +114,19 @@ export const rawSquadResponseSchema = z.looseObject({
 });
 
 /**
+ * Ein Gebot aus `ofs[]` — bei fremden Listings enthält das laut
+ * scripts/.probe-output/market.json nur das eigene Gebot, nicht alle Gebote
+ * anderer Manager.
+ */
+export const rawMarketOfferSchema = z.looseObject({
+  u: z.string().optional(),
+  unm: z.string().optional(),
+  uop: z.number().optional(),
+  uim: z.string().optional(),
+});
+export type RawMarketOffer = z.infer<typeof rawMarketOfferSchema>;
+
+/**
  * `p`/`ap` fehlen laut scripts/probe.ts komplett bei Bot-Listings (freie
  * Spieler ohne Verkäufer/Saisoneinsatz) statt auf 0 zu stehen — deshalb
  * optional statt mit .default(0).
@@ -138,6 +151,17 @@ export const rawMarketPlayerSchema = z.looseObject({
       n: z.string().optional(),
     })
     .optional(),
+  /** Restlaufzeit des Listings in Sekunden — nur bei Kickbase-Listings gesetzt (kein `u`). */
+  exs: z.number().optional(),
+  /** Mein eigener Gebotspreis, falls ich schon geboten habe. */
+  uop: z.number().optional(),
+  /**
+   * Meine eigene User-ID, sobald ich ein Gebot habe — verdoppelt sich mit
+   * `ofs[].u`. Zugleich die "Offer-ID" für den DELETE-Aufruf beim
+   * Zurückziehen, siehe removeOffer in endpoints.ts.
+   */
+  uoid: z.string().optional(),
+  ofs: z.array(rawMarketOfferSchema).optional(),
 });
 export type RawMarketPlayer = z.infer<typeof rawMarketPlayerSchema>;
 

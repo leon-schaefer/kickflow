@@ -541,4 +541,46 @@ describe('toMarketPlayer', () => {
     const mapped = toMarketPlayer({ ...botListing, prc: undefined });
     expect(mapped.price).toBe(mapped.marketValue);
   });
+
+  // Bot-Listing mit eigenem Gebot, 1:1 aus scripts/.probe-output/market.json (Skhiri, i: '2718').
+  const botListingWithOwnOffer: RawMarketPlayer = {
+    i: '2718',
+    fn: 'Ellyes',
+    n: 'Skhiri',
+    tid: '28',
+    pos: 3,
+    st: 0,
+    mvt: 1,
+    mv: 6_112_964,
+    p: 48,
+    ap: 48,
+    ofc: 1,
+    exs: 142_453,
+    prc: 6_112_964,
+    uop: 6_112_964,
+    uoid: '4232017',
+    ofs: [
+      { u: '4232017', unm: 'Leon', uop: 6_112_964, uim: 'user/812d9d810c104cf8b6a396f784c4efe8.jpe' },
+    ],
+    dt: '2026-08-31T03:13:57Z',
+    pim: 'content/file/1274d4acfc8845a789f74d858afe1168.png',
+  };
+
+  it('mappt ein Bot-Listing mit eigenem Gebot inkl. Restlaufzeit und Offer-ID', () => {
+    const mapped = toMarketPlayer(botListingWithOwnOffer);
+    expect(mapped.expiresInSeconds).toBe(142_453);
+    expect(mapped.ownOfferPrice).toBe(6_112_964);
+    expect(mapped.ownOfferId).toBe('4232017');
+    expect(mapped.offers).toEqual([
+      { userId: '4232017', userName: 'Leon', price: 6_112_964, userImageUrl: 'https://kickbase.b-cdn.net/user/812d9d810c104cf8b6a396f784c4efe8.jpe' },
+    ]);
+  });
+
+  it('mappt ein Manager-Listing ohne Gebot mit leeren Gebotsfeldern (kein exs, kein uop)', () => {
+    const mapped = toMarketPlayer(managerListing);
+    expect(mapped.expiresInSeconds).toBeNull();
+    expect(mapped.ownOfferPrice).toBeNull();
+    expect(mapped.ownOfferId).toBeNull();
+    expect(mapped.offers).toEqual([]);
+  });
 });

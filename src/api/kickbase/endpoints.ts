@@ -31,6 +31,7 @@ import type {
   LineupData,
   MarketPlayer,
   MatchdaySchedule,
+  PlaceOfferInput,
   PlayerDetail,
   SaveLineupInput,
   Team,
@@ -127,5 +128,38 @@ export async function saveLineup(
     token,
     method: 'POST',
     body: { type: input.formation, players: input.playerIds },
+  });
+}
+
+/**
+ * Gebot auf einen Transfermarkt-Spieler abgeben oder ändern. Verifiziert am
+ * 31.08.2026 per `npm run probe -- --offers` gegen einen echten Account:
+ * `POST /v4/leagues/{id}/market/{playerId}/offers` mit `{price}` → 200,
+ * Antwort `{ ofi: "<eigene User-ID>" }`. Ein erneuter POST mit anderem Preis
+ * überschreibt das bestehende Gebot (kein Duplikat, `ofc` bleibt 1) — dient
+ * also auch zum Ändern eines Gebots.
+ */
+export async function placeOffer(
+  token: string,
+  leagueId: string,
+  input: PlaceOfferInput,
+): Promise<void> {
+  await kbFetch(`/v4/leagues/${leagueId}/market/${input.playerId}/offers`, {
+    token,
+    method: 'POST',
+    body: { price: input.price },
+  });
+}
+
+/**
+ * Eigenes Gebot zurückziehen. `offerId` ist laut Probe schlicht die eigene
+ * User-ID (siehe `MarketPlayer.ownOfferId`, gemappt aus dem Rohfeld `uoid`)
+ * — es gibt nur ein Gebot pro Nutzer und Spieler. Verifiziert am 31.08.2026
+ * per `npm run probe -- --offers`: `DELETE .../offers/{offerId}` → 200 {}.
+ */
+export async function removeOffer(token: string, leagueId: string, playerId: string, offerId: string): Promise<void> {
+  await kbFetch(`/v4/leagues/${leagueId}/market/${playerId}/offers/${offerId}`, {
+    token,
+    method: 'DELETE',
   });
 }

@@ -6,9 +6,11 @@ import {
   getMarket,
   getMatchdays,
   getPlayer,
+  placeOffer,
+  removeOffer,
   saveLineup,
 } from '@/api/kickbase';
-import type { SaveLineupInput } from '@/api/kickbase';
+import type { PlaceOfferInput, SaveLineupInput } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import { queryKeys } from './keys';
@@ -91,6 +93,31 @@ export function useSaveLineup(leagueId: string) {
     mutationFn: (input: SaveLineupInput) => saveLineup(token!, leagueId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.lineup(leagueId) });
+    },
+  });
+}
+
+/** Gebot abgeben oder ändern (POST ist ein Upsert, siehe endpoints.ts). */
+export function usePlaceOffer(leagueId: string) {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PlaceOfferInput) => placeOffer(token!, leagueId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
+    },
+  });
+}
+
+/** Eigenes Gebot zurückziehen. `offerId` = `MarketPlayer.ownOfferId`. */
+export function useRemoveOffer(leagueId: string) {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ playerId, offerId }: { playerId: string; offerId: string }) =>
+      removeOffer(token!, leagueId, playerId, offerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
     },
   });
 }

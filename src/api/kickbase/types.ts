@@ -65,6 +65,20 @@ export interface SquadPlayer {
   nextMatch: NextMatch | null;
 }
 
+/** Ein für mich sichtbares Gebot auf einen Marktplayer (aus `ofs[]`, siehe rawMarketOfferSchema). */
+export interface MarketOffer {
+  userId: string | null;
+  userName: string | null;
+  price: number;
+  userImageUrl: string | null;
+}
+
+/** Eingabe für `placeOffer` — ein neues Gebot auf einen Marktspieler. */
+export interface PlaceOfferInput {
+  playerId: string;
+  price: number;
+}
+
 /** Ein auf dem Transfermarkt der Liga gelisteter Spieler. */
 export interface MarketPlayer {
   id: string;
@@ -90,6 +104,18 @@ export interface MarketPlayer {
   sellerName: string | null;
   offerCount: number;
   listedAt: string | null;
+
+  /** Restlaufzeit in Sekunden — nur bei Kickbase-Listings gesetzt, Manager-Listings laufen nie ab. */
+  expiresInSeconds: number | null;
+  /** Mein eigener Gebotspreis, falls ich schon geboten habe (Rohfeld `uop`). */
+  ownOfferPrice: number | null;
+  /**
+   * Meine eigene User-ID, sobald ich geboten habe (Rohfeld `uoid`) — zugleich
+   * die Offer-ID, die `removeOffer` zum Zurückziehen braucht.
+   */
+  ownOfferId: string | null;
+  /** Die für mich sichtbaren Gebote. Bei fremden Listings nur mein eigenes. */
+  offers: MarketOffer[];
 }
 
 export interface LineupData {
