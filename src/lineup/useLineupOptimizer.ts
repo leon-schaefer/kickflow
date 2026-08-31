@@ -69,7 +69,11 @@ export function useLineupOptimizer(
     [players, metric, deficit, balanceBudget],
   );
 
-  const result = sellPlan?.feasible ? sellPlan.result : unconstrainedResult;
+  // Bei aktivem balanceBudget hat der Kontoausgleich Priorität vor Punkten —
+  // auch ein nicht voll feasible-r Plan (Kader reicht nicht ganz) verkauft
+  // bereits das Maximal-Mögliche und liefert die dazu beste Restkader-Elf;
+  // das ist der Elf mit unbeschränkter Punktoptimierung immer vorzuziehen.
+  const result = sellPlan ? sellPlan.result : unconstrainedResult;
 
   const scoreByFormation = useMemo(() => {
     const map = new Map<string, number | null>();
