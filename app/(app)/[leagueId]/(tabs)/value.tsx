@@ -2,12 +2,13 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
+import { BudgetBar } from '@/components/BudgetBar';
 import { OfferModal } from '@/components/OfferModal';
 import { QueryState } from '@/components/QueryState';
 import type { ValueRowPlayer } from '@/components/ValueRow';
 import { ValueRow } from '@/components/ValueRow';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
-import { useCurrentLeague } from '@/leagues/useCurrentLeague';
+import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useLineup, useMarket } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -27,10 +28,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 export default function ValueScreen() {
   const leagueId = useLeagueId();
   const router = useRouter();
-  const league = useCurrentLeague();
   const [segment, setSegment] = useState<Segment>('squad');
   const [sortKey, setSortKey] = useState<SortKey>('avg');
   const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
+  const limit = useBudgetLimit();
 
   const lineup = useLineup(leagueId);
   const market = useMarket(leagueId, { enabled: segment === 'market' });
@@ -83,6 +84,8 @@ export default function ValueScreen() {
         ))}
       </View>
 
+      {segment === 'market' && limit && <BudgetBar limit={limit} />}
+
       {!active.data ? (
         <QueryState query={active} label="Daten" />
       ) : (
@@ -102,7 +105,7 @@ export default function ValueScreen() {
         />
       )}
 
-      <OfferModal player={offerTarget} budget={league?.budget ?? null} onClose={() => setOfferTarget(null)} />
+      <OfferModal player={offerTarget} onClose={() => setOfferTarget(null)} />
     </View>
   );
 }

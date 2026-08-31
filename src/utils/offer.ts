@@ -17,20 +17,26 @@ export function formatCurrencyInput(value: number): string {
 
 export interface ValidateOfferInput {
   price: number | null;
-  budget: number | null;
+  /** Spielraum inkl. 33%-Überziehungsrahmen und abzüglich anderer offener Gebote, siehe utils/budget.ts. */
+  available: number | null;
 }
 
 /**
  * Clientseitige Vorprüfung — alles darüber hinaus (z.B. Mindestgebot,
  * abgelaufenes Listing) meldet die Kickbase-API selbst über `errMsg`
- * (siehe KickbaseError in client.ts).
+ * (siehe KickbaseError in client.ts). Geprüft wird gegen `available`, nicht
+ * gegen den nackten Kontostand — ein negatives Konto ist bis zur 33%-Grenze
+ * (utils/budget.ts) erlaubt.
  */
-export function validateOffer({ price, budget }: ValidateOfferInput): string | null {
+export function validateOffer({ price, available }: ValidateOfferInput): string | null {
   if (price === null || price <= 0) {
     return 'Bitte ein Gebot eingeben.';
   }
-  if (budget !== null && price > budget) {
-    return `Budget reicht nicht: nur ${formatCurrencyInput(budget)} € verfügbar.`;
+  if (available === 0) {
+    return 'Dein Kader ist bereits 33 % im Minus.';
+  }
+  if (available !== null && price > available) {
+    return `Limit erreicht: nur ${formatCurrencyInput(available)} € verfügbar (inkl. 33%-Rahmen).`;
   }
   return null;
 }

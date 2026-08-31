@@ -6,6 +6,7 @@ import {
   type OptimizerMetric,
 } from '@/utils/lineupOptimizer';
 import { deriveSellAdvice, type SellAdvice } from '@/utils/sellAdvice';
+import { buildSellPlan, type SellPlan } from '@/utils/sellPlan';
 
 export interface OptimizerDiff {
   /** Vom Optimizer neu in die Elf geholt (gegenüber der aktuellen Aufstellung). */
@@ -18,7 +19,7 @@ export interface OptimizerDiff {
 export interface LineupOptimizer {
   metric: OptimizerMetric;
   setMetric: (m: OptimizerMetric) => void;
-  /** Ergebnis für die aktive Metrik. */
+  /** Ergebnis für die aktive Metrik — bei aktivem `balanceBudget` bereits die budgetbereinigte Elf. */
   result: OptimizationResult;
   /** scoreAverage je Formation, für die Score-Unterzeile der Chips. */
   scoreByFormation: Map<string, number | null>;
@@ -26,6 +27,11 @@ export interface LineupOptimizer {
   sellAdvice: SellAdvice[];
   /** Diff der vorgeschlagenen besten Elf gegen die aktuelle Aufstellung. */
   preview: OptimizerDiff;
+  /** "Konto ausgleichen" — bezieht Pflichtverkäufe zum Ausgleich eines negativen Kontostands mit ein. */
+  balanceBudget: boolean;
+  setBalanceBudget: (value: boolean) => void;
+  /** Nur gesetzt, wenn balanceBudget aktiv UND ein Defizit besteht — siehe utils/sellPlan.ts. */
+  sellPlan: SellPlan | null;
 }
 
 function diffAgainstDraft(bestPlayerIds: readonly string[] | undefined, draftIds: readonly string[]): OptimizerDiff {
@@ -46,12 +52,24 @@ function diffAgainstDraft(bestPlayerIds: readonly string[] | undefined, draftIds
 export function useLineupOptimizer(
   players: readonly SquadPlayer[],
   draftIds: readonly string[],
+  deficit = 0,
 ): LineupOptimizer {
   const [metric, setMetric] = useState<OptimizerMetric>('valuePerMillion');
+  const [balanceBudget, setBalanceBudget] = useState(false);
 
   const efficiencyResult = useMemo(() => optimizeLineup(players, 'valuePerMillion'), [players]);
   const pointsResult = useMemo(() => optimizeLineup(players, 'points'), [players]);
-  const result = metric === 'valuePerMillion' ? efficiencyResult : pointsResult;
+  const unconstrainedResult = metric === 'valuePerMillion' ? efficiencyResult : pointsResult;
+
+  // Nur für die AKTIVE Metrik berechnet, nicht wie efficiencyResult/pointsResult
+  // für beide zugleich — sellAdvice (unten) braucht den Sell-Plan nicht, und
+  // ein Metrikwechsel bei aktiver Checkbox berechnet ohnehin neu.
+  const sellPlan = useMemo(
+    () => (balanceBudget && deficit > 0 ? buildSellPlan(players, metric, deficit) : null),
+    [players, metric, deficit, balanceBudget],
+  );
+
+  const result = sellPlan?.feasible ? sellPlan.result : unconstrainedResult;
 
   const scoreByFormation = useMemo(() => {
     const map = new Map<string, number | null>();
@@ -69,5 +87,5 @@ export function useLineupOptimizer(
     [result, draftIds],
   );
 
-  return { metric, setMetric, result, scoreByFormation, sellAdvice, preview };
+  return { metric, setMetric, result, scoreByFormation, sellAdvice, preview, balanceBudget, setBalanceBudget, sellPlan };
 }

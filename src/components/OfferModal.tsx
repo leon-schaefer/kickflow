@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
+import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { usePlaceOffer, useRemoveOffer } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency } from '@/utils/format';
@@ -20,7 +21,6 @@ import { formatCurrencyInput, parseCurrencyInput, validateOffer } from '@/utils/
 interface OfferModalProps {
   /** null = Modal ist zu. */
   player: MarketPlayer | null;
-  budget: number | null;
   onClose: () => void;
 }
 
@@ -28,10 +28,13 @@ interface OfferModalProps {
  * Gebots-Dialog aus der Wert-Seite: Shell aus LeagueSwitcher (transparentes
  * Modal, Backdrop-Pressable), Formularteile aus app/login.tsx.
  */
-export function OfferModal({ player, budget, onClose }: OfferModalProps) {
+export function OfferModal({ player, onClose }: OfferModalProps) {
   const leagueId = useLeagueId();
   const placeOffer = usePlaceOffer(leagueId);
   const removeOffer = useRemoveOffer(leagueId);
+  // excludePlayerId: ein erneutes Gebot auf DIESEN Spieler ersetzt das
+  // bestehende (Upsert, siehe endpoints.ts) statt es zu addieren.
+  const limit = useBudgetLimit(player?.id);
   const [priceText, setPriceText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -50,9 +53,12 @@ export function OfferModal({ player, budget, onClose }: OfferModalProps) {
 
   const price = parseCurrencyInput(priceText);
   const hasOwnOffer = player.ownOfferPrice != null;
-  const validationError = validateOffer({ price, budget });
+  const validationError = validateOffer({ price, available: limit?.available ?? null });
   const isSubmitting = placeOffer.isPending || removeOffer.isPending;
-  const budgetAfter = budget !== null && price !== null ? budget - price : null;
+  // Kontostand danach, wenn alle offenen Gebote inkl. diesem angenommen würden —
+  // rot erst, sobald die 33%-Untergrenze unterschritten wird, nicht schon bei < 0.
+  const balanceAfter = limit && price !== null ? limit.balanceAfterPendingOffers - price : null;
+  const balanceAfterBelowLimit = limit !== null && balanceAfter !== null && balanceAfter < limit.minBalance;
 
   function setQuickPrice(value: number) {
     setPriceText(formatCurrencyInput(Math.round(value)));
@@ -110,7 +116,19 @@ export function OfferModal({ player, budget, onClose }: OfferModalProps) {
                   {player.isBotListing ? 'Kickbase' : (player.sellerName ?? 'Unbekannt')}
                 </Text>
               </View>
+              {limit && (
+                <View style={styles.factRow}>
+                  <Text style={styles.factLabel}>Verfügbar</Text>
+                  <Text style={styles.factValue}>{formatCurrency(limit.available)}</Text>
+                </View>
+              )}
             </View>
+            {limit && (
+              <Text style={styles.hint}>
+                Rahmen {formatCurrency(limit.overdraftAllowance)} (33 % vom Kaderwert)
+                {limit.pendingOffers > 0 && ` · ${formatCurrency(limit.pendingOffers)} in offenen Geboten`}
+              </Text>
+            )}
 
             <Text style={styles.sectionLabel}>Mein Gebot</Text>
             <View style={styles.inputRow}>
@@ -137,9 +155,9 @@ export function OfferModal({ player, budget, onClose }: OfferModalProps) {
               </Pressable>
             </View>
 
-            {budgetAfter !== null && (
-              <Text style={[styles.budgetHint, budgetAfter < 0 && styles.budgetHintNegative]}>
-                Budget danach: {formatCurrency(budgetAfter)}
+            {balanceAfter !== null && (
+              <Text style={[styles.budgetHint, balanceAfterBelowLimit && styles.budgetHintNegative]}>
+                Konto danach: {formatCurrency(balanceAfter)}
               </Text>
             )}
 
@@ -224,6 +242,10 @@ const styles = StyleSheet.create({
   sectionLabel: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  hint: {
+    ...typography.small,
+    color: colors.textMuted,
   },
   inputRow: {
     flexDirection: 'row',

@@ -2,8 +2,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Position } from '@/api/kickbase';
 import type { OptimizerDiff } from '@/lineup/useLineupOptimizer';
 import { colors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
-import { formatPoints, formatValueScore } from '@/utils/format';
+import { formatCurrency, formatPoints, formatValueScore } from '@/utils/format';
 import type { OptimizationResult, OptimizerMetric } from '@/utils/lineupOptimizer';
+import { Checkbox } from './Checkbox';
 
 const METRIC_OPTIONS: { key: OptimizerMetric; label: string }[] = [
   { key: 'valuePerMillion', label: 'Ø-Punkte/Mio' },
@@ -18,18 +19,45 @@ interface OptimizerBarProps {
   appliedDiff: OptimizerDiff | null;
   onApply: () => void;
   onReset: () => void;
+  /** "Konto ausgleichen" — siehe useLineupOptimizer.sellPlan/utils/sellPlan.ts. */
+  balanceBudget: boolean;
+  onChangeBalanceBudget: (value: boolean) => void;
+  /** Fehlbetrag aus useBudgetLimit — 0 oder negativ, wenn das Konto im Plus ist. */
+  deficit: number;
 }
 
 function formatScore(score: number, metric: OptimizerMetric): string {
   return metric === 'valuePerMillion' ? `Ø ${formatValueScore(score)} Pkt/Mio` : `Ø ${formatPoints(Math.round(score))} Pkt`;
 }
 
-/** Formationswahl + Zielmetrik für den Aufstellungs-Optimizer. Nur im Edit-Modus sichtbar. */
-export function OptimizerBar({ metric, onChangeMetric, result, appliedDiff, onApply, onReset }: OptimizerBarProps) {
+/** Formationswahl + Zielmetrik + "Konto ausgleichen" für den Aufstellungs-Optimizer. Nur im Edit-Modus sichtbar. */
+export function OptimizerBar({
+  metric,
+  onChangeMetric,
+  result,
+  appliedDiff,
+  onApply,
+  onReset,
+  balanceBudget,
+  onChangeBalanceBudget,
+  deficit,
+}: OptimizerBarProps) {
   const { best } = result;
 
   return (
     <View style={styles.container}>
+      <Checkbox
+        label="Konto ausgleichen"
+        checked={balanceBudget}
+        onChange={onChangeBalanceBudget}
+        disabled={deficit <= 0}
+        hint={
+          deficit <= 0
+            ? 'Konto ist im Plus — kein Ausgleich nötig.'
+            : `Kontostand ${formatCurrency(-deficit)} — bezieht nötige Verkäufe in die Optimierung ein.`
+        }
+      />
+
       <View style={styles.metricRow}>
         {METRIC_OPTIONS.map((option) => (
           <Pressable

@@ -15,7 +15,9 @@ import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
 import { QueryState } from '@/components/QueryState';
 import { SellAdviceSection } from '@/components/SellAdviceSection';
+import { SellPlanBar } from '@/components/SellPlanBar';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
+import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
@@ -38,6 +40,7 @@ export default function LineupScreen() {
   // LineupData — `lineup/overview.b` ist trotz Namens keine Kontostandsgröße,
   // siehe toLineupData() in mappers.ts.
   const league = useCurrentLeague();
+  const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
   const [, forceTick] = useState(0);
 
@@ -52,7 +55,7 @@ export default function LineupScreen() {
   const [appliedDiff, setAppliedDiff] = useState<OptimizerDiff | null>(null);
   const [preOptimize, setPreOptimize] = useState<{ formation: string; draftIds: string[] } | null>(null);
 
-  const optimizer = useLineupOptimizer(data?.players ?? [], draftIds);
+  const optimizer = useLineupOptimizer(data?.players ?? [], draftIds, budgetLimit?.deficit ?? 0);
 
   // Countdown-Anzeige lebendig halten, ohne dafür zu pollen (kein Netzwerk-Request).
   useEffect(() => {
@@ -260,7 +263,12 @@ export default function LineupScreen() {
         </View>
         <View style={styles.headerStats}>
           <Text style={styles.headerLabel}>{formatCurrency(data.teamValue)}</Text>
-          {league && <Text style={styles.headerSub}>Budget {formatCurrency(league.budget)}</Text>}
+          {league && (
+            <Text style={[styles.headerSub, league.budget < 0 && styles.headerSubNegative]}>
+              Budget {formatCurrency(league.budget)}
+            </Text>
+          )}
+          {budgetLimit && <Text style={styles.headerSub}>Verfügbar {formatCurrency(budgetLimit.available)}</Text>}
         </View>
       </View>
 
@@ -283,8 +291,13 @@ export default function LineupScreen() {
           appliedDiff={appliedDiff}
           onApply={applyOptimization}
           onReset={resetOptimization}
+          balanceBudget={optimizer.balanceBudget}
+          onChangeBalanceBudget={optimizer.setBalanceBudget}
+          deficit={budgetLimit?.deficit ?? 0}
         />
       )}
+
+      {editing && <SellPlanBar players={data.players} plan={optimizer.sellPlan} metric={optimizer.metric} />}
 
       {editing && (
         <View style={styles.formationRow}>
@@ -406,6 +419,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  headerSubNegative: {
+    color: colors.danger,
+    fontWeight: '600',
   },
   formation: {
     ...typography.caption,

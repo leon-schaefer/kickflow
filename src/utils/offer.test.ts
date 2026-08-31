@@ -22,19 +22,23 @@ describe('formatCurrencyInput', () => {
 
 describe('validateOffer', () => {
   it('meldet einen Fehler bei fehlendem oder ungültigem Preis', () => {
-    expect(validateOffer({ price: null, budget: 1_000_000 })).not.toBeNull();
-    expect(validateOffer({ price: 0, budget: 1_000_000 })).not.toBeNull();
-    expect(validateOffer({ price: -5, budget: 1_000_000 })).not.toBeNull();
+    expect(validateOffer({ price: null, available: 1_000_000 })).not.toBeNull();
+    expect(validateOffer({ price: 0, available: 1_000_000 })).not.toBeNull();
+    expect(validateOffer({ price: -5, available: 1_000_000 })).not.toBeNull();
   });
-  it('meldet einen Fehler, wenn das Budget nicht reicht', () => {
-    const error = validateOffer({ price: 2_000_000, budget: 1_000_000 });
-    expect(error).toMatch(/Budget/);
+  it('meldet einen Fehler, wenn der verfügbare Spielraum nicht reicht', () => {
+    const error = validateOffer({ price: 2_000_000, available: 1_000_000 });
+    expect(error).toMatch(/Limit/);
   });
-  it('lässt ein gültiges Gebot innerhalb des Budgets durch', () => {
-    expect(validateOffer({ price: 500_000, budget: 1_000_000 })).toBeNull();
-    expect(validateOffer({ price: 1_000_000, budget: 1_000_000 })).toBeNull();
+  it('meldet einen eigenen Hinweis, wenn der 33%-Rahmen bereits ausgeschöpft ist', () => {
+    const error = validateOffer({ price: 500_000, available: 0 });
+    expect(error).toMatch(/33 %/);
   });
-  it('validiert ohne Budgetprüfung, wenn Budget unbekannt ist', () => {
-    expect(validateOffer({ price: 999_999_999, budget: null })).toBeNull();
+  it('lässt ein gültiges Gebot innerhalb des verfügbaren Spielraums durch', () => {
+    expect(validateOffer({ price: 500_000, available: 1_000_000 })).toBeNull();
+    expect(validateOffer({ price: 1_000_000, available: 1_000_000 })).toBeNull();
+  });
+  it('validiert ohne Limitprüfung, wenn der Spielraum unbekannt ist', () => {
+    expect(validateOffer({ price: 999_999_999, available: null })).toBeNull();
   });
 });

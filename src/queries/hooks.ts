@@ -97,7 +97,12 @@ export function useSaveLineup(leagueId: string) {
   });
 }
 
-/** Gebot abgeben oder ändern (POST ist ein Upsert, siehe endpoints.ts). */
+/**
+ * Gebot abgeben oder ändern (POST ist ein Upsert, siehe endpoints.ts).
+ * Invalidiert zusätzlich `leagues`, weil ein sofort angenommenes Gebot
+ * (Bot-Listing) den Kontostand ändert, den der 33%-Überziehungsrahmen
+ * (useBudgetLimit) braucht — sonst bliebe er bis zu 5 Minuten stale.
+ */
 export function usePlaceOffer(leagueId: string) {
   const { token } = useAuth();
   const queryClient = useQueryClient();
@@ -105,6 +110,7 @@ export function usePlaceOffer(leagueId: string) {
     mutationFn: (input: PlaceOfferInput) => placeOffer(token!, leagueId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.leagues() });
     },
   });
 }
@@ -118,6 +124,7 @@ export function useRemoveOffer(leagueId: string) {
       removeOffer(token!, leagueId, playerId, offerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.leagues() });
     },
   });
 }
