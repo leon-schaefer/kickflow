@@ -6,6 +6,7 @@ import { deriveSellAdvice } from './sellAdvice';
 function makePlayer(overrides: Partial<OptimizerPlayer> & { id: string; position: Position }): OptimizerPlayer {
   return {
     status: 'fit',
+    teamId: 'T0',
     marketValue: 10_000_000,
     averagePoints: 0,
     valueScoreAvg: 0,

@@ -29,7 +29,7 @@ export interface CappedPick {
 
 const POSITIONS: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
 
-interface FrontPoint {
+export interface FrontPoint {
   marketValue: number;
   score: number;
   ids: string[];
@@ -47,7 +47,7 @@ function idKey(ids: readonly string[]): string {
  * kanonisch kleinere idKey — sonst könnte die Auswahl je nach
  * Verarbeitungsreihenfolge der DP variieren.
  */
-function pruneFront(points: readonly FrontPoint[]): FrontPoint[] {
+export function pruneFront(points: readonly FrontPoint[]): FrontPoint[] {
   const byValue = new Map<number, FrontPoint>();
   for (const point of points) {
     const existing = byValue.get(point.marketValue);
@@ -77,7 +77,7 @@ function pruneFront(points: readonly FrontPoint[]): FrontPoint[] {
  * (0/1-Knapsack-Reihenfolge: fronts[k-1] ist beim Verarbeiten von k noch der
  * Stand vor diesem Spieler), danach wird jede Stufe geprunt.
  */
-function buildPositionFronts(players: readonly OptimizerPlayer[], metric: OptimizerMetric, maxCount: number): FrontPoint[][] {
+export function buildPositionFronts(players: readonly OptimizerPlayer[], metric: OptimizerMetric, maxCount: number): FrontPoint[][] {
   const items = [...players].sort((a, b) => a.id.localeCompare(b.id));
   const fronts: FrontPoint[][] = Array.from({ length: maxCount + 1 }, () => []);
   fronts[0] = [{ marketValue: 0, score: 0, ids: [] }];
@@ -99,7 +99,7 @@ function buildPositionFronts(players: readonly OptimizerPlayer[], metric: Optimi
 }
 
 /** Bestmöglicher (score-maximaler) Eintrag einer wertaufsteigenden Front mit marketValue ≤ cap; null, wenn keiner passt. */
-function bestUnderCap(front: readonly FrontPoint[], cap: number): FrontPoint | null {
+export function bestUnderCap(front: readonly FrontPoint[], cap: number): FrontPoint | null {
   let best: FrontPoint | null = null;
   for (const point of front) {
     if (point.marketValue > cap) break;
@@ -168,7 +168,7 @@ function buildFormationFronts(
 }
 
 /** Formationsreihenfolge als Tie-Break, analog zum Ranking-Sort in optimizeLineup (lineupOptimizer.ts:187-193). */
-function byFormationOrder(formations: readonly string[]) {
+export function byFormationOrder(formations: readonly string[]) {
   return (a: { formation: string }, b: { formation: string }) => formations.indexOf(a.formation) - formations.indexOf(b.formation);
 }
 

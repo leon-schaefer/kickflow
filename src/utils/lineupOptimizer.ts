@@ -27,6 +27,7 @@ export interface OptimizerPlayer {
   id: string;
   position: Position;
   status: PlayerStatus;
+  teamId: string;
   marketValue: number;
   averagePoints: number;
   valueScoreAvg: number;
@@ -43,6 +44,13 @@ export interface FormationResult {
   playerIds: string[];
   /** Fehlende Spieler je Position. Leer, wenn besetzbar. */
   missing: Partial<Record<Position, number>>;
+  /**
+   * IDs aktiver Liga-Regeln (src/lineup/rules.ts), die GENAU diese Formation
+   * blockieren — leer, wenn besetzbar oder wegen `missing` unbesetzbar. Immer
+   * leer bei diesem Modul selbst (`optimizeLineup` kennt keine Regeln); nur
+   * `optimizeLineupWithRules` in constrainedLineup.ts befüllt das Feld.
+   */
+  blockedByRuleIds: string[];
 }
 
 export interface OptimizationResult {
@@ -55,6 +63,8 @@ export interface OptimizationResult {
   excludedPlayerIds: string[];
   /** Union aller IDs, die in irgendeiner besetzbaren Formation starten würden. */
   usedInAnyFormation: Set<string>;
+  /** Aktive Regeln, die verhindern, dass überhaupt eine Formation besetzbar ist. Siehe FormationResult.blockedByRuleIds. */
+  blockedRuleIds: string[];
 }
 
 const POSITIONS: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
@@ -153,7 +163,7 @@ export function optimizeLineup(
     // schützt aber davor, dass ein fehlerhafter Formationsstring in einer
     // benutzerdefinierten `formations`-Liste eine kurze "Optimalelf" erzeugt.
     if (requiredTotal !== 11) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing: {} };
+      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing: {}, blockedByRuleIds: [] };
     }
 
     const missing: Partial<Record<Position, number>> = {};
@@ -163,7 +173,7 @@ export function optimizeLineup(
     }
 
     if (Object.keys(missing).length > 0) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing };
+      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing, blockedByRuleIds: [] };
     }
 
     let score = 0;
@@ -181,6 +191,7 @@ export function optimizeLineup(
       scoreAverage: playerIds.length > 0 ? score / playerIds.length : null,
       playerIds,
       missing: {},
+      blockedByRuleIds: [],
     };
   });
 
@@ -201,5 +212,29 @@ export function optimizeLineup(
     }
   }
 
-  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation };
+  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation, blockedRuleIds: [] };
+}
+
+/**
+ * Fehlende Spieler je Position für eine Formation, unabhängig von Liga-Regeln
+ * — nur die Verfügbarkeit (Status) zählt. Eigenständig neben der internen
+ * `missing`-Berechnung oben (die dort bewusst unverändert bleibt), damit
+ * constrainedLineup.ts dieselbe "reicht die Kader-Größe je Position"-Prüfung
+ * verwenden kann, bevor es eine Regel für eine Blockade verantwortlich macht.
+ */
+export function missingForFormation(
+  players: readonly OptimizerPlayer[],
+  formation: string,
+): Partial<Record<Position, number>> {
+  const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const player of players) {
+    if (isAvailableForLineup(player.status)) counts[player.position]++;
+  }
+  const required = requiredCountsForFormation(formation);
+  const missing: Partial<Record<Position, number>> = {};
+  for (const position of POSITIONS) {
+    const shortfall = required[position] - counts[position];
+    if (shortfall > 0) missing[position] = shortfall;
+  }
+  return missing;
 }

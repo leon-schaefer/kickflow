@@ -1,9 +1,9 @@
-import { bestLineupUnderValueCap, cheapestLineup } from './cappedLineup';
+import { UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
+import { bestLineupUnderValueCapWithRules, cheapestLineupWithRules, optimizeLineupWithRules } from './constrainedLineup';
 import { AVAILABLE_FORMATIONS } from './formations';
 import {
   isAvailableForLineup,
   metricValue,
-  optimizeLineup,
   type OptimizationResult,
   type OptimizerMetric,
   type OptimizerPlayer,
@@ -111,8 +111,9 @@ export function buildSellPlan(
   metric: OptimizerMetric,
   deficit: number,
   formations: readonly string[] = AVAILABLE_FORMATIONS,
+  constraints: LineupConstraints = UNCONSTRAINED_CONSTRAINTS,
 ): SellPlan {
-  const unconstrained = optimizeLineup(players, metric, formations);
+  const unconstrained = optimizeLineupWithRules(players, metric, formations, constraints);
 
   if (deficit <= 0) {
     return {
@@ -134,7 +135,9 @@ export function buildSellPlan(
   // bestLineupUnderValueCap === null: selbst der gesamte Kader reicht nicht
   // aus, um unter den Cap zu kommen — dann wird maximal erlöst (nur noch die
   // günstigste besetzbare Elf bleibt stehen).
-  const keep = bestLineupUnderValueCap(players, metric, formations, cap) ?? cheapestLineup(players, metric, formations);
+  const keep =
+    bestLineupUnderValueCapWithRules(players, metric, formations, cap, constraints) ??
+    cheapestLineupWithRules(players, metric, formations, constraints);
 
   const keepIds = new Set(keep?.playerIds ?? []);
   const pool = players.filter((p) => !keepIds.has(p.id) && p.marketValue > 0);
@@ -149,10 +152,11 @@ export function buildSellPlan(
   const proceeds = chosen.reduce((sum, p) => sum + p.marketValue, 0);
 
   const soldIds = new Set(chosen.map((p) => p.id));
-  const result = optimizeLineup(
+  const result = optimizeLineupWithRules(
     players.filter((p) => !soldIds.has(p.id)),
     metric,
     formations,
+    constraints,
   );
 
   const feasible = proceeds >= deficit;

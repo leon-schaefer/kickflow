@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Position } from '@/api/kickbase';
+import { describeRule, type LineupRule } from '@/lineup/rules';
 import type { OptimizerDiff } from '@/lineup/useLineupOptimizer';
 import { colors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatPoints, formatValueScore } from '@/utils/format';
@@ -24,6 +25,13 @@ interface OptimizerBarProps {
   onChangeBalanceBudget: (value: boolean) => void;
   /** Fehlbetrag aus useBudgetLimit — 0 oder negativ, wenn das Konto im Plus ist. */
   deficit: number;
+  /** Liga-eigene Optimizer-Regeln, für die Zusammenfassungszeile und den Blocker-Hinweis. */
+  rules: readonly LineupRule[];
+  onOpenRules: () => void;
+  /** Einmalig für diese Optimierung ignorieren, wenn eine Regel keine Elf mehr zulässt. */
+  onIgnoreRule: (id: LineupRule['id']) => void;
+  /** Regeln, die die aktuelle (manuell bearbeitete) Elf verletzen — informativ, der Optimizer bindet nur sich selbst. */
+  draftViolations: readonly LineupRule[];
 }
 
 function formatScore(score: number, metric: OptimizerMetric): string {
@@ -41,11 +49,24 @@ export function OptimizerBar({
   balanceBudget,
   onChangeBalanceBudget,
   deficit,
+  rules,
+  onOpenRules,
+  onIgnoreRule,
+  draftViolations,
 }: OptimizerBarProps) {
   const { best } = result;
+  const activeRules = rules.filter((rule) => rule.enabled);
+  const blockedRules = rules.filter((rule) => result.blockedRuleIds.includes(rule.id));
 
   return (
     <View style={styles.container}>
+      <Pressable style={styles.rulesRow} onPress={onOpenRules}>
+        <Text style={styles.rulesText}>
+          {activeRules.length > 0 ? `Regeln: ${activeRules.map(describeRule).join(', ')}` : 'Keine Regeln aktiv'}
+        </Text>
+        <Text style={styles.rulesChevron}>›</Text>
+      </Pressable>
+
       <Checkbox
         label="Konto ausgleichen"
         checked={balanceBudget}
@@ -85,19 +106,38 @@ export function OptimizerBar({
             <Text style={styles.resultText}>
               Beste Formation {best.formation} · {formatScore(best.score!, metric)}
             </Text>
-          ) : (
+          ) : blockedRules.length === 0 ? (
             <>
               <Text style={styles.resultTextMuted}>Keine Formation besetzbar.</Text>
               {result.ranking[0] && (
                 <Text style={styles.resultTextMuted}>{missingLabel(result.ranking[0].missing)}</Text>
               )}
             </>
-          )}
+          ) : null}
         </View>
       </View>
 
+      {!best && blockedRules.length > 0 && (
+        <View style={styles.blockerBox}>
+          {blockedRules.map((rule) => (
+            <View key={rule.id} style={styles.blockerRow}>
+              <Text style={styles.blockerText}>⚠ Blockiert von: {describeRule(rule)}</Text>
+              <Pressable style={styles.ignoreButton} onPress={() => onIgnoreRule(rule.id)}>
+                <Text style={styles.ignoreButtonText}>Regel für diese Optimierung ignorieren</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+
       {metric === 'valuePerMillion' && (
         <Text style={styles.hint}>Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig.</Text>
+      )}
+
+      {draftViolations.length > 0 && (
+        <Text style={styles.violationHint}>
+          Deine aktuelle Elf verletzt: {draftViolations.map(describeRule).join(', ')}
+        </Text>
       )}
 
       {appliedDiff && (
@@ -126,6 +166,60 @@ function missingLabel(missing: Partial<Record<Position, number>>): string {
 const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
+  },
+  rulesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  rulesText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  rulesChevron: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  blockerBox: {
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  blockerRow: {
+    gap: spacing.xs,
+  },
+  blockerText: {
+    ...typography.caption,
+    color: colors.danger,
+    fontWeight: '600',
+  },
+  ignoreButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  ignoreButtonText: {
+    ...typography.small,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  violationHint: {
+    ...typography.small,
+    color: colors.danger,
   },
   metricRow: {
     flexDirection: 'row',

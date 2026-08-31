@@ -20,6 +20,7 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
+import { useLeagueRules } from '@/lineup/useLeagueRules';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useLeagues, useLineup, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -42,6 +43,7 @@ export default function LineupScreen() {
   const league = useCurrentLeague();
   const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
+  const { rules } = useLeagueRules(leagueId);
   const [, forceTick] = useState(0);
 
   const [editing, setEditing] = useState(false);
@@ -55,7 +57,7 @@ export default function LineupScreen() {
   const [appliedDiff, setAppliedDiff] = useState<OptimizerDiff | null>(null);
   const [preOptimize, setPreOptimize] = useState<{ formation: string; draftIds: string[] } | null>(null);
 
-  const optimizer = useLineupOptimizer(data?.players ?? [], draftIds, budgetLimit?.deficit ?? 0);
+  const optimizer = useLineupOptimizer(data?.players ?? [], draftIds, budgetLimit?.deficit ?? 0, rules);
 
   // Countdown-Anzeige lebendig halten, ohne dafür zu pollen (kein Netzwerk-Request).
   useEffect(() => {
@@ -218,6 +220,10 @@ export default function LineupScreen() {
     router.push(`/${leagueId}/player/${player.id}`);
   }
 
+  function openRules() {
+    router.push({ pathname: '/[leagueId]/rules', params: { leagueId } });
+  }
+
   if (!data) {
     return <QueryState query={lineupQuery} label="Aufstellung" />;
   }
@@ -294,6 +300,10 @@ export default function LineupScreen() {
           balanceBudget={optimizer.balanceBudget}
           onChangeBalanceBudget={optimizer.setBalanceBudget}
           deficit={budgetLimit?.deficit ?? 0}
+          rules={optimizer.rules}
+          onOpenRules={openRules}
+          onIgnoreRule={optimizer.ignoreRule}
+          draftViolations={optimizer.draftViolations}
         />
       )}
 

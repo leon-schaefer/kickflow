@@ -28,6 +28,7 @@ export default function LeagueLayout() {
          */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Liga' }} />
         <Stack.Screen name="player/[playerId]" options={{ title: 'Spieler' }} />
+        <Stack.Screen name="rules" options={{ title: 'Regeln' }} />
       </Stack>
     </LeagueIdProvider>
   );
