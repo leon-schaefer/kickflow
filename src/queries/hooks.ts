@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import {
   getCompetitionTeams,
   getLeagues,
@@ -6,6 +7,7 @@ import {
   getMarket,
   getMatchdays,
   getPlayer,
+  getPlayerPerformance,
   placeOffer,
   removeOffer,
   saveLineup,
@@ -13,6 +15,8 @@ import {
 import type { PlaceOfferInput, SaveLineupInput } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
+import type { PlaytimeTotals } from '@/utils/playtime';
+import { latestSeason, sumPlaytime } from '@/utils/playtime';
 import { queryKeys } from './keys';
 
 /**
@@ -62,6 +66,60 @@ export function usePlayer(leagueId: string, playerId: string) {
     enabled: !!token && !!leagueId && !!playerId,
     staleTime: 5 * 60_000,
   });
+}
+
+export interface PlaytimeState {
+  /** playerId → Saison-Aggregat. Eintrag fehlt, solange der Request läuft oder scheitert. */
+  playtimes: Map<string, PlaytimeTotals>;
+  /** Noch laufende Requests — für den Lade-Hinweis im Wert-Tab. */
+  pending: number;
+  /** Gesamtzahl der Spieler, für die Spielzeit abgefragt wird. */
+  total: number;
+  /** Erfüllt das Refetchable-Interface von useRefresh (Pull-to-Refresh). */
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Spalte im Wert-Tab.
+ *
+ * Ein `/performance`-Request PRO Spieler, weil Kickbase in Kader- und
+ * Marktlisten kein Minutenfeld liefert. Eigener Cache-Key je Spieler, damit
+ * beim Wechsel Kader↔Transfermarkt und beim Zurückkehren in den Tab keine
+ * Requests doppelt laufen — Spieler, die in beiden Segmenten auftauchen, werden
+ * nur einmal geholt. Die Parallelität begrenzt das Gate in
+ * src/api/kickbase/limiter.ts.
+ *
+ * `playerIds` muss stabil sein (useMemo beim Aufrufer), sonst baut useQueries
+ * die Query-Liste bei jedem Render neu auf.
+ */
+export function usePlaytimes(leagueId: string, playerIds: string[]): PlaytimeState {
+  const { token } = useAuth();
+  const results = useQueries({
+    queries: playerIds.map((playerId) => ({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId),
+      queryFn: () => getPlayerPerformance(token!, leagueId, playerId),
+      enabled: !!token && !!leagueId && !!playerId,
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  const playtimes = useMemo(() => {
+    const map = new Map<string, PlaytimeTotals>();
+    results.forEach((result, index) => {
+      const playerId = playerIds[index];
+      const season = result.data ? latestSeason(result.data) : undefined;
+      if (playerId && season) map.set(playerId, sumPlaytime(season.matchdays));
+    });
+    return map;
+  }, [results, playerIds]);
+
+  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+
+  // isPending statt "erwartet minus geladen": ein fehlgeschlagener Request wäre
+  // sonst dauerhaft "pending" und der Lade-Hinweis würde nie verschwinden.
+  const pending = results.reduce((count, r) => (r.isPending ? count + 1 : count), 0);
+
+  return { playtimes, pending, total: playerIds.length, refetch };
 }
 
 /** Teams einer Competition (Namen + Logos) — ändern sich höchstens saisonweise. */

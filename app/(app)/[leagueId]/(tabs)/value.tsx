@@ -10,12 +10,13 @@ import type { ValueRowPlayer } from '@/components/ValueRow';
 import { ValueRow } from '@/components/ValueRow';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
-import { useLeagues, useLineup, useMarket } from '@/queries/hooks';
+import { useLeagues, useLineup, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { pointsPerMinute } from '@/utils/playtime';
 
 type Segment = 'squad' | 'market';
-type SortKey = 'avg' | 'total';
+type SortKey = 'avg' | 'total' | 'perMinute';
 
 const SEGMENTS: { key: Segment; label: string }[] = [
   { key: 'squad', label: 'Mein Kader' },
@@ -25,6 +26,7 @@ const SEGMENTS: { key: Segment; label: string }[] = [
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'avg', label: 'Ø-Punkte/Mio' },
   { key: 'total', label: 'Gesamt-Punkte/Mio' },
+  { key: 'perMinute', label: 'Punkte/Min' },
 ];
 
 export default function ValueScreen() {
@@ -38,17 +40,33 @@ export default function ValueScreen() {
   const lineup = useLineup(leagueId);
   const market = useMarket(leagueId, { enabled: segment === 'market' });
   const leaguesQuery = useLeagues();
-  // BudgetBar (Marktwert-Segment) hängt an useBudgetLimit -> leaguesQuery
-  // gehört mit in den Pull, auch wenn dieser Screen sie sonst nicht anzeigt.
-  const refresh = useRefresh(lineup, market, leaguesQuery);
 
   const active = segment === 'squad' ? lineup : market;
   const rawPlayers: ValueRowPlayer[] = segment === 'squad' ? (lineup.data?.players ?? []) : (market.data ?? []);
 
+  // Spielminuten gibt es nur pro Spieler (siehe usePlaytimes) — stabile
+  // ID-Liste, damit useQueries seine Query-Liste nicht bei jedem Render neu baut.
+  const playerIds = useMemo(() => rawPlayers.map((player) => player.id), [rawPlayers]);
+  const playtimeState = usePlaytimes(leagueId, playerIds);
+  const { playtimes } = playtimeState;
+
+  // BudgetBar (Marktwert-Segment) hängt an useBudgetLimit -> leaguesQuery
+  // gehört mit in den Pull, auch wenn dieser Screen sie sonst nicht anzeigt.
+  const refresh = useRefresh(lineup, market, leaguesQuery, playtimeState);
+
   const sorted = useMemo(() => {
+    if (sortKey === 'perMinute') {
+      // Spieler ohne geladene oder ohne vorhandene Spielzeit zählen als 0 und
+      // landen damit unten — die Liste sortiert sich beim Nachladen nach.
+      const perMinute = (player: ValueRowPlayer) => {
+        const playtime = playtimes.get(player.id);
+        return playtime ? pointsPerMinute(playtime.points, playtime.minutes) : 0;
+      };
+      return [...rawPlayers].sort((a, b) => perMinute(b) - perMinute(a));
+    }
     const key = sortKey === 'avg' ? 'valueScoreAvg' : 'valueScoreTotal';
     return [...rawPlayers].sort((a, b) => b[key] - a[key]);
-  }, [rawPlayers, sortKey]);
+  }, [rawPlayers, sortKey, playtimes]);
 
   function openPlayer(player: ValueRowPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
@@ -90,6 +108,13 @@ export default function ValueScreen() {
         ))}
       </View>
 
+      {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}
+      {playtimeState.pending > 0 && (
+        <Text style={styles.playtimeHint}>
+          Spielzeiten … {playtimeState.total - playtimeState.pending}/{playtimeState.total}
+        </Text>
+      )}
+
       {segment === 'market' && limit && <BudgetBar limit={limit} />}
 
       {!active.data ? (
@@ -101,7 +126,14 @@ export default function ValueScreen() {
               {...p}
               data={sorted}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <ValueRow player={item} onPress={openPlayer} onBid={bidHandler} />}
+              renderItem={({ item }) => (
+                <ValueRow
+                  player={item}
+                  playtime={playtimes.get(item.id)}
+                  onPress={openPlayer}
+                  onBid={bidHandler}
+                />
+              )}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
               ListEmptyComponent={
                 <View style={styles.center}>
@@ -162,6 +194,8 @@ const styles = StyleSheet.create({
   },
   sortBar: {
     flexDirection: 'row',
+    // Drei Chips passen auf schmalen Geräten nicht mehr in eine Zeile.
+    flexWrap: 'wrap',
     gap: spacing.sm,
     padding: spacing.md,
   },
@@ -184,6 +218,12 @@ const styles = StyleSheet.create({
   sortChipTextActive: {
     color: colors.accent,
     fontWeight: '600',
+  },
+  playtimeHint: {
+    ...typography.small,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   separator: {
     height: 1,

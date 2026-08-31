@@ -35,6 +35,21 @@ export function formatValueScore(value: number): string {
   return value.toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 }
 
+/**
+ * Formatiert Punkte pro Spielminute: 2.447 → "2,45". Zwei Stellen statt einer
+ * wie bei formatValueScore: gegen einen echten Kader gemessen liegen die Werte
+ * zwischen etwa −1,8 und 2,5, Reservisten drängen sich dabei knapp über 0. Eine
+ * Stelle würde genau dort nicht mehr auflösen.
+ */
+export function formatPointsPerMinute(value: number): string {
+  return value.toLocaleString('de-DE', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+}
+
+/** Formatiert Spielminuten: 612 → "612'". */
+export function formatMinutes(minutes: number): string {
+  return `${minutes.toLocaleString('de-DE')}'`;
+}
+
 /** Millisekunden bis zu einem ISO-Datum, z. B. für einen Deadline-Countdown. */
 export function msUntil(iso: string | null): number | null {
   if (!iso) return null;

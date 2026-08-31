@@ -3,6 +3,7 @@
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
 import { kbFetch } from './client';
+import { withPerformanceLimit } from './limiter';
 import {
   toAuthSession,
   toLeagueSummary,
@@ -11,6 +12,7 @@ import {
   toMarketValueHistory,
   toMatchdaySchedule,
   toPlayerDetail,
+  toSeasonPerformances,
   toTeam,
 } from './mappers';
 import {
@@ -34,6 +36,7 @@ import type {
   PlaceOfferInput,
   PlayerDetail,
   SaveLineupInput,
+  SeasonPerformance,
   Team,
 } from './types';
 
@@ -109,6 +112,24 @@ export async function getPlayer(
   playerDetail.marketValueHistory92 = toMarketValueHistory(marketValue92);
   playerDetail.marketValueHistory365 = toMarketValueHistory(marketValue365);
   return playerDetail;
+}
+
+/**
+ * NUR die Saison-Performance eines Spielers — bewusst schmal, im Gegensatz zu
+ * getPlayer(), das dafür vier Requests abfeuert. Kickbase liefert Spielminuten
+ * ausschließlich hier (`ph[].mp`), nicht in Kader- oder Marktlisten; der
+ * Wert-Tab ruft das deshalb pro Spieler auf. Das Concurrency-Gate hält den
+ * daraus entstehenden Schwung Requests von Cloudflare fern.
+ */
+export async function getPlayerPerformance(
+  token: string,
+  leagueId: string,
+  playerId: string,
+): Promise<SeasonPerformance[]> {
+  const raw = await withPerformanceLimit(() =>
+    kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/performance`, { token }),
+  );
+  return toSeasonPerformances(rawPerformanceResponseSchema.parse(raw));
 }
 
 /**

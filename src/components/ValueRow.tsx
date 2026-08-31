@@ -1,7 +1,15 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PlayerStatus, Position } from '@/api/kickbase';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
-import { formatCountdown, formatCurrency, formatValueScore } from '@/utils/format';
+import {
+  formatCountdown,
+  formatCurrency,
+  formatMinutes,
+  formatPointsPerMinute,
+  formatValueScore,
+} from '@/utils/format';
+import type { PlaytimeTotals } from '@/utils/playtime';
+import { pointsPerMinute } from '@/utils/playtime';
 import { StatusBadge } from './StatusBadge';
 
 /**
@@ -28,13 +36,20 @@ export interface ValueRowPlayer {
 
 interface ValueRowProps {
   player: ValueRowPlayer;
+  /**
+   * Spielzeit-Aggregat der aktuellen Saison aus usePlaytimes(). Bewusst eine
+   * eigene Prop und kein Feld auf ValueRowPlayer: die Minuten stammen nicht aus
+   * der Kader-/Marktliste, sondern aus einem separaten Request pro Spieler.
+   * `undefined` = lädt noch.
+   */
+  playtime?: PlaytimeTotals;
   onPress?: (player: ValueRowPlayer) => void;
   /** Nur im Transfermarkt-Segment gesetzt — schaltet die Gebotslage + den Bieten-Button frei. */
   onBid?: (player: ValueRowPlayer) => void;
 }
 
-/** Zeile für die Wert-Übersicht: Ø- und Gesamt-Punkte/Mio nebeneinander, im Markt-Modus zusätzlich die Gebotslage. */
-export function ValueRow({ player, onPress, onBid }: ValueRowProps) {
+/** Zeile für die Wert-Übersicht: Ø-/Gesamt-Punkte pro Mio und Punkte pro Spielminute nebeneinander, im Markt-Modus zusätzlich die Gebotslage. */
+export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
   const isMarket = onBid !== undefined;
   const priceDiffersFromMarketValue = isMarket && player.price !== undefined && player.price !== player.marketValue;
   const hasOwnOffer = player.ownOfferPrice != null;
@@ -46,6 +61,13 @@ export function ValueRow({ player, onPress, onBid }: ValueRowProps) {
   const countdownLabel =
     player.expiresInSeconds != null ? formatCountdown(player.expiresInSeconds * 1000) : null;
   const metaLabel = [offerCountLabel, countdownLabel].filter(Boolean).join(' · ');
+
+  // "—" statt eines Fake-"0,00": ohne Einsatzminuten gibt es kein sinnvolles
+  // Verhältnis, und ein "0,00" wäre von echten 0 Punkten nicht zu unterscheiden.
+  const perMinuteLabel =
+    playtime && playtime.minutes > 0
+      ? formatPointsPerMinute(pointsPerMinute(playtime.points, playtime.minutes))
+      : '—';
 
   return (
     <Pressable
@@ -75,6 +97,8 @@ export function ValueRow({ player, onPress, onBid }: ValueRowProps) {
           {priceDiffersFromMarketValue && (
             <Text style={styles.marketValueHint}>MW {formatCurrency(player.marketValue)}</Text>
           )}
+          {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
+          {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
           <StatusBadge status={player.status} />
         </View>
         {isMarket && metaLabel.length > 0 && (
@@ -98,6 +122,10 @@ export function ValueRow({ player, onPress, onBid }: ValueRowProps) {
           <View style={styles.scoreItem}>
             <Text style={styles.scoreValue}>{formatValueScore(player.valueScoreTotal)}</Text>
             <Text style={styles.scoreLabel}>Ges/Mio</Text>
+          </View>
+          <View style={styles.scoreItem}>
+            <Text style={styles.scoreValue}>{perMinuteLabel}</Text>
+            <Text style={styles.scoreLabel}>P/Min</Text>
           </View>
         </View>
         {isMarket && (
@@ -171,6 +199,10 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
   },
+  playtimeText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
   metaText: {
     ...typography.small,
     color: colors.textMuted,
@@ -186,10 +218,13 @@ const styles = StyleSheet.create({
   },
   scoreRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    // spacing.sm statt md: mit der dritten Spalte (P/Min) wird es sonst auf
+    // 375-px-Geräten zu eng für den Spielernamen.
+    gap: spacing.sm,
   },
   scoreItem: {
     alignItems: 'flex-end',
+    minWidth: 44,
   },
   scoreValue: {
     ...typography.body,

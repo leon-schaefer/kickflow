@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatCurrency, formatDelta, formatMarketValueDate } from './format';
+import {
+  formatCountdown,
+  formatCurrency,
+  formatDelta,
+  formatMarketValueDate,
+  formatMinutes,
+  formatPointsPerMinute,
+} from './format';
 
 describe('formatCurrency', () => {
   it('formatiert Millionen', () => {
@@ -31,6 +38,30 @@ describe('formatDelta', () => {
 describe('formatMarketValueDate', () => {
   it('formatiert einen Kickbase-Verlaufstag als deutsches Datum', () => {
     expect(formatMarketValueDate(20418)).toBe('26.11.2025');
+  });
+});
+
+describe('formatPointsPerMinute', () => {
+  it('rundet auf zwei Stellen mit Dezimalkomma', () => {
+    expect(formatPointsPerMinute(0.11333)).toBe('0,11');
+    expect(formatPointsPerMinute(0.09401)).toBe('0,09');
+  });
+  it('erzwingt zwei Stellen, damit die Spalte nicht springt', () => {
+    expect(formatPointsPerMinute(0.1)).toBe('0,10');
+    expect(formatPointsPerMinute(0)).toBe('0,00');
+  });
+  it('formatiert negative Werte (Minuspunkte)', () => {
+    expect(formatPointsPerMinute(-0.222)).toBe('-0,22');
+  });
+});
+
+describe('formatMinutes', () => {
+  it('hängt das Minutenzeichen an', () => {
+    expect(formatMinutes(612)).toBe("612'");
+    expect(formatMinutes(0)).toBe("0'");
+  });
+  it('setzt einen Tausenderpunkt', () => {
+    expect(formatMinutes(1_530)).toBe("1.530'");
   });
 });
 

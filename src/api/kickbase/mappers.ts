@@ -306,14 +306,14 @@ export function toPlayerDetail(raw: RawPlayerDetail, performance: RawPerformance
     statusDetails: [],
     imageUrl: imageUrl(raw.pim),
     teamLogoUrl: imageUrl(raw.tim),
-    seasonMatchCount: raw.smc ?? 0,
+    seasonMatchCount: raw.smdc ?? 0,
     marketValueHistory92: { points: [], lowest: 0, highest: 0 },
     marketValueHistory365: { points: [], lowest: 0, highest: 0 },
     performance: toSeasonPerformances(performance),
   };
 }
 
-function toSeasonPerformances(raw: RawPerformanceResponse): SeasonPerformance[] {
+export function toSeasonPerformances(raw: RawPerformanceResponse): SeasonPerformance[] {
   return raw.it.map((season) => ({
     title: season.ti ?? '',
     leagueName: season.n ?? '',

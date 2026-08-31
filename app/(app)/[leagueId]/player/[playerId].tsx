@@ -12,7 +12,13 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCompetitionTeams, usePlayer } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
-import { formatCurrency, formatPoints } from '@/utils/format';
+import {
+  formatCurrency,
+  formatMinutes,
+  formatPoints,
+  formatPointsPerMinute,
+} from '@/utils/format';
+import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
 
 type Timeframe = 92 | 365;
 
@@ -42,12 +48,15 @@ export default function PlayerDetailScreen() {
   }
 
   const history = timeframe === 92 ? player.marketValueHistory92 : player.marketValueHistory365;
-  const latestSeason = player.performance[player.performance.length - 1];
+  const season = latestSeason(player.performance);
   // Die Saison-Antwort enthält alle Spieltage inkl. Zukunft — nur bereits
   // ausgetragene anzeigen, sonst stünden dort lauter Phantom-0:0-Ergebnisse.
-  const playedMatchdays = latestSeason
-    ? [...latestSeason.matchdays].filter((md) => md.hasResult).reverse()
+  const playedMatchdays = season
+    ? [...season.matchdays].filter((md) => md.hasResult).reverse()
     : [];
+  // Aus den Spieltagen summiert, nicht aus player.totalPoints/secondsPlayed:
+  // die Detail-Antwort liefert `tp`/`sec` nicht verlässlich (siehe playtime.ts).
+  const playtime = season ? sumPlaytime(season.matchdays) : EMPTY_PLAYTIME;
 
   return (
     <>
@@ -83,6 +92,15 @@ export default function PlayerDetailScreen() {
           <Stat label="Tore" value={String(player.goals)} />
           <Stat label="Assists" value={String(player.assists)} />
           <Stat label="Gelb / Rot" value={`${player.yellowCards} / ${player.redCards}`} />
+          <Stat label="Spielzeit" value={formatMinutes(playtime.minutes)} />
+          <Stat
+            label="Punkte/Min"
+            value={
+              playtime.minutes > 0
+                ? formatPointsPerMinute(pointsPerMinute(playtime.points, playtime.minutes))
+                : '—'
+            }
+          />
         </View>
 
         <View style={styles.section}>
@@ -111,10 +129,10 @@ export default function PlayerDetailScreen() {
           </View>
         </View>
 
-        {latestSeason && playedMatchdays.length > 0 && (
+        {season && playedMatchdays.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Spieltage {latestSeason.title}</Text>
+              <Text style={styles.sectionTitle}>Spieltage {season.title}</Text>
               <Text style={styles.legend}>H = Heim · A = Auswärts</Text>
             </View>
             {playedMatchdays.map((md) => (

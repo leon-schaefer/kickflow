@@ -233,7 +233,10 @@ export const rawPlayerDetailSchema = z.looseObject({
   pim: z.string().optional(),
   tim: z.string().optional(),
   st: z.number().optional(),
-  smc: z.number().optional(),
+  // Achtung: Das Feld heißt "smdc", NICHT "smc" — verifiziert gegen
+  // scripts/.probe-output/player-detail.json ("smdc": 1). Die Doku (und dieses
+  // Schema bis 31.08.2026) behauptete "smc", das existiert in keiner Antwort.
+  smdc: z.number().optional(),
   stl: z.array(z.unknown()).optional(),
 });
 export type RawPlayerDetail = z.infer<typeof rawPlayerDetailSchema>;
