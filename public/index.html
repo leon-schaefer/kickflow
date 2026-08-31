@@ -4,8 +4,11 @@
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- `viewport-fit=cover` lets the app draw under the iOS status bar/home indicator, which is
-         required for `react-native-safe-area-context` to report non-zero safe-area insets on web. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+         required for `react-native-safe-area-context` to report non-zero safe-area insets on web.
+         `maximum-scale=1, user-scalable=no` disable pinch/double-tap zoom — zooming can leave the
+         page's visual viewport out of sync with its `100dvh` layout, showing a white bar at the
+         bottom of the screen. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
     <title>%WEB_TITLE%</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -29,6 +32,14 @@
       body {
         overflow: hidden;
         overscroll-behavior: none;
+      }
+      /* Belt-and-suspenders zoom lock alongside the viewport meta tag above: `touch-action` blocks
+         pinch-zoom gestures, and `text-size-adjust` stops Safari from auto-zooming text. */
+      html,
+      body {
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
       }
       /* These styles make the root element full-height */
       #root {
