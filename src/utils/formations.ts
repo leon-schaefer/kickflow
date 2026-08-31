@@ -18,6 +18,29 @@ export const AVAILABLE_FORMATIONS = [
   '5-4-1',
 ];
 
+const POSITION_ORDER: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
+
+/**
+ * Sortiert IDs nach Position (GK, DEF, MID, FWD) — Kickbase leitet die
+ * Positionszuordnung beim Speichern (mindestens teilweise) aus der
+ * Reihenfolge des `players`-Arrays ab. Der Optimizer liefert `playerIds`
+ * bereits in dieser Reihenfolge; manuelle Tausch-Interaktionen (Tap auf
+ * Feld-/Bankspieler) hängen neue IDs dagegen einfach an, weshalb jeder
+ * Speicher-Aufruf unabhängig vom Zustandekommen der Liste hier nochmal
+ * normalisiert werden muss.
+ */
+export function orderIdsByPosition(
+  ids: readonly string[],
+  positionOf: (id: string) => Position | undefined,
+): string[] {
+  const byPosition: Record<Position, string[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+  for (const id of ids) {
+    const position = positionOf(id);
+    if (position) byPosition[position].push(id);
+  }
+  return POSITION_ORDER.flatMap((position) => byPosition[position]);
+}
+
 /** Formation → geforderte Spieleranzahl je Position (GK ist immer 1). */
 export function requiredCountsForFormation(formation: string): Record<Position, number> {
   const rows = parseFormation(formation);

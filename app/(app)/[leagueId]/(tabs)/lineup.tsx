@@ -25,7 +25,7 @@ import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimi
 import { useLeagues, useLineup, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
-import { AVAILABLE_FORMATIONS, requiredCountsForFormation } from '@/utils/formations';
+import { AVAILABLE_FORMATIONS, orderIdsByPosition, requiredCountsForFormation } from '@/utils/formations';
 import { compareByMetric } from '@/utils/lineupOptimizer';
 import { resolveMatchdayState } from '@/utils/matchday';
 
@@ -205,7 +205,8 @@ export default function LineupScreen() {
       return;
     }
     try {
-      await saveLineup.mutateAsync({ formation, playerIds: draftIds });
+      const orderedIds = orderIdsByPosition(draftIds, (id) => playersById.get(id)?.position);
+      await saveLineup.mutateAsync({ formation, playerIds: orderedIds });
       setEditing(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
