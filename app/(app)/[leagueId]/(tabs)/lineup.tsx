@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import { OptimizerBar } from '@/components/OptimizerBar';
 import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
 import { QueryState } from '@/components/QueryState';
+import { Refreshable } from '@/components/Refreshable';
 import { SellAdviceSection } from '@/components/SellAdviceSection';
 import { SellPlanBar } from '@/components/SellPlanBar';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
@@ -22,7 +22,8 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLeagueRules } from '@/lineup/useLeagueRules';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
-import { useLeagues, useLineup, useMatchdays, useSaveLineup } from '@/queries/hooks';
+import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
+import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
 import { AVAILABLE_FORMATIONS, orderIdsByPosition, requiredCountsForFormation } from '@/utils/formations';
@@ -34,9 +35,13 @@ export default function LineupScreen() {
   const competitionId = useCompetitionId();
   const router = useRouter();
   const lineupQuery = useLineup(leagueId);
-  const { data, refetch, isRefetching } = lineupQuery;
+  const { data } = lineupQuery;
   const matchdaysQuery = useMatchdays(competitionId);
   const leaguesQuery = useLeagues();
+  // Dieselbe Query, die useBudgetLimit unten ohnehin mountet — React Query
+  // dedupliziert über den Key, kein zusätzlicher Request beim Pull.
+  const marketQuery = useMarket(leagueId);
+  const refresh = useRefresh(lineupQuery, matchdaysQuery, leaguesQuery, marketQuery);
   // Budget lebt in LeagueSummary (`/v4/leagues/selection`), NICHT in
   // LineupData — `lineup/overview.b` ist trotz Namens keine Kontostandsgröße,
   // siehe toLineupData() in mappers.ts.
@@ -213,10 +218,6 @@ export default function LineupScreen() {
     }
   }
 
-  function refetchAll() {
-    return Promise.all([refetch(), matchdaysQuery.refetch(), leaguesQuery.refetch()]);
-  }
-
   function openPlayer(player: SquadPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
   }
@@ -226,7 +227,7 @@ export default function LineupScreen() {
   }
 
   if (!data) {
-    return <QueryState query={lineupQuery} label="Aufstellung" />;
+    return <QueryState query={lineupQuery} label="Aufstellung" refresh={refresh} />;
   }
 
   const lineupPlayers = editing
@@ -240,13 +241,9 @@ export default function LineupScreen() {
   const canSave = draftIds.length === totalRequired && !saveLineup.isPending;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching || matchdaysQuery.isRefetching} onRefresh={refetchAll} tintColor={colors.accent} />
-      }
-    >
+    <Refreshable {...refresh}>
+      {(p) => (
+        <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerLabel}>
@@ -395,7 +392,9 @@ export default function LineupScreen() {
           </Pressable>
         </View>
       )}
-    </ScrollView>
+        </ScrollView>
+      )}
+    </Refreshable>
   );
 }
 

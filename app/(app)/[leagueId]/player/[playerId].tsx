@@ -4,11 +4,13 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
 import { QueryState } from '@/components/QueryState';
+import { Refreshable } from '@/components/Refreshable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCompetitionTeams, usePlayer } from '@/queries/hooks';
+import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatPoints } from '@/utils/format';
 
@@ -19,6 +21,7 @@ export default function PlayerDetailScreen() {
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const playerQuery = usePlayer(leagueId, playerId);
   const { data: player } = playerQuery;
+  const refresh = useRefresh(playerQuery);
   const [timeframe, setTimeframe] = useState<Timeframe>(92);
   const backTitle = useFocusedLeagueTabTitle();
 
@@ -33,7 +36,7 @@ export default function PlayerDetailScreen() {
     return (
       <>
         <Stack.Screen.BackButton>{backTitle}</Stack.Screen.BackButton>
-        <QueryState query={playerQuery} label="Spieler" />
+        <QueryState query={playerQuery} label="Spieler" refresh={refresh} />
       </>
     );
   }
@@ -50,7 +53,9 @@ export default function PlayerDetailScreen() {
     <>
       <Stack.Screen.BackButton>{backTitle}</Stack.Screen.BackButton>
       <Stack.Title>{player.name}</Stack.Title>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Refreshable {...refresh}>
+        {(p) => (
+          <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           {player.imageUrl ? (
             <Image source={{ uri: player.imageUrl }} style={styles.image} />
@@ -117,7 +122,9 @@ export default function PlayerDetailScreen() {
             ))}
           </View>
         )}
-      </ScrollView>
+          </ScrollView>
+        )}
+      </Refreshable>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Checkbox } from '@/components/Checkbox';
+import { Refreshable } from '@/components/Refreshable';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
@@ -9,6 +10,7 @@ import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { DEFAULT_RULES, type MaxPerTeamRule } from '@/lineup/rules';
 import { useLeagueRules } from '@/lineup/useLeagueRules';
 import { useCompetitionTeams, useLineup } from '@/queries/hooks';
+import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { isAvailableForLineup } from '@/utils/lineupOptimizer';
 
@@ -26,8 +28,10 @@ export default function RulesScreen() {
   const league = useCurrentLeague();
   const backTitle = useFocusedLeagueTabTitle();
   const { rules, updateRule } = useLeagueRules(leagueId);
-  const { data: lineup } = useLineup(leagueId);
+  const lineupQuery = useLineup(leagueId);
+  const { data: lineup } = lineupQuery;
   const { data: teams } = useCompetitionTeams(competitionId);
+  const refresh = useRefresh(lineupQuery);
 
   const teamNames = useMemo(() => new Map((teams ?? []).map((team) => [team.id, team.name])), [teams]);
 
@@ -63,7 +67,9 @@ export default function RulesScreen() {
     <>
       <Stack.Screen.BackButton>{backTitle}</Stack.Screen.BackButton>
       <Stack.Title>{league ? `Regeln · ${league.name}` : 'Regeln'}</Stack.Title>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Refreshable {...refresh}>
+        {(p) => (
+          <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Checkbox
             label="Max. Spieler pro Verein"
@@ -115,7 +121,9 @@ export default function RulesScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+          </ScrollView>
+        )}
+      </Refreshable>
     </>
   );
 }

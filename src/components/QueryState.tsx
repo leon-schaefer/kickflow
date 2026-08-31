@@ -1,9 +1,11 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { type RefreshState, useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { Refreshable } from './Refreshable';
 
 interface QueryLike {
   error: unknown;
-  refetch: () => unknown;
+  refetch: () => Promise<unknown>;
 }
 
 interface Props {
@@ -11,6 +13,13 @@ interface Props {
   query: QueryLike;
   /** z.B. "Kader" -> "Kader konnte nicht geladen werden." */
   label: string;
+  /**
+   * Refresh-State des aufrufenden Screens (z.B. aus useRefresh(mehrere,
+   * queries)), damit ein Pull auch im Lade-/Fehlerzustand alles neu lädt,
+   * was der Screen zeigt — nicht nur `query`. Fehlt er, baut sich QueryState
+   * selbst einen aus `query`.
+   */
+  refresh?: RefreshState;
 }
 
 /**
@@ -19,34 +28,46 @@ interface Props {
  * nur `enabled: false`) zeigt hier also den Spinner statt einer Fehlermeldung,
  * die es vorher fälschlich war, sobald z.B. ein Tab-Wechsel den Query kurz
  * deaktiviert hat.
+ *
+ * In eine `Refreshable` gewickelt, damit auch dieser Zustand ziehbar ist —
+ * gerade wenn das Laden fehlschlägt, ist das der Moment, in dem man
+ * instinktiv zieht.
  */
-export function QueryState({ query, label }: Props) {
-  if (query.error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>
-          {query.error instanceof Error ? query.error.message : `${label} konnte nicht geladen werden.`}
-        </Text>
-        <Pressable style={styles.retryButton} onPress={() => query.refetch()}>
-          <Text style={styles.retryButtonText}>Erneut versuchen</Text>
-        </Pressable>
-      </View>
-    );
-  }
+export function QueryState({ query, label, refresh }: Props) {
+  const ownRefresh = useRefresh(query);
+  const { refreshing, onRefresh } = refresh ?? ownRefresh;
 
   return (
-    <View style={styles.center}>
-      <ActivityIndicator color={colors.accent} />
-    </View>
+    <Refreshable refreshing={refreshing} onRefresh={onRefresh}>
+      {(p) => (
+        <ScrollView {...p} style={styles.scroll} contentContainerStyle={styles.center}>
+          {query.error ? (
+            <>
+              <Text style={styles.errorText}>
+                {query.error instanceof Error ? query.error.message : `${label} konnte nicht geladen werden.`}
+              </Text>
+              <Pressable style={styles.retryButton} onPress={() => query.refetch()}>
+                <Text style={styles.retryButtonText}>Erneut versuchen</Text>
+              </Pressable>
+            </>
+          ) : (
+            <ActivityIndicator color={colors.accent} />
+          )}
+        </ScrollView>
+      )}
+    </Refreshable>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
+  scroll: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  center: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
     gap: spacing.md,
     padding: spacing.xl,
   },

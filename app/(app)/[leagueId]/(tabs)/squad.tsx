@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { Position, SquadPlayer } from '@/api/kickbase';
 import { PlayerRow } from '@/components/PlayerRow';
 import { QueryState } from '@/components/QueryState';
+import { Refreshable } from '@/components/Refreshable';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useLineup } from '@/queries/hooks';
+import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 
 type SortKey = 'position' | 'value' | 'points' | 'avg';
@@ -23,7 +25,8 @@ export default function SquadScreen() {
   const leagueId = useLeagueId();
   const router = useRouter();
   const lineupQuery = useLineup(leagueId);
-  const { data, refetch, isRefetching } = lineupQuery;
+  const { data } = lineupQuery;
+  const refresh = useRefresh(lineupQuery);
   const [sortKey, setSortKey] = useState<SortKey>('position');
 
   const sections = useMemo(() => {
@@ -45,7 +48,7 @@ export default function SquadScreen() {
   }
 
   if (!data) {
-    return <QueryState query={lineupQuery} label="Kader" />;
+    return <QueryState query={lineupQuery} label="Kader" refresh={refresh} />;
   }
 
   return (
@@ -64,21 +67,25 @@ export default function SquadScreen() {
         ))}
       </View>
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        stickySectionHeadersEnabled
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
-        renderSectionHeader={({ section }) =>
-          section.title ? (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>{section.title}</Text>
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => <PlayerRow player={item} onPress={openPlayer} />}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
+      <Refreshable {...refresh}>
+        {(p) => (
+          <SectionList
+            {...p}
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            stickySectionHeadersEnabled
+            renderSectionHeader={({ section }) =>
+              section.title ? (
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionHeaderText}>{section.title}</Text>
+                </View>
+              ) : null
+            }
+            renderItem={({ item }) => <PlayerRow player={item} onPress={openPlayer} />}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        )}
+      </Refreshable>
     </View>
   );
 }

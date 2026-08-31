@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
 import { BudgetBar } from '@/components/BudgetBar';
 import { OfferModal } from '@/components/OfferModal';
 import { QueryState } from '@/components/QueryState';
+import { Refreshable } from '@/components/Refreshable';
 import type { ValueRowPlayer } from '@/components/ValueRow';
 import { ValueRow } from '@/components/ValueRow';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
-import { useLineup, useMarket } from '@/queries/hooks';
+import { useLeagues, useLineup, useMarket } from '@/queries/hooks';
+import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 type Segment = 'squad' | 'market';
@@ -35,6 +37,10 @@ export default function ValueScreen() {
 
   const lineup = useLineup(leagueId);
   const market = useMarket(leagueId, { enabled: segment === 'market' });
+  const leaguesQuery = useLeagues();
+  // BudgetBar (Marktwert-Segment) hängt an useBudgetLimit -> leaguesQuery
+  // gehört mit in den Pull, auch wenn dieser Screen sie sonst nicht anzeigt.
+  const refresh = useRefresh(lineup, market, leaguesQuery);
 
   const active = segment === 'squad' ? lineup : market;
   const rawPlayers: ValueRowPlayer[] = segment === 'squad' ? (lineup.data?.players ?? []) : (market.data ?? []);
@@ -87,22 +93,24 @@ export default function ValueScreen() {
       {segment === 'market' && limit && <BudgetBar limit={limit} />}
 
       {!active.data ? (
-        <QueryState query={active} label="Daten" />
+        <QueryState query={active} label="Daten" refresh={refresh} />
       ) : (
-        <FlatList
-          data={sorted}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={active.isRefetching} onRefresh={active.refetch} tintColor={colors.accent} />
-          }
-          renderItem={({ item }) => <ValueRow player={item} onPress={openPlayer} onBid={bidHandler} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>Keine Spieler gefunden.</Text>
-            </View>
-          }
-        />
+        <Refreshable {...refresh}>
+          {(p) => (
+            <FlatList
+              {...p}
+              data={sorted}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => <ValueRow player={item} onPress={openPlayer} onBid={bidHandler} />}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              ListEmptyComponent={
+                <View style={styles.center}>
+                  <Text style={styles.emptyText}>Keine Spieler gefunden.</Text>
+                </View>
+              }
+            />
+          )}
+        </Refreshable>
       )}
 
       <OfferModal player={offerTarget} onClose={() => setOfferTarget(null)} />
