@@ -3,25 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <!-- No `viewport-fit=cover`: that would let the app draw its own content under the iOS
-         status bar/notch/Dynamic Island, which is exactly what triggers iOS's translucent
-         scroll-edge scrim (a light-to-dark gradient) over that area — independent of the
-         `apple-mobile-web-app-status-bar-style` value below. Without `cover`, Safari confines
-         the viewport to the safe area itself, so there's nothing to scrim: the status bar
-         becomes a plain solid bar (styled via that meta) and app content simply starts below
-         it. `env(safe-area-inset-*)` (`react-native-safe-area-context` on web) reports 0 on
-         every edge as a result — correct here, since nothing draws into an unsafe area.
+    <!-- `viewport-fit=cover` lets the app draw under the iOS status bar/notch and home
+         indicator, which is required for `react-native-safe-area-context` to report non-zero
+         safe-area insets on web (e.g. the bottom tab bar padding above the home indicator).
+         Dropping it once broke that bottom inset — keep it, and rely on
+         `apple-mobile-web-app-status-bar-style=black` below (non-translucent) so the status
+         bar renders as a solid opaque bar instead of the scrim/gradient a translucent style
+         draws over edge-to-edge content.
          `maximum-scale=1, user-scalable=no` disable pinch/double-tap zoom — zooming can leave the
          page's visual viewport out of sync with its `100dvh` layout, showing a white bar at the
          bottom of the screen. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
     <title>%WEB_TITLE%</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Solide dunkle Statusleiste (kein `-translucent` — siehe viewport-Kommentar oben,
-         warum `cover` weg ist) — passt fast nahtlos zu colors.background (#0B0F0C). -->
+    <!-- `black` statt `black-translucent`: eine solide Statusleiste, kein Scrim/Gradient
+         über dem Content — passt fast nahtlos zu colors.background (#0B0F0C). -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="kickflow" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
