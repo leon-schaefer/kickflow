@@ -1,21 +1,40 @@
+import { bestLineupUnderValueCap, cheapestLineup } from './cappedLineup';
 import { AVAILABLE_FORMATIONS } from './formations';
-import { optimizeLineup, type OptimizationResult, type OptimizerMetric, type OptimizerPlayer } from './lineupOptimizer';
+import {
+  isAvailableForLineup,
+  metricValue,
+  optimizeLineup,
+  type OptimizationResult,
+  type OptimizerMetric,
+  type OptimizerPlayer,
+} from './lineupOptimizer';
 
 /**
  * Berechnet, welche Kaderspieler verkauft werden müssten, um einen
  * negativen Kontostand auszugleichen — für die "Konto ausgleichen"-Option
  * des Aufstellungs-Optimizers (siehe useLineupOptimizer.ts).
  *
- * Exakt wäre das ein Rucksackproblem (Marktwert gegen Punkteverlust über
- * alle Teilmengen); bei 15–25 Kaderspielern reicht dafür ein Greedy mit
- * Neu-Optimierung nach jedem Verkauf: in jeder Runde wird der Spieler
- * verkauft, der pro verkauftem Euro die wenigsten Punkte kostet (cost /
- * marketValue minimal), danach wird die beste Elf auf dem Restkader neu
- * berechnet, bevor die nächste Runde beginnt. Nicht einsatzfähige und
- * ungenutzte Bankspieler kosten dabei 0 Punkte und werden deshalb immer
- * zuerst verkauft — ohne Sonderfall, das fällt aus der Kostenformel von
- * selbst heraus. Ein Verkauf, der jede Formation unbesetzbar machen würde,
- * hat unendliche Kosten und wird nie gewählt.
+ * Die Deckung des Defizits ist die harte Nebenbedingung, der Punkteverlust
+ * das Optimierungsziel darunter — auch ein Startelfspieler muss dran
+ * glauben, wenn nur die Bank nicht reicht. Schlüssel-Einsicht: der Punktwert
+ * der Restaufstellung hängt nur von der BEHALTENEN Elf ab, nicht davon, wen
+ * man konkret verkauft — bei gewählter Elf ist der maximal erzielbare Erlös
+ * `Σ Marktwert aller Spieler − Marktwert der Elf`. Also gilt
+ *
+ *     Defizit deckbar  ⟺  Marktwert der Elf ≤ Σ Marktwert − Defizit
+ *
+ * Aus "welche Teilmenge verkaufen" (Rucksackproblem) wird damit "beste Elf
+ * unter einer Marktwert-Obergrenze" — gelöst per Pareto-DP in
+ * `cappedLineup.ts`, global optimal statt greedy. Reicht selbst der gesamte
+ * verkaufbare Kader nicht (siehe `cheapestLineup`), wird maximal erlöst:
+ * nur noch die günstigste besetzbare Elf bleibt stehen, der Rest wird zum
+ * Verkauf vorgeschlagen.
+ *
+ * Unter den danach nicht mehr benötigten Spielern wird nur so viel verkauft,
+ * wie zur Deckung nötig ist — Priorität: nicht einsatzfähige zuerst (kosten
+ * die Restelf nichts), dann die wenigsten Punkte pro Mio Marktwert, dann
+ * (bei Gleichstand) wer den Restfehlbetrag allein deckt bzw. der größere
+ * Marktwert, um mit möglichst wenigen Verkäufen auszukommen.
  *
  * Vorbehalt für die UI: `proceeds` ist eine Schätzung zum Marktwert. Ein
  * Verkauf an einen Mitspieler kann darüber liegen, ein Verkauf an Kickbase
@@ -25,7 +44,7 @@ import { optimizeLineup, type OptimizationResult, type OptimizerMetric, type Opt
 export interface SellPlanEntry {
   playerId: string;
   marketValue: number;
-  /** true, wenn der Spieler zum Zeitpunkt dieses Verkaufs in der besten Elf des Restkaders stand. */
+  /** true, wenn der Spieler in der unbeschränkten (kein Budget-Cap) Optimalelf stand. */
   wasInBestXi: boolean;
 }
 
@@ -46,28 +65,45 @@ export interface SellPlan {
   shortfall: number;
 }
 
-interface Candidate {
-  player: OptimizerPlayer;
-  result: OptimizationResult;
-  ratio: number;
-}
-
 /**
- * Totale Ordnung für Kandidaten mit gleichem ratio (typischerweise ratio=0
- * bei Bank-/Ausfallspielern): (a) ein Kandidat, der den Restfehlbetrag
- * allein deckt, geht vor einem, der es nicht tut — davon der kleinste, um
- * den Überschuss zu minimieren; (b) sonst der größte Marktwert, um die
- * Anzahl nötiger Verkäufe zu minimieren; (c) id aufsteigend, damit die
- * Auswahl bei exaktem Gleichstand deterministisch bleibt (Vorbild:
+ * Totale Ordnung für die Verkaufsreihenfolge unter den nicht mehr benötigten
+ * Spielern (jenen außerhalb der behaltenen Elf): (a) nicht einsatzfähige
+ * zuerst — die kosten die Restelf ohnehin nichts; (b) sonst die wenigsten
+ * Punkte pro Mio Marktwert (`metricValue`) zuerst; (c) bei Gleichstand ein
+ * Kandidat, der den Restfehlbetrag allein deckt, vor einem, der es nicht
+ * tut — davon der kleinste, um den Überschuss zu minimieren; sonst der
+ * größte Marktwert, um mit möglichst wenigen Verkäufen auszukommen; (d) id
+ * aufsteigend für Determinismus bei exaktem Gleichstand (Vorbild:
  * compareByMetric in lineupOptimizer.ts).
  */
-function compareCandidates(a: Candidate, b: Candidate, remainingDeficit: number): number {
-  if (a.ratio !== b.ratio) return a.ratio - b.ratio;
-  const aCovers = a.player.marketValue >= remainingDeficit;
-  const bCovers = b.player.marketValue >= remainingDeficit;
+function compareSaleCandidates(a: OptimizerPlayer, b: OptimizerPlayer, metric: OptimizerMetric, remainingDeficit: number): number {
+  const aFit = isAvailableForLineup(a.status);
+  const bFit = isAvailableForLineup(b.status);
+  if (aFit !== bFit) return aFit ? 1 : -1;
+  const byMetric = metricValue(a, metric) - metricValue(b, metric);
+  if (byMetric !== 0) return byMetric;
+  const aCovers = a.marketValue >= remainingDeficit;
+  const bCovers = b.marketValue >= remainingDeficit;
   if (aCovers !== bCovers) return aCovers ? -1 : 1;
-  const byValue = aCovers ? a.player.marketValue - b.player.marketValue : b.player.marketValue - a.player.marketValue;
-  return byValue !== 0 ? byValue : a.player.id.localeCompare(b.player.id);
+  const byValue = aCovers ? a.marketValue - b.marketValue : b.marketValue - a.marketValue;
+  return byValue !== 0 ? byValue : a.id.localeCompare(b.id);
+}
+
+/** Verkauft aus `pool` der Reihe nach (siehe compareSaleCandidates), bis proceeds ≥ deficit oder der Pool leer ist. */
+function selectSales(pool: readonly OptimizerPlayer[], metric: OptimizerMetric, deficit: number): OptimizerPlayer[] {
+  let remaining = [...pool];
+  let proceeds = 0;
+  const chosen: OptimizerPlayer[] = [];
+
+  while (proceeds < deficit && remaining.length > 0) {
+    const remainingDeficit = deficit - proceeds;
+    const winner = [...remaining].sort((a, b) => compareSaleCandidates(a, b, metric, remainingDeficit))[0]!;
+    chosen.push(winner);
+    proceeds += winner.marketValue;
+    remaining = remaining.filter((p) => p.id !== winner.id);
+  }
+
+  return chosen;
 }
 
 export function buildSellPlan(
@@ -92,52 +128,43 @@ export function buildSellPlan(
     };
   }
 
-  let remaining = [...players];
-  let current = unconstrained;
-  const sell: SellPlanEntry[] = [];
-  let proceeds = 0;
+  const totalMarketValue = players.reduce((sum, p) => sum + p.marketValue, 0);
+  const cap = totalMarketValue - deficit;
 
-  while (proceeds < deficit) {
-    const currentScore = current.best?.score ?? null;
-    const currentBestIds = new Set(current.best?.playerIds ?? []);
-    const candidates = remaining.filter((p) => p.marketValue > 0);
-    if (candidates.length === 0) break;
+  // bestLineupUnderValueCap === null: selbst der gesamte Kader reicht nicht
+  // aus, um unter den Cap zu kommen — dann wird maximal erlöst (nur noch die
+  // günstigste besetzbare Elf bleibt stehen).
+  const keep = bestLineupUnderValueCap(players, metric, formations, cap) ?? cheapestLineup(players, metric, formations);
 
-    const remainingDeficit = deficit - proceeds;
-    const evaluated: Candidate[] = candidates.map((player) => {
-      const withoutPlayer = remaining.filter((p) => p.id !== player.id);
-      const result = optimizeLineup(withoutPlayer, metric, formations);
-      // currentScore === null: schon der Restkader hat keine besetzbare Elf
-      // — dann gibt es nichts zu verlieren, jeder Verkauf kostet 0 Punkte.
-      // result.best!.score ist nie null, wenn result.best gesetzt ist (siehe
-      // optimizeLineup: best wird nur bei feasible: true zugewiesen).
-      const cost = currentScore === null ? 0 : result.best ? currentScore - result.best.score! : Infinity;
-      return { player, result, ratio: cost / player.marketValue };
-    });
+  const keepIds = new Set(keep?.playerIds ?? []);
+  const pool = players.filter((p) => !keepIds.has(p.id) && p.marketValue > 0);
+  const chosen = selectSales(pool, metric, deficit);
 
-    const winner = evaluated.sort((a, b) => compareCandidates(a, b, remainingDeficit))[0]!;
-    if (!Number.isFinite(winner.ratio)) break; // jeder verbleibende Verkauf würde jede Formation unbesetzbar machen
+  const unconstrainedBestIds = new Set(unconstrained.best?.playerIds ?? []);
+  const sell: SellPlanEntry[] = chosen.map((player) => ({
+    playerId: player.id,
+    marketValue: player.marketValue,
+    wasInBestXi: unconstrainedBestIds.has(player.id),
+  }));
+  const proceeds = chosen.reduce((sum, p) => sum + p.marketValue, 0);
 
-    sell.push({
-      playerId: winner.player.id,
-      marketValue: winner.player.marketValue,
-      wasInBestXi: currentBestIds.has(winner.player.id),
-    });
-    proceeds += winner.player.marketValue;
-    remaining = remaining.filter((p) => p.id !== winner.player.id);
-    current = winner.result;
-  }
+  const soldIds = new Set(chosen.map((p) => p.id));
+  const result = optimizeLineup(
+    players.filter((p) => !soldIds.has(p.id)),
+    metric,
+    formations,
+  );
 
   const feasible = proceeds >= deficit;
   const unconstrainedScore = unconstrained.best?.score ?? null;
-  const finalScore = current.best?.score ?? null;
+  const finalScore = result.best?.score ?? null;
   const scoreLoss = unconstrainedScore !== null && finalScore !== null ? unconstrainedScore - finalScore : 0;
 
   return {
     sell,
     proceeds,
     balanceAfter: proceeds - deficit,
-    result: current,
+    result,
     scoreLoss,
     feasible,
     shortfall: feasible ? 0 : deficit - proceeds,

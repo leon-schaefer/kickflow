@@ -62,36 +62,50 @@ describe('buildSellPlan', () => {
     );
   });
 
-  it('bleibt lieber unerfüllt, als die Startelf zu verkleinern — jede Formation braucht exakt 11', () => {
-    // Jede Formation summiert auf genau 11 Spieler (optimizeLineup prüft das
-    // hart) — die Bank hat daher strukturell immer genau (Kadergröße − 11)
-    // Plätze, und der erste Verkauf über die Bank hinaus würde den Kader
-    // unter 11 drücken und JEDE Formation unbesetzbar machen. buildSellPlan
-    // bricht deshalb ab, statt die Startelf zu verkleinern.
-    const benchPosition = (id: string): Position => (id.startsWith('DEF') ? 'DEF' : id.startsWith('MID') ? 'MID' : 'FWD');
-    const bench = ['DEF4', 'MID4', 'FWD2', 'FWD3', 'FWD4'].map((id) =>
-      makePlayer({ id, position: benchPosition(id), averagePoints: -100, marketValue: 1_000_000 }),
-    );
+  it('verkauft einen Startelfspieler, wenn die Bank allein den Fehlbetrag nicht deckt (Regression)', () => {
+    // Deckung ist die harte Nebenbedingung: reicht die Bank nicht, muss ein
+    // Startelfspieler dran glauben — auch wenn er im unbeschränkten Optimum
+    // stand. GK/DEF/MID sind hier ohne Alternative (je exakt so viele
+    // Kandidaten wie die Formation braucht), einzige Freiheit ist FWD
+    // (3 Kandidaten für 2 Plätze): FWD0 "Hlozek" (teuer, stark), FWD1
+    // (günstig, mittelstark), FWDBench (günstig, schwach).
     const players: OptimizerPlayer[] = [
-      makePlayer({ id: 'GK0', position: 'GK', marketValue: 20_000_000 }),
-      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 20_000_000 })),
-      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 20_000_000 })),
-      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 20_000_000 }),
-      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 20_000_000 }),
-      ...bench,
+      makePlayer({ id: 'GK0', position: 'GK', averagePoints: 5, marketValue: 5_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', averagePoints: 5, marketValue: 10_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', averagePoints: 5, marketValue: 10_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', averagePoints: 8, marketValue: 60_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', averagePoints: 6, marketValue: 10_000_000 }),
+      makePlayer({ id: 'FWDBench', position: 'FWD', averagePoints: 1, marketValue: 2_000_000 }),
     ];
-    // Bank (5 × 1 Mio = 5 Mio) reicht bei weitem nicht für 50 Mio.
-    const plan = buildSellPlan(players, 'points', 50_000_000, ['4-4-2']);
-    expect(plan.sell).toHaveLength(5);
-    expect(plan.sell.every((entry) => !entry.wasInBestXi)).toBe(true);
-    expect(plan.proceeds).toBe(5_000_000);
-    expect(plan.feasible).toBe(false);
-    expect(plan.shortfall).toBe(45_000_000);
-    expect(plan.scoreLoss).toBe(0);
-    // Die Startelf steht am Ende exakt noch da, unangetastet.
+    // Kader gesamt 157 Mio; FWDBench (2 Mio) allein reicht bei weitem nicht
+    // für 55 Mio — aber FWD0 "Hlozek" allein deckt es.
+    const plan = buildSellPlan(players, 'points', 55_000_000, ['4-4-2']);
+    expect(plan.sell).toEqual([{ playerId: 'FWD0', marketValue: 60_000_000, wasInBestXi: true }]);
+    expect(plan.feasible).toBe(true);
+    expect(plan.proceeds).toBe(60_000_000);
+    expect(plan.balanceAfter).toBe(5_000_000);
+    expect(plan.shortfall).toBe(0);
+    // Die Restelf ersetzt FWD0 durch FWD1 + FWDBench (die einzige besetzbare Alternative).
     expect(plan.result.best?.playerIds.sort()).toEqual(
-      ['GK0', 'DEF0', 'DEF1', 'DEF2', 'DEF3', 'MID0', 'MID1', 'MID2', 'MID3', 'FWD0', 'FWD1'].sort(),
+      ['GK0', 'DEF0', 'DEF1', 'DEF2', 'DEF3', 'MID0', 'MID1', 'MID2', 'MID3', 'FWD1', 'FWDBench'].sort(),
     );
+  });
+
+  it('opfert den Star nicht unnötig, wenn ein kleinerer Fehlbetrag auch günstiger zu decken ist', () => {
+    // Gleicher Kader wie oben, aber kleinerer Fehlbetrag: FWD1 abzugeben
+    // (statt FWD0 "Hlozek") deckt die 7 Mio bereits — und verliert weniger Punkte.
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', averagePoints: 5, marketValue: 5_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', averagePoints: 5, marketValue: 10_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', averagePoints: 5, marketValue: 10_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', averagePoints: 8, marketValue: 60_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', averagePoints: 6, marketValue: 10_000_000 }),
+      makePlayer({ id: 'FWDBench', position: 'FWD', averagePoints: 1, marketValue: 2_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 7_000_000, ['4-4-2']);
+    expect(plan.sell).toEqual([{ playerId: 'FWD1', marketValue: 10_000_000, wasInBestXi: true }]);
+    expect(plan.feasible).toBe(true);
+    expect(plan.result.best?.playerIds).toContain('FWD0');
   });
 
   it('verkauft nie einen Spieler, der jede Formation unbesetzbar machen würde', () => {
