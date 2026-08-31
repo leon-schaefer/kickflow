@@ -3,8 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <!-- `viewport-fit=cover` lets the app draw under the iOS status bar/home indicator, which is
-         required for `react-native-safe-area-context` to report non-zero safe-area insets on web.
+    <!-- `viewport-fit=cover` lets the app draw under the iOS home indicator (and, with a
+         translucent status bar, the status bar too — not the case here, see
+         apple-mobile-web-app-status-bar-style below), which is required for
+         `react-native-safe-area-context` to report non-zero safe-area insets on web.
          `maximum-scale=1, user-scalable=no` disable pinch/double-tap zoom — zooming can leave the
          page's visual viewport out of sync with its `100dvh` layout, showing a white bar at the
          bottom of the screen. -->
@@ -14,7 +16,13 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- `black` statt `black-translucent`: eine transluzente Statusleiste lässt die
+         App darunter zeichnen und verlässt sich auf einen zum Content passenden
+         System-Blur — iOS rendert diesen Bereich aber oft schlicht weiß statt dunkel,
+         und Content ohne exakt passendes Safe-Area-Padding ragt sichtbar darunter.
+         `black` reserviert stattdessen eine solide dunkle Leiste, unter die nichts
+         zeichnet — passt ohnehin fast nahtlos zu colors.background (#0B0F0C). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="kickflow" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
