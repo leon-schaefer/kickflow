@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# Vercel
+.vercel
+
+# probe.ts Rohdumps gegen den echten Account
+scripts/.probe-output/
 
 # typescript
 *.tsbuildinfo
