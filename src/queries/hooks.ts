@@ -20,7 +20,7 @@ import { queryKeys } from './keys';
  * ersetzt (Squad- und Value-Tab hängen an demselben Hook und zeigen den
  * Mock-Kader automatisch mit). Vor dem Commit wieder auf false zurücksetzen.
  */
-const USE_MOCK_LINEUP = true;
+const USE_MOCK_LINEUP = false;
 
 export function useLeagues() {
   const { token } = useAuth();
