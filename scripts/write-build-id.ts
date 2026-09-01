@@ -10,23 +10,32 @@
  * build-id.txt ist ein von Expo unabhängiger, expliziter Marker für "welcher
  * Deploy läuft gerade" und macht register-sw.js robust gegen solche Änderungen.
  *
- * Wert: Vercels eigene Commit-SHA-Env-Variable, sonst `git rev-parse`, sonst
- * ein Timestamp als letzter Fallback (z. B. lokaler Export ohne Git-Kontext).
+ * Wert: Build-Zeitstempel, plus die verkürzte Commit-SHA als Herkunftsangabe,
+ * falls es eine gibt (Vercels VERCEL_GIT_COMMIT_SHA, sonst `git rev-parse`).
+ * Warum der Zeitstempel führt und die SHA allein nicht reicht: siehe
+ * src/updates/buildId.ts.
+ *
+ * Läuft über `npm run build:web` — Vercel ruft dasselbe Script über
+ * buildCommand in vercel.json auf. Ohne diesen Schritt fehlt build-id.txt im
+ * Deploy und der SPA-Rewrite liefert stattdessen index.html aus.
  */
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { formatBuildId } from '../src/updates/buildId';
 
-function resolveBuildId(): string {
+function resolveSha(): string | null {
   if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
   try {
     return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
   } catch {
-    return `local-${Date.now()}`;
+    // Kein Git-Kontext (z. B. Export aus einem Tarball) — der Zeitstempel
+    // allein ist als Build-ID eindeutig genug.
+    return null;
   }
 }
 
-const buildId = resolveBuildId();
+const buildId = formatBuildId(Date.now(), resolveSha());
 const outPath = path.join(__dirname, '..', 'public', 'build-id.txt');
 writeFileSync(outPath, buildId);
 console.log(`build-id.txt geschrieben: ${buildId}`);
