@@ -167,6 +167,14 @@ export function toSquadPlayer(
     // `sdmvt` (Tages-Marktwertänderung) ist nicht offiziell dokumentiert,
     // nur als Beispielfeld erschienen — Vorzeichen/Einheit unverifiziert.
     marketValueChangeToday: raw.sdmvt ?? 0,
+    // `mvgl` (Gewinn/Verlust seit Kauf) ist wie `sdmvt` undokumentiert, nur per
+    // Fixture belegt: Grifo mv 10.973.197, mvgl −15.145.453 → Kaufpreis
+    // 26.118.650. Fehlt das Feld, wird NICHT geraten — `mv − 0` würde einen
+    // Kaufpreis in Höhe des Marktwerts vortäuschen. `mvgl: 0` dagegen ist ein
+    // echter Wert (frisch gekauft / unverändert) und ergibt genau das.
+    // Ein Kaufpreis ≤ 0 wäre unsinnig und taugt nicht als Prozent-Bezugspunkt.
+    purchasePrice:
+      raw.mvgl === undefined || marketValue - raw.mvgl <= 0 ? null : marketValue - raw.mvgl,
 
     totalPoints,
     averagePoints,
