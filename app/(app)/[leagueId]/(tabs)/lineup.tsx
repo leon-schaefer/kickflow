@@ -433,6 +433,7 @@ export default function LineupScreen() {
       <SellAdviceSection
         players={data.players}
         advice={optimizer.sellAdvice}
+        plan={optimizer.budgetPlan}
         budget={league?.budget ?? null}
         onSelectPlayer={openPlayer}
       />

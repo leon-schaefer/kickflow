@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Position } from '@/api/kickbase';
+import { formatCurrency } from './format';
 import { optimizeLineup, type OptimizerPlayer } from './lineupOptimizer';
 import { deriveSellAdvice } from './sellAdvice';
+import { buildSellPlan } from './sellPlan';
 
 function makePlayer(overrides: Partial<OptimizerPlayer> & { id: string; position: Position }): OptimizerPlayer {
   return {
@@ -38,10 +40,10 @@ function baseSquad(
   return players;
 }
 
-function advice(players: OptimizerPlayer[]) {
+function advice(players: OptimizerPlayer[], forcedSaleIds: string[] = []) {
   const efficiency = optimizeLineup(players, 'valuePerMillion');
   const points = optimizeLineup(players, 'points');
-  return deriveSellAdvice(players, efficiency, points);
+  return deriveSellAdvice(players, efficiency, points, forcedSaleIds);
 }
 
 function findAdvice(entries: ReturnType<typeof advice>, id: string) {
@@ -137,8 +139,82 @@ describe('deriveSellAdvice', () => {
 
   it('genau ein Eintrag je Kaderspieler mit eindeutigen IDs', () => {
     const players = baseSquad();
-    const result = advice(players);
+    for (const forced of [[], ['FWD0', 'MID3']]) {
+      const result = advice(players, forced);
+      expect(result.length).toBe(players.length);
+      expect(new Set(result.map((e) => e.playerId)).size).toBe(players.length);
+    }
+  });
+});
+
+describe('deriveSellAdvice mit Pflichtverkäufen (negatives Konto)', () => {
+  it('ohne Pflichtverkäufe bleibt die Einordnung unverändert', () => {
+    const players = baseSquad();
+    expect(advice(players, [])).toEqual(advice(players));
+    expect(advice(players, []).some((e) => e.recommendation === 'pflichtverkauf')).toBe(false);
+  });
+
+  it('Pflichtverkauf schlägt "unverzichtbar"', () => {
+    const players = baseSquad();
+    // FWD0 steht (siehe erster Test oben) in beiden Optimal-Elfen.
+    const result = advice(players, ['FWD0']);
+    const entry = findAdvice(result, 'FWD0');
+    expect(entry.recommendation).toBe('pflichtverkauf');
+    expect(entry.inBestPointsXi).toBe(true);
+    expect(entry.reason).toContain('Stammplatz');
+    expect(entry.reason).toContain(formatCurrency(players.find((p) => p.id === 'FWD0')!.marketValue));
+  });
+
+  it('Pflichtverkauf schlägt auch "nicht-einsatzbereit"', () => {
+    // Genau der Kader aus dem Ausfall-Test oben — der Plan verkauft nicht
+    // einsatzfähige Spieler zuerst, dieser Fall ist also der häufigste.
+    const players = baseSquad({
+      FWD: [{ status: 'injured', marketValue: 90_000_000, valueScoreAvg: 1000, averagePoints: 1000 }],
+    });
+    expect(findAdvice(advice(players), 'FWD0').recommendation).toBe('nicht-einsatzbereit');
+    expect(findAdvice(advice(players, ['FWD0']), 'FWD0').recommendation).toBe('pflichtverkauf');
+  });
+
+  it('Pflichtverkäufe stehen ganz oben, in Planreihenfolge statt nach Marktwert', () => {
+    const players = baseSquad({ FWD: [{}, { marketValue: 80_000_000 }, {}, { marketValue: 5_000_000 }] });
+    // FWD3 ist der günstigere — die Marktwert-Sortierung würde FWD1 vorziehen.
+    const result = advice(players, ['FWD3', 'FWD1']);
+    expect(result.slice(0, 2).map((e) => e.playerId)).toEqual(['FWD3', 'FWD1']);
+    expect(result.slice(0, 2).every((e) => e.recommendation === 'pflichtverkauf')).toBe(true);
+  });
+
+  it('ignoriert IDs, die nicht im Kader stehen', () => {
+    const players = baseSquad();
+    const result = advice(players, ['GHOST']);
     expect(result.length).toBe(players.length);
-    expect(new Set(result.map((e) => e.playerId)).size).toBe(players.length);
+    expect(result.some((e) => e.recommendation === 'pflichtverkauf')).toBe(false);
+  });
+
+  it('übernimmt den Plan von buildSellPlan (Verdrahtung End-to-End)', () => {
+    // "Hlozek"-Kader aus sellPlan.test.ts: einzige Freiheit ist FWD, und nur
+    // FWD0 deckt die 55 Mio — obwohl er in der Optimal-Elf steht.
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', averagePoints: 5, valueScoreAvg: 5, marketValue: 5_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) =>
+        makePlayer({ id, position: 'DEF', averagePoints: 5, valueScoreAvg: 5, marketValue: 10_000_000 }),
+      ),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) =>
+        makePlayer({ id, position: 'MID', averagePoints: 5, valueScoreAvg: 5, marketValue: 10_000_000 }),
+      ),
+      makePlayer({ id: 'FWD0', position: 'FWD', averagePoints: 8, valueScoreAvg: 8, marketValue: 60_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', averagePoints: 6, valueScoreAvg: 6, marketValue: 10_000_000 }),
+      makePlayer({ id: 'FWDBench', position: 'FWD', averagePoints: 1, valueScoreAvg: 1, marketValue: 2_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 55_000_000, ['4-4-2']);
+    const forcedSaleIds = plan.sell.map((entry) => entry.playerId);
+    expect(forcedSaleIds).toEqual(['FWD0']);
+
+    const efficiency = optimizeLineup(players, 'valuePerMillion', ['4-4-2']);
+    const points = optimizeLineup(players, 'points', ['4-4-2']);
+    expect(findAdvice(deriveSellAdvice(players, efficiency, points), 'FWD0').recommendation).toBe('unverzichtbar');
+
+    const withPlan = deriveSellAdvice(players, efficiency, points, forcedSaleIds);
+    expect(findAdvice(withPlan, 'FWD0').recommendation).toBe('pflichtverkauf');
+    expect(withPlan[0]!.playerId).toBe('FWD0');
   });
 });
