@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
 import { BudgetBar } from '@/components/BudgetBar';
 import { OfferModal } from '@/components/OfferModal';
@@ -118,20 +118,24 @@ export default function ValueScreen() {
         ))}
       </View>
 
-      {isMarket && (
-        <View style={styles.filterBar}>
-          <Pressable
-            style={[styles.sortChip, onlyOwnBids && styles.sortChipActive]}
-            onPress={() => setOnlyOwnBids((value) => !value)}
-          >
-            <Text style={[styles.sortChipText, onlyOwnBids && styles.sortChipTextActive]}>
-              Nur meine Gebote
-            </Text>
-          </Pressable>
-        </View>
-      )}
-
-      <View style={styles.sortBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+      >
+        {isMarket && (
+          <>
+            <Pressable
+              style={[styles.sortChip, onlyOwnBids && styles.sortChipActive]}
+              onPress={() => setOnlyOwnBids((value) => !value)}
+            >
+              <Text style={[styles.sortChipText, onlyOwnBids && styles.sortChipTextActive]}>
+                Nur meine Gebote
+              </Text>
+            </Pressable>
+            <View style={styles.chipDivider} />
+          </>
+        )}
         {(isMarket ? MARKET_SORT_OPTIONS : SORT_OPTIONS).map((option) => (
           <Pressable
             key={option.key}
@@ -143,7 +147,7 @@ export default function ValueScreen() {
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}
       {playtimeState.pending > 0 && (
@@ -233,18 +237,17 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
-  filterBar: {
+  chipRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  sortBar: {
-    flexDirection: 'row',
-    // Drei Chips passen auf schmalen Geräten nicht mehr in eine Zeile.
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
+  },
+  chipDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    marginVertical: spacing.xs,
+    backgroundColor: colors.border,
   },
   sortChip: {
     paddingHorizontal: spacing.md,
