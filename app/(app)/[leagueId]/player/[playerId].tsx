@@ -9,18 +9,15 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
-import { useCompetitionTeams, useLineup, usePlayer } from '@/queries/hooks';
+import { useCompetitionTeams, usePlayer } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import {
   formatCurrency,
-  formatDelta,
   formatMinutes,
-  formatPercentDelta,
   formatPoints,
   formatPointsPerMinute,
 } from '@/utils/format';
-import { purchaseDelta } from '@/utils/purchase';
 import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
 
 type Timeframe = 92 | 365;
@@ -40,23 +37,6 @@ export default function PlayerDetailScreen() {
     () => new Map((competitionTeams ?? []).map((team) => [team.id, team.name])),
     [competitionTeams],
   );
-
-  // Der Kaufpreis steckt nur im Kader (`mvgl`), nicht in der Spieler-Detail-
-  // Antwort. Der Query ist über den Kader-/Aufstellungs-Tab praktisch immer
-  // warm — der Screen wartet aber nie darauf: fehlen die Kaderdaten (fremder
-  // Spieler, noch am Laden, Request gescheitert), fällt die Kauf-Anzeige
-  // ersatzlos weg statt einen Platzhalter zu zeigen.
-  const { data: lineup } = useLineup(leagueId);
-  const squadPlayer = useMemo(
-    () => lineup?.players.find((p) => p.id === playerId) ?? null,
-    [lineup, playerId],
-  );
-  // Bewusst aus dem Kader-Marktwert gerechnet und nicht aus player.marketValue:
-  // nur so ist `gain` exakt das rohe `mvgl` und driftet nicht zwischen den
-  // beiden Endpunkten auseinander.
-  const purchase = squadPlayer
-    ? purchaseDelta(squadPlayer.marketValue, squadPlayer.purchasePrice)
-    : null;
 
   if (!player) {
     return (
@@ -107,7 +87,6 @@ export default function PlayerDetailScreen() {
 
         <View style={styles.statsGrid}>
           <Stat label="Marktwert" value={formatCurrency(player.marketValue)} />
-          {purchase && <Stat label="Kaufpreis" value={formatCurrency(purchase.purchasePrice)} />}
           <Stat label="Punkte gesamt" value={formatPoints(player.totalPoints)} />
           <Stat label="Ø Punkte" value={formatPoints(player.averagePoints)} />
           <Stat label="Tore" value={String(player.goals)} />
@@ -143,37 +122,7 @@ export default function PlayerDetailScreen() {
               ))}
             </View>
           </View>
-          <MarketValueSparkline
-            points={history.points}
-            referenceValue={purchase?.purchasePrice ?? null}
-          />
-          {purchase && (
-            <View style={styles.purchaseRow}>
-              <View style={styles.purchaseLegend}>
-                <View style={styles.purchaseDash} />
-                <View style={styles.purchaseDash} />
-                <View style={styles.purchaseDash} />
-              </View>
-              <Text style={styles.minMaxText}>
-                Kaufpreis {formatCurrency(purchase.purchasePrice)}
-              </Text>
-              <Text
-                style={[
-                  styles.purchaseDelta,
-                  {
-                    color:
-                      purchase.gain > 0
-                        ? colors.positive
-                        : purchase.gain < 0
-                          ? colors.negative
-                          : colors.textMuted,
-                  },
-                ]}
-              >
-                {formatDelta(purchase.gain)} ({formatPercentDelta(purchase.percent)})
-              </Text>
-            </View>
-          )}
+          <MarketValueSparkline points={history.points} />
           <View style={styles.minMaxRow}>
             <Text style={styles.minMaxText}>Tief {formatCurrency(history.lowest)}</Text>
             <Text style={styles.minMaxText}>Hoch {formatCurrency(history.highest)}</Text>
@@ -323,28 +272,6 @@ const styles = StyleSheet.create({
   minMaxRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  purchaseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // Miniatur der gestrichelten Kaufpreis-Linie im Chart — ohne sie ist nicht
-  // erkennbar, welche der beiden gestrichelten Linien gemeint ist.
-  purchaseLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  purchaseDash: {
-    width: 4,
-    height: 1,
-    backgroundColor: colors.textSecondary,
-  },
-  purchaseDelta: {
-    ...typography.caption,
-    fontWeight: '600',
-    marginLeft: 'auto',
   },
   minMaxText: {
     ...typography.caption,

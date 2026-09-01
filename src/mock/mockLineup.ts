@@ -21,13 +21,6 @@ interface MockPlayerSpec {
   totalPoints?: number;
   status?: PlayerStatus;
   trend?: MarketValueTrend;
-  /**
-   * Default: 80 % des Marktwerts (also im Plus). `null` = kein bekannter
-   * Kaufpreis, ein Vielfaches des Marktwerts = Kaufpreis weit über der
-   * Verlaufskurve — beides bewusst gesetzt, damit die Kaufpreis-Anzeige auf
-   * der Detailseite im Mock-Modus in allen Zuständen sichtbar wird.
-   */
-  purchasePrice?: number | null;
   inLineup?: boolean;
   lineupSlot?: number | null;
   isCaptain?: boolean;
@@ -36,12 +29,12 @@ interface MockPlayerSpec {
 const SPECS: MockPlayerSpec[] = [
   // Torwart
   { id: 'mock-gk-1', name: 'Jonas Feldmann', position: 'GK', teamId: '1', marketValue: 12_000_000, averagePoints: 90, status: 'fit', inLineup: true, lineupSlot: 0 },
-  { id: 'mock-gk-2', name: 'Timo Reuter', position: 'GK', teamId: '2', marketValue: 3_500_000, averagePoints: 40, status: 'fit', purchasePrice: null },
+  { id: 'mock-gk-2', name: 'Timo Reuter', position: 'GK', teamId: '2', marketValue: 3_500_000, averagePoints: 40, status: 'fit' },
 
   // Abwehr
   { id: 'mock-def-1', name: 'Lukas Brandt', position: 'DEF', teamId: '1', marketValue: 15_000_000, averagePoints: 95, status: 'fit', inLineup: true, lineupSlot: 1 },
   { id: 'mock-def-2', name: 'Niklas Ehrlich', position: 'DEF', teamId: '3', marketValue: 6_000_000, averagePoints: 85, status: 'fit', inLineup: true, lineupSlot: 2 },
-  { id: 'mock-def-3', name: 'Kevin Sander', position: 'DEF', teamId: '4', marketValue: 20_000_000, averagePoints: 60, status: 'fit', inLineup: true, lineupSlot: 3, purchasePrice: 55_000_000 },
+  { id: 'mock-def-3', name: 'Kevin Sander', position: 'DEF', teamId: '4', marketValue: 20_000_000, averagePoints: 60, status: 'fit', inLineup: true, lineupSlot: 3 },
   { id: 'mock-def-4', name: 'Ali Yildiz', position: 'DEF', teamId: '5', marketValue: 4_000_000, averagePoints: 70, status: 'fit', inLineup: true, lineupSlot: 4 },
   { id: 'mock-def-5', name: 'Marco Fels', position: 'DEF', teamId: '6', marketValue: 18_000_000, averagePoints: 30, status: 'injured' },
   { id: 'mock-def-6', name: 'Robin Aue', position: 'DEF', teamId: '7', marketValue: 9_000_000, averagePoints: 50, status: 'doubtful' },
@@ -76,8 +69,6 @@ function buildPlayer(spec: MockPlayerSpec): SquadPlayer {
     marketValue: spec.marketValue,
     marketValueTrend: spec.trend ?? 'flat',
     marketValueChangeToday: 0,
-    purchasePrice:
-      spec.purchasePrice === undefined ? Math.round(spec.marketValue * 0.8) : spec.purchasePrice,
     totalPoints,
     averagePoints: spec.averagePoints,
     valueScoreAvg: pointsPerMillion(spec.averagePoints, spec.marketValue),
