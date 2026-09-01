@@ -166,6 +166,20 @@ async function main() {
   for (const p of squad.it ?? []) if (typeof p.st === 'number') distinctStatus.add(p.st);
   for (const p of overview.lp ?? []) if (typeof p.st === 'number') distinctStatus.add(p.st);
 
+  // `mvgl` (Gewinn/Verlust seit Kauf) ist undokumentiert und nur per Fixture
+  // belegt. Der daraus abgeleitete Kaufpreis (`mv - mvgl`) wird hier je Spieler
+  // ausgegeben, damit er 1:1 gegen die Kaufpreise in der echten Kickbase-App
+  // gehalten werden kann, bevor die UI darauf vertraut (siehe mappers.ts).
+  console.log('\n=== Kaufpreis-Analyse (mvgl) ===');
+  console.table(
+    (squad.it ?? []).map((p: any) => ({
+      n: p.n,
+      mv: p.mv,
+      mvgl: p.mvgl,
+      'Kaufpreis (mv - mvgl)': typeof p.mvgl === 'number' && typeof p.mv === 'number' ? p.mv - p.mvgl : null,
+    })),
+  );
+
   console.log('\n=== Zusammenfassung ===');
   console.log('Formation (t):', overview.t);
   console.log('Distinct st-Codes im Kader/Lineup:', [...distinctStatus].sort((a, b) => a - b));
