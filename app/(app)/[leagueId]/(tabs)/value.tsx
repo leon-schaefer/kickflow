@@ -13,10 +13,11 @@ import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useLeagues, useLineup, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { filterOwnBids, sortByExpiry } from '@/utils/marketList';
 import { pointsPerMinute } from '@/utils/playtime';
 
 type Segment = 'squad' | 'market';
-type SortKey = 'avg' | 'total' | 'perMinute';
+type SortKey = 'avg' | 'total' | 'perMinute' | 'expiry';
 
 const SEGMENTS: { key: Segment; label: string }[] = [
   { key: 'squad', label: 'Mein Kader' },
@@ -29,11 +30,18 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'perMinute', label: 'Punkte/Min' },
 ];
 
+/** Nach Ablauf sortieren geht nur im Markt — der Kader kennt keine Restlaufzeit. */
+const MARKET_SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  ...SORT_OPTIONS,
+  { key: 'expiry', label: 'Ablauf' },
+];
+
 export default function ValueScreen() {
   const leagueId = useLeagueId();
   const router = useRouter();
   const [segment, setSegment] = useState<Segment>('squad');
   const [sortKey, setSortKey] = useState<SortKey>('avg');
+  const [onlyOwnBids, setOnlyOwnBids] = useState(false);
   const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
   const limit = useBudgetLimit();
 
@@ -46,6 +54,8 @@ export default function ValueScreen() {
 
   // Spielminuten gibt es nur pro Spieler (siehe usePlaytimes) — stabile
   // ID-Liste, damit useQueries seine Query-Liste nicht bei jedem Render neu baut.
+  // Bewusst aus der UNGEFILTERTEN Liste: sonst würde jedes Umschalten des
+  // Gebots-Filters die Spielzeiten neu anfragen.
   const playerIds = useMemo(() => rawPlayers.map((player) => player.id), [rawPlayers]);
   const playtimeState = usePlaytimes(leagueId, playerIds);
   const { playtimes } = playtimeState;
@@ -54,7 +64,14 @@ export default function ValueScreen() {
   // gehört mit in den Pull, auch wenn dieser Screen sie sonst nicht anzeigt.
   const refresh = useRefresh(lineup, market, leaguesQuery, playtimeState);
 
+  const isMarket = segment === 'market';
+  const ownBidsOnly = isMarket && onlyOwnBids;
+
   const sorted = useMemo(() => {
+    const base = ownBidsOnly ? filterOwnBids(rawPlayers) : rawPlayers;
+    if (sortKey === 'expiry') {
+      return sortByExpiry(base);
+    }
     if (sortKey === 'perMinute') {
       // Spieler ohne geladene oder ohne vorhandene Spielzeit zählen als 0 und
       // landen damit unten — die Liste sortiert sich beim Nachladen nach.
@@ -62,21 +79,28 @@ export default function ValueScreen() {
         const playtime = playtimes.get(player.id);
         return playtime ? pointsPerMinute(playtime.points, playtime.minutes) : 0;
       };
-      return [...rawPlayers].sort((a, b) => perMinute(b) - perMinute(a));
+      return [...base].sort((a, b) => perMinute(b) - perMinute(a));
     }
     const key = sortKey === 'avg' ? 'valueScoreAvg' : 'valueScoreTotal';
-    return [...rawPlayers].sort((a, b) => b[key] - a[key]);
-  }, [rawPlayers, sortKey, playtimes]);
+    return [...base].sort((a, b) => b[key] - a[key]);
+  }, [rawPlayers, sortKey, playtimes, ownBidsOnly]);
 
   function openPlayer(player: ValueRowPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
+  }
+
+  // Die Ablauf-Sortierung gibt es nur im Markt — beim Wechsel in den Kader
+  // würde sie sonst auf einem Feld sortieren, das SquadPlayer nicht hat.
+  function selectSegment(next: Segment) {
+    setSegment(next);
+    if (next !== 'market' && sortKey === 'expiry') setSortKey('avg');
   }
 
   // Nur im Transfermarkt-Segment gesetzt — im Kader-Segment bleibt ValueRow
   // ohne Gebotslage/Bieten-Button (onBid === undefined). `sorted` enthält in
   // diesem Segment tatsächlich MarketPlayer-Objekte, nur strukturell als
   // ValueRowPlayer typisiert.
-  const bidHandler = segment === 'market' ? (player: ValueRowPlayer) => setOfferTarget(player as MarketPlayer) : undefined;
+  const bidHandler = isMarket ? (player: ValueRowPlayer) => setOfferTarget(player as MarketPlayer) : undefined;
 
   return (
     <View style={styles.container}>
@@ -85,7 +109,7 @@ export default function ValueScreen() {
           <Pressable
             key={s.key}
             style={[styles.segmentChip, segment === s.key && styles.segmentChipActive]}
-            onPress={() => setSegment(s.key)}
+            onPress={() => selectSegment(s.key)}
           >
             <Text style={[styles.segmentText, segment === s.key && styles.segmentTextActive]}>
               {s.label}
@@ -94,8 +118,21 @@ export default function ValueScreen() {
         ))}
       </View>
 
+      {isMarket && (
+        <View style={styles.filterBar}>
+          <Pressable
+            style={[styles.sortChip, onlyOwnBids && styles.sortChipActive]}
+            onPress={() => setOnlyOwnBids((value) => !value)}
+          >
+            <Text style={[styles.sortChipText, onlyOwnBids && styles.sortChipTextActive]}>
+              Nur meine Gebote
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       <View style={styles.sortBar}>
-        {SORT_OPTIONS.map((option) => (
+        {(isMarket ? MARKET_SORT_OPTIONS : SORT_OPTIONS).map((option) => (
           <Pressable
             key={option.key}
             style={[styles.sortChip, sortKey === option.key && styles.sortChipActive]}
@@ -115,7 +152,7 @@ export default function ValueScreen() {
         </Text>
       )}
 
-      {segment === 'market' && limit && <BudgetBar limit={limit} />}
+      {isMarket && limit && <BudgetBar limit={limit} />}
 
       {!active.data ? (
         <QueryState query={active} label="Daten" refresh={refresh} />
@@ -137,7 +174,11 @@ export default function ValueScreen() {
               ItemSeparatorComponent={() => <View style={styles.separator} />}
               ListEmptyComponent={
                 <View style={styles.center}>
-                  <Text style={styles.emptyText}>Keine Spieler gefunden.</Text>
+                  {/* Eigener Text bei aktivem Filter — „Keine Spieler gefunden“
+                      würde hier wie ein Ladefehler wirken. */}
+                  <Text style={styles.emptyText}>
+                    {ownBidsOnly ? 'Du hast auf keinen Spieler geboten.' : 'Keine Spieler gefunden.'}
+                  </Text>
                 </View>
               }
             />
@@ -191,6 +232,12 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     color: colors.accent,
     fontWeight: '600',
+  },
+  filterBar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
   },
   sortBar: {
     flexDirection: 'row',
