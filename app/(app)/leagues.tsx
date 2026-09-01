@@ -60,7 +60,9 @@ export default function LeaguesScreen() {
               </View>
               <View style={styles.statsRow}>
                 <Text style={styles.statText}>Teamwert {formatCurrency(item.teamValue)}</Text>
-                <Text style={styles.statText}>{item.memberCount} Manager</Text>
+                {item.memberCount !== null && (
+                  <Text style={styles.statText}>{item.memberCount} Manager</Text>
+                )}
               </View>
             </Pressable>
           )}

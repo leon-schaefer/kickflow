@@ -105,10 +105,12 @@ describe('toAuthSession', () => {
 
 describe('toLeagueSummary', () => {
   // Beispiel 1:1 aus scripts/probe.ts gegen einen echten Account. `cpi` ist
-  // trotz Doku-Namens ("Cover photo identifier") die Competition-ID. `un` und
-  // `pl` sind absichtlich mit im Fixture: beide wurden früher als Manager-Zahl
-  // bzw. Spielerlimit gelesen und sind es nicht (Aktivitätszähler bzw. eigene
-  // Platzierung) — die Zuweisung darf nie wieder dorthin zurückrutschen.
+  // trotz Doku-Namens ("Cover photo identifier") die Competition-ID. `un`,
+  // `lpc` und `pl` sind absichtlich mit im Fixture: alle drei wurden schon
+  // mal fälschlich als Manager-Zahl gelesen (Aktivitätszähler, Lineup-Spielerzahl
+  // bzw. eigene Platzierung) — die Zuweisung darf nie wieder dorthin
+  // zurückrutschen. `/leagues/selection` liefert die Manager-Zahl gar nicht;
+  // die kommt separat über getLeagueManagerCount() in endpoints.ts.
   const raw: RawLeague = {
     i: '2609146',
     n: 'HaramLig',
@@ -121,14 +123,14 @@ describe('toLeagueSummary', () => {
     pl: 3,
     tv: 238105120,
   };
-  it('mappt alle Felder, inkl. competitionId und Cover-Bild aus lim', () => {
+  it('mappt alle Felder, inkl. competitionId und Cover-Bild aus lim; memberCount kommt erst per getLeagues dazu', () => {
     expect(toLeagueSummary(raw)).toEqual({
       id: '2609146',
       name: 'HaramLig',
       coverImageUrl: 'https://kickbase.b-cdn.net/league/cover.jpe',
       budget: 58818981,
       teamValue: 238105120,
-      memberCount: 9,
+      memberCount: null,
       isAdmin: false,
       competitionId: '1',
     });

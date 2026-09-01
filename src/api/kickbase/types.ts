@@ -220,7 +220,8 @@ export interface LeagueSummary {
   coverImageUrl: string | null;
   budget: number;
   teamValue: number;
-  memberCount: number;
+  /** null = konnte nicht ermittelt werden (Zusatzrequest fehlgeschlagen), siehe getLeagues(). */
+  memberCount: number | null;
   isAdmin: boolean;
   competitionId: string;
 }

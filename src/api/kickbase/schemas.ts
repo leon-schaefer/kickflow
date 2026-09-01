@@ -54,6 +54,25 @@ export const rawLeaguesResponseSchema = z.looseObject({
   it: z.array(rawLeagueSchema).default([]),
 });
 
+/**
+ * `GET /v4/leagues/{id}/settings/managers` — `us` ist die tatsächliche
+ * Manager-Liste der Liga. Per scripts/probe.ts gegen zwei real unterschiedlich
+ * große Ligen verifiziert (12 bzw. 2 Einträge) — siehe Kommentar an
+ * getLeagueManagerCount() in endpoints.ts für die verworfenen Kandidaten
+ * (`un`, `lpc`, `pl` auf /leagues/selection).
+ */
+export const rawLeagueManagersSchema = z.looseObject({
+  us: z
+    .array(
+      z.looseObject({
+        i: z.string().optional(),
+        n: z.string().optional(),
+      }),
+    )
+    .default([]),
+});
+export type RawLeagueManagers = z.infer<typeof rawLeagueManagersSchema>;
+
 export const rawLineupPlayerSchema = z.looseObject({
   pi: z.string(),
   n: z.string().optional(),
