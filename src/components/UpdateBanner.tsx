@@ -1,59 +1,57 @@
-import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import * as Updates from 'expo-updates';
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
+import { colors } from '@/theme/tokens';
+import { UpdateBannerView } from './UpdateBannerView';
 
 /**
- * Web-only. `public/register-sw.js` vergleicht periodisch (Intervall +
- * Tab-Fokus) den Hash des geladenen JS-Bundles gegen den einer frisch vom
- * Server geholten index.html — siehe Kommentar dort, warum der reguläre
- * Service-Worker-Update-Lifecycle dafür nicht taugt. Sobald sie abweichen,
- * feuert es `kickflow:update-available` auf `window`.
+ * Nativ: expo-updates prüft beim Start (checkAutomatically ON_LOAD) und lädt
+ * wegen fallbackToCacheTimeout 0 im Hintergrund — aktiv würde das Update damit
+ * erst beim *nächsten* Kaltstart. Damit ein Fix nicht zwei Starts braucht,
+ * zeigen wir denselben Banner wie im Web und rufen erst bei Tap reloadAsync().
  *
- * Reload passiert ausschließlich auf Tap, nie automatisch — ein Auto-Reload
- * könnte mitten in einer unges­pei­cherten Aufstellungsbearbeitung zuschlagen.
+ * Reload passiert also ausschließlich auf Tap, nie automatisch — derselbe Grund
+ * wie in UpdateBanner.web.tsx: ein Auto-Reload könnte mitten in einer
+ * ungespeicherten Aufstellungsbearbeitung zuschlagen.
+ *
+ * Zusätzlich beim Wechsel in den Vordergrund erneut prüfen — das Pendant zum
+ * visibilitychange-Handler in public/register-sw.js. Kein 30-Minuten-Intervall
+ * wie dort: eine im Hintergrund liegende App bekommt ohnehin keinen Tap.
  */
 export function UpdateBanner() {
-  const insets = useSafeAreaInsets();
-  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const { isUpdatePending } = Updates.useUpdates();
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    function handleUpdate() {
-      setUpdateAvailable(true);
-    }
-    window.addEventListener('kickflow:update-available', handleUpdate);
-    return () => window.removeEventListener('kickflow:update-available', handleUpdate);
+    if (!Updates.isEnabled) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkForUpdate();
+    });
+    return () => subscription.remove();
   }, []);
 
-  if (!updateAvailable) return null;
-
-  return (
-    <Pressable
-      style={[styles.banner, { top: insets.top + spacing.sm }]}
-      onPress={() => window.location.reload()}
-    >
-      <Text style={styles.text}>Neue Version verfügbar — antippen zum Aktualisieren</Text>
-    </Pressable>
-  );
+  if (!isUpdatePending) return null;
+  return <UpdateBannerView onPress={reload} />;
 }
 
-const styles = StyleSheet.create({
-  banner: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: 1000,
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-  },
-  text: {
-    ...typography.caption,
-    color: colors.background,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});
+function reload() {
+  // Dunkler Reload-Screen statt Weiß-Blitz zwischen den Bundles — passt zum
+  // dunklen Theme der App (siehe app.json backgroundColor).
+  void Updates.reloadAsync({
+    reloadScreenOptions: {
+      backgroundColor: colors.background,
+      fade: true,
+      spinner: { enabled: true, color: colors.accent },
+    },
+  });
+}
+
+async function checkForUpdate() {
+  try {
+    const result = await Updates.checkForUpdateAsync();
+    if (result.isAvailable) await Updates.fetchUpdateAsync();
+  } catch {
+    // Offline oder Update-Server nicht erreichbar — beim nächsten
+    // Vordergrund-Wechsel erneut versuchen. Bewusst still, wie der
+    // .catch(() => {}) in public/register-sw.js.
+  }
+}
