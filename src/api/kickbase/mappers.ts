@@ -122,8 +122,12 @@ export function toLeagueSummary(raw: RawLeague): LeagueSummary {
     coverImageUrl: imageUrl(raw.lim ?? raw.cpim),
     budget: raw.b ?? 0,
     teamValue: raw.tv ?? 0,
-    memberCount: raw.un ?? 0,
-    playerLimit: raw.pl ?? 0,
+    // `lpc` ist die Zahl der Manager in der Liga — per scripts/.probe-output/leagues.json
+    // verifiziert (`lpc: 11` für eine 11er-Liga). `un` sah lange nach derselben Größe aus,
+    // ist aber ein Aktivitäts-/Ungelesen-Zähler (dort 46) und wurde deshalb falsch angezeigt.
+    // Nicht mit dem gleichnamigen `lpc` auf lineup/overview verwechseln — das ist die Zahl
+    // der aufgestellten Spieler (siehe lineupPlayerCount in toLineupData unten).
+    memberCount: raw.lpc ?? 0,
     isAdmin: raw.adm ?? false,
     competitionId: raw.cpi ?? '1',
   };

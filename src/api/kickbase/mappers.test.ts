@@ -105,7 +105,10 @@ describe('toAuthSession', () => {
 
 describe('toLeagueSummary', () => {
   // Beispiel 1:1 aus scripts/probe.ts gegen einen echten Account. `cpi` ist
-  // trotz Doku-Namens ("Cover photo identifier") die Competition-ID.
+  // trotz Doku-Namens ("Cover photo identifier") die Competition-ID. `un` und
+  // `pl` sind absichtlich mit im Fixture: beide wurden früher als Manager-Zahl
+  // bzw. Spielerlimit gelesen und sind es nicht (Aktivitätszähler bzw. eigene
+  // Platzierung) — die Zuweisung darf nie wieder dorthin zurückrutschen.
   const raw: RawLeague = {
     i: '2609146',
     n: 'HaramLig',
@@ -125,8 +128,7 @@ describe('toLeagueSummary', () => {
       coverImageUrl: 'https://kickbase.b-cdn.net/league/cover.jpe',
       budget: 58818981,
       teamValue: 238105120,
-      memberCount: 538,
-      playerLimit: 3,
+      memberCount: 9,
       isAdmin: false,
       competitionId: '1',
     });

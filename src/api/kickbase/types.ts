@@ -221,7 +221,6 @@ export interface LeagueSummary {
   budget: number;
   teamValue: number;
   memberCount: number;
-  playerLimit: number;
   isAdmin: boolean;
   competitionId: string;
 }
