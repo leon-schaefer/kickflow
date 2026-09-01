@@ -20,13 +20,18 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
-import { useLeagueRules } from '@/lineup/useLeagueRules';
+import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
-import { AVAILABLE_FORMATIONS, orderIdsByPosition, requiredCountsForFormation } from '@/utils/formations';
+import {
+  AVAILABLE_FORMATIONS,
+  formationFor,
+  orderIdsByPosition,
+  requiredCountsForFormation,
+} from '@/utils/formations';
 import { compareByMetric } from '@/utils/lineupOptimizer';
 import { resolveMatchdayState } from '@/utils/matchday';
 
@@ -48,7 +53,7 @@ export default function LineupScreen() {
   const league = useCurrentLeague();
   const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
-  const { rules } = useLeagueRules(leagueId);
+  const { rules } = useLeagueRulesContext();
   const [, forceTick] = useState(0);
 
   const [editing, setEditing] = useState(false);
@@ -56,6 +61,9 @@ export default function LineupScreen() {
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const [selectedBenchId, setSelectedBenchId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Rückmeldung zur automatischen Formationserkennung — lebt nur bis zum
+  // nächsten Eingriff und ersetzt solange die Hinweiszeile unter dem Feld.
+  const [autoNote, setAutoNote] = useState<string | null>(null);
 
   // Eingefroren zum Zeitpunkt des letzten "Optimieren" — treibt Marker/Diff-Anzeige,
   // unabhängig vom aktuellen (nach dem Übernehmen wieder leeren) Live-Diff.
@@ -96,6 +104,7 @@ export default function LineupScreen() {
     setSaveError(null);
     setAppliedDiff(null);
     setPreOptimize(null);
+    setAutoNote(null);
     setEditing(true);
   }
 
@@ -105,17 +114,23 @@ export default function LineupScreen() {
     setSaveError(null);
     setAppliedDiff(null);
     setPreOptimize(null);
+    setAutoNote(null);
   }
 
-  /** Veraltete Optimizer-Marker verwerfen — jeder manuelle Eingriff macht den eingefrorenen Diff ungültig. */
-  function clearOptimizerMarkers() {
+  /**
+   * Veraltete Marker verwerfen — jeder manuelle Eingriff macht den
+   * eingefrorenen Optimizer-Diff und die letzte Formations-Rückmeldung ungültig.
+   */
+  function clearEditMarkers() {
     setAppliedDiff(null);
     setPreOptimize(null);
+    setAutoNote(null);
   }
 
   function applyOptimization() {
     const best = optimizer.result.best;
     if (!best) return;
+    setAutoNote(null);
     setPreOptimize({ formation, draftIds });
     setAppliedDiff(optimizer.preview);
     setFormation(best.formation);
@@ -130,6 +145,7 @@ export default function LineupScreen() {
     setSelectedBenchId(null);
     setAppliedDiff(null);
     setPreOptimize(null);
+    setAutoNote(null);
   }
 
   const playersById = useMemo(() => {
@@ -148,8 +164,26 @@ export default function LineupScreen() {
     return counts;
   }, [draftIds, playersById]);
 
+  /** Positionsverteilung des Entwurfs nach einem geplanten Zu-/Abgang. */
+  function countsAfter({ add, remove }: { add?: Position; remove?: Position }): Record<Position, number> {
+    const next = { ...countByPosition };
+    if (remove) next[remove]--;
+    if (add) next[add]++;
+    return next;
+  }
+
+  /** Bewertung der Formations-Chips als Tiebreak für die automatische Erkennung. */
+  function formationScore(f: string): number | null {
+    return optimizer.scoreByFormation.get(f) ?? null;
+  }
+
+  /** Formation, in der die Verteilung unterkommt — null, wenn es keine gibt. */
+  function detectFormation(counts: Record<Position, number>): string | null {
+    return formationFor(counts, { current: formation, score: formationScore });
+  }
+
   function changeFormation(next: string) {
-    clearOptimizerMarkers();
+    clearEditMarkers();
     const nextRequired = requiredCountsForFormation(next);
     setDraftIds((current) => {
       const byPosition: Record<Position, SquadPlayer[]> = { GK: [], DEF: [], MID: [], FWD: [] };
@@ -175,15 +209,28 @@ export default function LineupScreen() {
       openPlayer(player);
       return;
     }
-    clearOptimizerMarkers();
+    clearEditMarkers();
     if (selectedBenchId) {
       const benchPlayer = playersById.get(selectedBenchId);
-      if (benchPlayer && benchPlayer.position === player.position) {
-        setDraftIds((current) =>
-          current.filter((id) => id !== player.id).concat(benchPlayer.id),
-        );
+      if (!benchPlayer) return;
+      const swap = () => {
+        setDraftIds((current) => current.filter((id) => id !== player.id).concat(benchPlayer.id));
         setSelectedBenchId(null);
+      };
+      if (benchPlayer.position === player.position) {
+        swap();
+        return;
       }
+      // Positionsübergreifender Tausch — erlaubt, solange die Elf danach in
+      // irgendeine Formation passt. Bei voller Elf ist das der einzige Weg,
+      // das System überhaupt zu wechseln, ohne vorher Spieler abzuräumen.
+      const next = detectFormation(countsAfter({ add: benchPlayer.position, remove: player.position }));
+      if (!next) {
+        setAutoNote('Kein passendes System für diesen Tausch.');
+        return;
+      }
+      swap();
+      applyDetectedFormation(next);
       return;
     }
     setDraftIds((current) => current.filter((id) => id !== player.id));
@@ -194,13 +241,30 @@ export default function LineupScreen() {
       openPlayer(player);
       return;
     }
-    clearOptimizerMarkers();
+    clearEditMarkers();
     if (countByPosition[player.position] < required[player.position]) {
       setDraftIds((current) => current.concat(player.id));
       setSelectedBenchId(null);
-    } else {
-      setSelectedBenchId((current) => (current === player.id ? null : player.id));
+      return;
     }
+    // Position in der aktuellen Formation voll — statt nur einen Tausch
+    // anzubieten, die Formation mitziehen, wenn eine passt. Bewusst nicht über
+    // changeFormation(): dessen Pruning würde den Entwurf beschneiden, obwohl
+    // hier per Konstruktion jeder Spieler unterkommt.
+    const next = detectFormation(countsAfter({ add: player.position }));
+    if (next) {
+      setDraftIds((current) => current.concat(player.id));
+      setSelectedBenchId(null);
+      applyDetectedFormation(next);
+      return;
+    }
+    setSelectedBenchId((current) => (current === player.id ? null : player.id));
+  }
+
+  function applyDetectedFormation(next: string) {
+    if (next === formation) return;
+    setFormation(next);
+    setAutoNote(`Formation auf ${next} angepasst.`);
   }
 
   async function handleSave() {
@@ -345,9 +409,11 @@ export default function LineupScreen() {
 
       {editing && (
         <Text style={styles.hint}>
-          {selectedBenchId
-            ? 'Spieler auf dem Feld antippen, um zu tauschen.'
-            : 'Startelf-Spieler antippen entfernt ihn auf die Bank. Bankspieler antippen füllt eine freie Position.'}
+          {autoNote
+            ? autoNote
+            : selectedBenchId
+              ? 'Spieler auf dem Feld antippen, um zu tauschen — die Formation passt sich an.'
+              : 'Startelf-Spieler antippen entfernt ihn auf die Bank. Bankspieler antippen füllt eine freie Position oder passt die Formation an.'}
         </Text>
       )}
 

@@ -41,6 +41,48 @@ export function orderIdsByPosition(
   return POSITION_ORDER.flatMap((position) => byPosition[position]);
 }
 
+/**
+ * Formation, in der die gegebene Positionsverteilung vollständig unterkommt
+ * (count <= required je Position) — die Formation folgt damit der Aufstellung
+ * statt umgekehrt (siehe tapBenchPlayer/tapPitchPlayer in lineup.tsx).
+ * `current` gewinnt, wenn sie passt: umgestellt wird nie ohne Not. Sonst die
+ * passende Formation mit dem höchsten `score`, bei Gleichstand (oder ganz ohne
+ * `score`) die erste aus `formations`. null, wenn keine Formation passt.
+ *
+ * Eine Prüfung auf höchstens 11 Spieler erübrigt sich: jede Formation summiert
+ * auf genau 11 (siehe formations.test.ts), also folgt das schon aus der
+ * Positions-Bedingung. Ein zweiter Torwart passt entsprechend nirgends.
+ */
+export function formationFor(
+  counts: Record<Position, number>,
+  options: {
+    current?: string;
+    /** null = unbekannt/nicht bewertbar, verliert gegen jede Zahl. */
+    score?: (formation: string) => number | null;
+    formations?: readonly string[];
+  } = {},
+): string | null {
+  const { current, score, formations = AVAILABLE_FORMATIONS } = options;
+  const fits = (formation: string) => {
+    const required = requiredCountsForFormation(formation);
+    return POSITION_ORDER.every((position) => counts[position] <= required[position]);
+  };
+
+  if (current && formations.includes(current) && fits(current)) return current;
+
+  let best: string | null = null;
+  let bestScore = -Infinity;
+  for (const formation of formations) {
+    if (!fits(formation)) continue;
+    const value = score?.(formation) ?? -Infinity;
+    if (best === null || value > bestScore) {
+      best = formation;
+      bestScore = value;
+    }
+  }
+  return best;
+}
+
 /** Formation → geforderte Spieleranzahl je Position (GK ist immer 1). */
 export function requiredCountsForFormation(formation: string): Record<Position, number> {
   const rows = parseFormation(formation);
