@@ -18,6 +18,10 @@ export interface LeagueRules {
  * Liga-eigene Optimizer-Regeln, lokal pro Liga persistiert — Kickbase hat
  * dafür keinen Settings-Endpunkt. Kein Auto-Resume-Problem wie bei
  * lastLeague.ts: jede Liga hat ihren eigenen Key, ein Wechsel lädt neu.
+ *
+ * NICHT direkt in Screens aufrufen — der State ist lokal, zwei Aufrufe ergeben
+ * zwei Kopien, die nichts voneinander mitbekommen. Einziger Aufrufer ist
+ * LeagueRulesProvider; Screens nutzen useLeagueRulesContext().
  */
 export function useLeagueRules(leagueId: string): LeagueRules {
   const [rules, setRules] = useState<LineupRule[]>(DEFAULT_RULES);

@@ -7,8 +7,8 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
+import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { DEFAULT_RULES, type MaxPerTeamRule } from '@/lineup/rules';
-import { useLeagueRules } from '@/lineup/useLeagueRules';
 import { useCompetitionTeams, useLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -27,7 +27,7 @@ export default function RulesScreen() {
   const competitionId = useCompetitionId();
   const league = useCurrentLeague();
   const backTitle = useFocusedLeagueTabTitle();
-  const { rules, updateRule } = useLeagueRules(leagueId);
+  const { rules, updateRule, loaded } = useLeagueRulesContext();
   const lineupQuery = useLineup(leagueId);
   const { data: lineup } = lineupQuery;
   const { data: teams } = useCompetitionTeams(competitionId);
@@ -70,34 +70,42 @@ export default function RulesScreen() {
       <Refreshable {...refresh}>
         {(p) => (
           <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Checkbox
-            label="Max. Spieler pro Verein"
-            checked={maxPerTeamRule.enabled}
-            onChange={(enabled) => updateRule('maxPerTeam', { enabled })}
-            hint={
-              maxPerTeamRule.enabled
-                ? 'Gilt für jeden Verein gleich — der Optimizer hält sich immer daran.'
-                : 'Regel ist aus — der Optimizer ignoriert sie.'
-            }
-          />
-          <View style={styles.chipRow}>
-            {QUICK_VALUES.map((value) => (
-              <Pressable
-                key={value}
-                style={[
-                  styles.chip,
-                  maxPerTeamRule.max === value && styles.chipActive,
-                  !maxPerTeamRule.enabled && styles.chipDisabled,
-                ]}
-                onPress={() => updateRule('maxPerTeam', { max: value })}
-                disabled={!maxPerTeamRule.enabled}
-              >
-                <Text style={[styles.chipText, maxPerTeamRule.max === value && styles.chipTextActive]}>{value}</Text>
-              </Pressable>
-            ))}
+        {/*
+         * Erst nach dem Laden rendern: Bis dahin stünden hier die DEFAULT_RULES
+         * (enabled: false), und ein Klick in diesem Fenster würde vom
+         * nachziehenden Storage-Wert überschrieben — und obendrein den falschen
+         * Stand persistieren (siehe useLeagueRules.ts).
+         */}
+        {loaded && (
+          <View style={styles.card}>
+            <Checkbox
+              label="Max. Spieler pro Verein"
+              checked={maxPerTeamRule.enabled}
+              onChange={(enabled) => updateRule('maxPerTeam', { enabled })}
+              hint={
+                maxPerTeamRule.enabled
+                  ? 'Gilt für jeden Verein gleich — der Optimizer hält sich immer daran.'
+                  : 'Regel ist aus — der Optimizer ignoriert sie.'
+              }
+            />
+            <View style={styles.chipRow}>
+              {QUICK_VALUES.map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.chip,
+                    maxPerTeamRule.max === value && styles.chipActive,
+                    !maxPerTeamRule.enabled && styles.chipDisabled,
+                  ]}
+                  onPress={() => updateRule('maxPerTeam', { max: value })}
+                  disabled={!maxPerTeamRule.enabled}
+                >
+                  <Text style={[styles.chipText, maxPerTeamRule.max === value && styles.chipTextActive]}>{value}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {teamRows.length > 0 && (
           <View style={styles.card}>
