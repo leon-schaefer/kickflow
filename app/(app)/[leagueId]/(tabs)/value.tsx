@@ -121,6 +121,7 @@ export default function ValueScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
       >
         {isMarket && (
@@ -237,18 +238,27 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+  // ScrollView setzt intern flexGrow: 1 (auch horizontal) — ohne das hier
+  // auf 0 zu setzen, füllt die Zeile den ganzen restlichen Screen-Platz.
+  chipScroll: {
+    flexGrow: 0,
+  },
   chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
+    // RN misst die Content-Höhe der ScrollView falsch, sobald der Inhalt
+    // breiter als der Screen ist und wirklich gescrollt werden muss (mit nur
+    // 3 Chips wie im Kader-Segment tritt der Bug nicht auf) — die Chips
+    // schrumpfen dann auf reine Texthöhe ohne Padding. Feste Mindesthöhe
+    // statt Auto behebt das zuverlässig.
+    minHeight: 50,
   },
   chipDivider: {
     width: StyleSheet.hairlineWidth,
-    // Feste Höhe statt alignSelf: 'stretch' — in einer horizontalen
-    // ScrollView ohne definierte Höhe bläht ein stretchendes Kind die
-    // gesamte Zeile auf den verfügbaren Flex-Platz des Screens auf.
-    height: 20,
+    alignSelf: 'stretch',
+    marginVertical: spacing.xs,
     backgroundColor: colors.border,
   },
   sortChip: {

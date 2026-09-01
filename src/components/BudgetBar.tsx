@@ -33,6 +33,7 @@ export function BudgetBar({ limit }: BudgetBarProps) {
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
     padding: spacing.md,
     borderRadius: radius.md,
