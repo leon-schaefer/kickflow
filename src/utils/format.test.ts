@@ -5,6 +5,7 @@ import {
   formatDelta,
   formatMarketValueDate,
   formatMinutes,
+  formatPercentDelta,
   formatPointsPerMinute,
 } from './format';
 
@@ -32,6 +33,18 @@ describe('formatDelta', () => {
   });
   it('setzt ein ± bei 0', () => {
     expect(formatDelta(0)).toBe('±0 €');
+  });
+});
+
+describe('formatPercentDelta', () => {
+  it('setzt ein Plus vor einen Aufschlag', () => {
+    expect(formatPercentDelta(27)).toBe('+27 %');
+  });
+  it('setzt ein Minus vor einen Abschlag', () => {
+    expect(formatPercentDelta(-12)).toBe('−12 %');
+  });
+  it('setzt ein ± bei 0', () => {
+    expect(formatPercentDelta(0)).toBe('±0 %');
   });
 });
 

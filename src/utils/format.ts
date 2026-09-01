@@ -17,6 +17,12 @@ export function formatDelta(value: number): string {
   return `${sign}${formatCurrency(Math.abs(value))}`;
 }
 
+/** Formatiert einen Prozent-Aufschlag mit Vorzeichen: 27 → "+27 %", -12 → "−12 %". */
+export function formatPercentDelta(percent: number): string {
+  const sign = percent > 0 ? '+' : percent < 0 ? '−' : '±';
+  return `${sign}${Math.abs(percent).toLocaleString('de-DE')} %`;
+}
+
 export function formatPoints(value: number): string {
   return value.toLocaleString('de-DE');
 }

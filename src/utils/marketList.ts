@@ -7,6 +7,23 @@
  * `MarketPlayer` aus.
  */
 
+/**
+ * Aufschlag des Angebotspreises auf den Marktwert, in ganzen Prozent:
+ * 12,4 Mio gefordert bei 9,8 Mio Marktwert → 27. Negativ = unter Marktwert.
+ *
+ * `null`, wenn es nichts zu zeigen gibt: kein eigener Angebotspreis (Kader-
+ * Segment), Marktwert 0 (kein sinnvoller Bezugspunkt) oder ein Aufschlag, der
+ * auf 0 % rundet — dann ist der Preis faktisch der Marktwert.
+ */
+export function marketMarkupPercent(
+  price: number | undefined,
+  marketValue: number,
+): number | null {
+  if (price === undefined || marketValue <= 0) return null;
+  const percent = Math.round(((price - marketValue) / marketValue) * 100);
+  return percent === 0 ? null : percent;
+}
+
 /** Nur Listings, auf die ich selbst geboten habe (Rohfeld `uop`, siehe mappers.ts). */
 export function filterOwnBids<T extends { ownOfferPrice?: number | null }>(
   players: readonly T[],

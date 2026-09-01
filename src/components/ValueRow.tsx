@@ -5,9 +5,11 @@ import {
   formatCountdown,
   formatCurrency,
   formatMinutes,
+  formatPercentDelta,
   formatPointsPerMinute,
   formatValueScore,
 } from '@/utils/format';
+import { marketMarkupPercent } from '@/utils/marketList';
 import type { PlaytimeTotals } from '@/utils/playtime';
 import { pointsPerMinute } from '@/utils/playtime';
 import { StatusBadge } from './StatusBadge';
@@ -51,7 +53,9 @@ interface ValueRowProps {
 /** Zeile für die Wert-Übersicht: Ø-/Gesamt-Punkte pro Mio und Punkte pro Spielminute nebeneinander, im Markt-Modus zusätzlich die Gebotslage. */
 export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
   const isMarket = onBid !== undefined;
-  const priceDiffersFromMarketValue = isMarket && player.price !== undefined && player.price !== player.marketValue;
+  // Der nackte Marktwert daneben wäre nur eine zweite Zahl ohne Aussage — der
+  // Aufschlag sagt direkt, wie weit die Forderung darüber liegt.
+  const markupPercent = isMarket ? marketMarkupPercent(player.price, player.marketValue) : null;
   const hasOwnOffer = player.ownOfferPrice != null;
 
   const offerCountLabel =
@@ -94,8 +98,10 @@ export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
           <Text style={styles.marketValue}>
             {formatCurrency(isMarket && player.price !== undefined ? player.price : player.marketValue)}
           </Text>
-          {priceDiffersFromMarketValue && (
-            <Text style={styles.marketValueHint}>MW {formatCurrency(player.marketValue)}</Text>
+          {markupPercent !== null && (
+            <Text style={[styles.markup, markupPercent < 0 && styles.markupDiscount]}>
+              {formatPercentDelta(markupPercent)}
+            </Text>
           )}
           {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
           {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
@@ -195,9 +201,15 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
-  marketValueHint: {
+  markup: {
     ...typography.small,
     color: colors.textMuted,
+  },
+  // Ein Aufschlag ist der Normalfall und bleibt unauffällig; unter Marktwert
+  // gelistet ist selten und genau die Zeile, die man sehen will.
+  markupDiscount: {
+    color: colors.positive,
+    fontWeight: '700',
   },
   playtimeText: {
     ...typography.small,

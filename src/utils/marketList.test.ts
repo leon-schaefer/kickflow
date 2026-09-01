@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { filterOwnBids, sortByExpiry } from './marketList';
+import { filterOwnBids, marketMarkupPercent, sortByExpiry } from './marketList';
+
+describe('marketMarkupPercent', () => {
+  it('rechnet den Aufschlag auf den Marktwert in ganze Prozent', () => {
+    expect(marketMarkupPercent(12_400_000, 9_800_000)).toBe(27);
+  });
+
+  it('gibt einen Abschlag negativ zurück', () => {
+    expect(marketMarkupPercent(8_800_000, 10_000_000)).toBe(-12);
+  });
+
+  it('gibt null zurück, wenn der Preis faktisch dem Marktwert entspricht', () => {
+    expect(marketMarkupPercent(10_000_000, 10_000_000)).toBeNull();
+    // 0,4 % runden auf 0 % — eine "±0 %"-Zeile wäre reines Rauschen.
+    expect(marketMarkupPercent(10_040_000, 10_000_000)).toBeNull();
+  });
+
+  it('gibt null ohne Angebotspreis oder ohne Marktwert zurück', () => {
+    expect(marketMarkupPercent(undefined, 10_000_000)).toBeNull();
+    expect(marketMarkupPercent(5_000_000, 0)).toBeNull();
+  });
+});
 
 describe('filterOwnBids', () => {
   it('behält nur Listings mit eigenem Gebot', () => {
