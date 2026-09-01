@@ -245,8 +245,10 @@ const styles = StyleSheet.create({
   },
   chipDivider: {
     width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    marginVertical: spacing.xs,
+    // Feste Höhe statt alignSelf: 'stretch' — in einer horizontalen
+    // ScrollView ohne definierte Höhe bläht ein stretchendes Kind die
+    // gesamte Zeile auf den verfügbaren Flex-Platz des Screens auf.
+    height: 20,
     backgroundColor: colors.border,
   },
   sortChip: {
