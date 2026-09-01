@@ -21,6 +21,13 @@ if ('serviceWorker' in navigator) {
 // Das ist kein Polling gegen Kickbase (siehe src/queries/queryClient.ts) —
 // nur ein Request an die eigene, statisch gehostete Seite, unabhängig vom
 // Cloudflare-Sperrrisiko dort.
+
+// Muss zu src/updates/buildId.ts passen (formatBuildId): Zeitstempel, optional
+// mit verkürzter Commit-SHA. src/updates/registerSw.test.ts füttert diesen
+// Check mit echter formatBuildId-Ausgabe, ein Formatwechsel fliegt also im
+// Test auf und nicht erst still in Produktion.
+const BUILD_ID_PATTERN = /^\d{8}T\d{6}Z(?:-[0-9a-f]{7,40})?$/;
+
 window.addEventListener('load', () => {
   // Baseline erst beim ersten erfolgreichen Fetch setzen, nicht synchron beim
   // Laden — bei einem flakey Request auf die eigene Seite soll der Check beim
@@ -68,7 +75,16 @@ window.addEventListener('load', () => {
 function fetchBuildId() {
   return fetch('/build-id.txt', { cache: 'no-store' })
     .then((res) => (res.ok ? res.text() : null))
-    .then((text) => (text ? text.trim() : null))
+    .then((text) => {
+      const buildId = text ? text.trim() : null;
+      // Fehlt build-id.txt im Deploy, greift der SPA-Rewrite aus vercel.json
+      // und liefert index.html mit Status 200 — ohne Formatprüfung ginge eine
+      // ganze HTML-Seite als Build-ID durch und der Check würde je nach
+      // Bundle-Hash zufällig feuern oder nie. Alles, was nicht wie eine
+      // Build-ID aussieht, zählt deshalb als Fehlschlag und wird nach drei
+      // Versuchen gemeldet.
+      return buildId && BUILD_ID_PATTERN.test(buildId) ? buildId : null;
+    })
     .catch(() => {
       // Offline oder Netzwerkfehler — beim nächsten Intervall/Fokus erneut versuchen.
       return null;
