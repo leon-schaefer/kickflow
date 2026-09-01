@@ -22,7 +22,7 @@ export interface LineupOptimizer {
   result: OptimizationResult;
   /** scoreAverage je Formation, für die Score-Unterzeile der Chips. */
   scoreByFormation: Map<string, number | null>;
-  /** Unabhängig von der Metrik — basiert auf beiden Optimierungen zugleich. */
+  /** Basiert auf beiden Optimierungen zugleich; bei negativem Konto zusätzlich auf `budgetPlan`. */
   sellAdvice: SellAdvice[];
   /** Diff der vorgeschlagenen besten Elf gegen die aktuelle Aufstellung. */
   preview: OptimizerDiff;
@@ -31,6 +31,8 @@ export interface LineupOptimizer {
   setBalanceBudget: (value: boolean) => void;
   /** Nur gesetzt, wenn balanceBudget aktiv UND ein Defizit besteht — siehe utils/sellPlan.ts. */
   sellPlan: SellPlan | null;
+  /** Derselbe Plan, aber unabhängig von der Checkbox — nur gesetzt, wenn ein Defizit besteht. Treibt die Pflichtverkäufe in sellAdvice. */
+  budgetPlan: SellPlan | null;
   /** Liga-eigene Optimizer-Regeln (src/lineup/rules.ts) — inkl. dauerhaft deaktivierter. */
   rules: readonly LineupRule[];
   /** Einmalig für diese Optimierung ignorieren (Session-only) — zurückgesetzt bei Regeländerung oder Liga-Wechsel. */
@@ -51,9 +53,11 @@ function diffAgainstDraft(bestPlayerIds: readonly string[] | undefined, draftIds
  * Hält ausschließlich State und Memoisierung — jede Entscheidung bleibt in
  * den testbaren, reinen Modulen `lineupOptimizer.ts`/`constrainedLineup.ts`/
  * `sellAdvice.ts`. Beide Metriken werden immer berechnet (günstig bei
- * ~15–25 Spielern), weil `sellAdvice` beide braucht; ein Toggle ist damit ein
- * reines Neu-Auswählen, keine Neuberechnung, und die Empfehlungsliste
- * flackert beim Umschalten nicht.
+ * ~15–25 Spielern), weil `sellAdvice` beide braucht; ein Toggle ist damit für
+ * die Elf ein reines Neu-Auswählen, keine Neuberechnung. Einzige Ausnahme ist
+ * der Pflichtverkaufsplan bei negativem Konto (`budgetPlan`): der hängt an der
+ * aktiven Metrik und wird beim Umschalten neu berechnet — dafür nennen
+ * Kaufen/Verkaufen-Liste und "Konto ausgleichen" garantiert dieselben Spieler.
  */
 export function useLineupOptimizer(
   players: readonly SquadPlayer[],
@@ -86,13 +90,17 @@ export function useLineupOptimizer(
   );
   const unconstrainedResult = metric === 'valuePerMillion' ? efficiencyResult : pointsResult;
 
-  // Nur für die AKTIVE Metrik berechnet, nicht wie efficiencyResult/pointsResult
-  // für beide zugleich — sellAdvice (unten) braucht den Sell-Plan nicht, und
-  // ein Metrikwechsel bei aktiver Checkbox berechnet ohnehin neu.
-  const sellPlan = useMemo(
-    () => (balanceBudget && deficit > 0 ? buildSellPlan(players, metric, deficit, AVAILABLE_FORMATIONS, constraints) : null),
-    [players, metric, deficit, balanceBudget, constraints],
+  // Immer berechnet, sobald das Konto im Minus ist — die Kaufen/Verkaufen-Liste
+  // zeigt die Pflichtverkäufe auch ohne aktive Checkbox und außerhalb des
+  // Edit-Modus. Nur für die AKTIVE Metrik, nicht wie efficiencyResult/
+  // pointsResult für beide zugleich.
+  const budgetPlan = useMemo(
+    () => (deficit > 0 ? buildSellPlan(players, metric, deficit, AVAILABLE_FORMATIONS, constraints) : null),
+    [players, metric, deficit, constraints],
   );
+  // Die Checkbox entscheidet nur noch, ob der Plan auch die ANGEZEIGTE Elf
+  // bestimmt — gerechnet wird er ohnehin.
+  const sellPlan = balanceBudget ? budgetPlan : null;
 
   // Bei aktivem balanceBudget hat der Kontoausgleich Priorität vor Punkten —
   // auch ein nicht voll feasible-r Plan (Kader reicht nicht ganz) verkauft
@@ -106,9 +114,11 @@ export function useLineupOptimizer(
     return map;
   }, [result]);
 
+  // Die ID-Liste bewusst INNERHALB des Memos ableiten: ein pro Render neu
+  // gebautes Array würde die Memoisierung sofort entwerten.
   const sellAdvice = useMemo(
-    () => deriveSellAdvice(players, efficiencyResult, pointsResult),
-    [players, efficiencyResult, pointsResult],
+    () => deriveSellAdvice(players, efficiencyResult, pointsResult, budgetPlan?.sell.map((entry) => entry.playerId) ?? []),
+    [players, efficiencyResult, pointsResult, budgetPlan],
   );
 
   const preview = useMemo(
@@ -132,6 +142,7 @@ export function useLineupOptimizer(
     balanceBudget,
     setBalanceBudget,
     sellPlan,
+    budgetPlan,
     rules,
     ignoreRule,
     draftViolations,
