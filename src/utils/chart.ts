@@ -3,6 +3,15 @@ export interface ChartPoint {
   y: number;
 }
 
+export interface ChartScale {
+  coords: ChartPoint[];
+  /**
+   * y-Pixel für einen beliebigen Wert derselben Skala — z. B. eine
+   * Referenzlinie, die nicht selbst Teil der Kurve ist.
+   */
+  valueToY: (value: number) => number;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -14,18 +23,45 @@ export function nearestIndex(x: number, width: number, count: number): number {
   return clamp(Math.round(x / step), 0, count - 1);
 }
 
-/** Skaliert Werte auf SVG-Koordinaten; padY hält die Extrempunkte vom Rand weg. */
-export function toChartCoords(values: number[], width: number, height: number, padY = 0): ChartPoint[] {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+/**
+ * Skaliert Werte auf SVG-Koordinaten; padY hält die Extrempunkte vom Rand weg.
+ *
+ * `extraDomain` zieht zusätzliche Werte in die y-Domain, ohne sie zu zeichnen —
+ * gedacht für den Kaufpreis als Referenzlinie. Der wandert bewusst IMMER in die
+ * Domain, auch wenn er weit außerhalb der Kurve liegt: eine an den Chartrand
+ * geclampte Linie würde suggerieren, die Kurve sei fast am Kaufpreis gewesen.
+ * Dass die Kurve dann ins obere/untere Viertel gestaucht wird, ist genau die
+ * Aussage ("du liegst weit unter/über Kaufpreis").
+ */
+export function toChartScale(
+  values: number[],
+  width: number,
+  height: number,
+  padY = 0,
+  extraDomain: number[] = [],
+): ChartScale {
+  const domain = [...values, ...extraDomain];
+  const min = Math.min(...domain);
+  const max = Math.max(...domain);
   const range = max - min || 1;
   const innerHeight = height - 2 * padY;
 
-  return values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = padY + (1 - (v - min) / range) * innerHeight;
-    return { x, y };
-  });
+  const valueToY = (value: number) => padY + (1 - (value - min) / range) * innerHeight;
+
+  return {
+    coords: values.map((v, i) => ({ x: (i / (values.length - 1)) * width, y: valueToY(v) })),
+    valueToY,
+  };
+}
+
+/** Kurzform von `toChartScale` für Aufrufer ohne Referenzwert. */
+export function toChartCoords(
+  values: number[],
+  width: number,
+  height: number,
+  padY = 0,
+): ChartPoint[] {
+  return toChartScale(values, width, height, padY).coords;
 }
 
 /**

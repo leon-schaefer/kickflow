@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marketValueDate, nearestIndex, toChartCoords } from './chart';
+import { marketValueDate, nearestIndex, toChartCoords, toChartScale } from './chart';
 
 describe('nearestIndex', () => {
   it('liefert 0 am linken Rand', () => {
@@ -45,6 +45,33 @@ describe('toChartCoords', () => {
   it('erzeugt kein NaN bei konstanter Wertreihe', () => {
     const coords = toChartCoords([7, 7, 7], 100, 50);
     expect(coords.every((c) => !Number.isNaN(c.y))).toBe(true);
+  });
+});
+
+describe('toChartScale', () => {
+  it('zieht extraDomain in die y-Domain, ohne den Wert zu zeichnen', () => {
+    // Kaufpreis 9 liegt über dem Kurvenmaximum 5 → das Maximum darf nicht
+    // mehr am oberen Rand kleben, sonst läge die Referenzlinie außerhalb.
+    const { coords, valueToY } = toChartScale([1, 5, 3], 100, 50, 0, [9]);
+    expect(coords.length).toBe(3);
+    expect(coords[1]!.y).toBeGreaterThan(0);
+    expect(valueToY(9)).toBe(0); // neues Maximum → oben
+    expect(valueToY(1)).toBe(50); // Minimum → unten
+  });
+
+  it('bildet Domain-Grenzen unter Berücksichtigung von padY ab', () => {
+    const { valueToY } = toChartScale([1, 5], 100, 50, 5);
+    expect(valueToY(5)).toBe(5);
+    expect(valueToY(1)).toBe(45);
+  });
+
+  it('liefert ohne extraDomain exakt dieselben Koordinaten wie toChartCoords', () => {
+    expect(toChartScale([1, 5, 3], 100, 50, 5).coords).toEqual(toChartCoords([1, 5, 3], 100, 50, 5));
+  });
+
+  it('erzeugt kein NaN bei konstanter Wertreihe', () => {
+    const { valueToY } = toChartScale([7, 7, 7], 100, 50);
+    expect(Number.isNaN(valueToY(7))).toBe(false);
   });
 });
 

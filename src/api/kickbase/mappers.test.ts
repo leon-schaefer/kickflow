@@ -210,6 +210,22 @@ describe('toSquadPlayer + toLineupData (der zentrale Merge)', () => {
     });
   });
 
+  it('leitet den Kaufpreis aus mv − mvgl ab', () => {
+    expect(toSquadPlayer(squadPlayer, lineupEntry).purchasePrice).toBe(26_118_650);
+  });
+
+  it('lässt den Kaufpreis null, wenn mvgl fehlt (statt mv vorzutäuschen)', () => {
+    expect(toSquadPlayer(benchPlayer, undefined).purchasePrice).toBeNull();
+  });
+
+  it('behandelt mvgl 0 als Kaufpreis gleich Marktwert', () => {
+    expect(toSquadPlayer({ ...squadPlayer, mvgl: 0 }, undefined).purchasePrice).toBe(10_973_197);
+  });
+
+  it('lässt den Kaufpreis null, wenn mvgl den Marktwert erreicht (Kaufpreis ≤ 0)', () => {
+    expect(toSquadPlayer({ ...squadPlayer, mvgl: 10_973_197 }, undefined).purchasePrice).toBeNull();
+  });
+
   it('markiert einen Bankspieler korrekt (kein Lineup-Eintrag)', () => {
     const mapped = toSquadPlayer(benchPlayer, undefined);
     expect(mapped.inLineup).toBe(false);

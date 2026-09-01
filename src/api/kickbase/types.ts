@@ -41,6 +41,13 @@ export interface SquadPlayer {
   marketValue: number;
   marketValueTrend: MarketValueTrend;
   marketValueChangeToday: number;
+  /**
+   * Kaufpreis, abgeleitet als `mv − mvgl`. `null`, wenn die API kein `mvgl`
+   * liefert — dann ist der Kaufpreis schlicht unbekannt und wird nicht geraten.
+   * Die Differenz zum heutigen Marktwert ergibt sich daraus (siehe
+   * src/utils/purchase.ts) und wird deshalb nicht zusätzlich gespeichert.
+   */
+  purchasePrice: number | null;
 
   totalPoints: number;
   averagePoints: number;
