@@ -18,6 +18,7 @@ import {
 import {
   rawCompetitionMatchdaysSchema,
   rawCompetitionTableSchema,
+  rawLeagueManagersSchema,
   rawLeaguesResponseSchema,
   rawLineupOverviewSchema,
   rawLoginResponseSchema,
@@ -48,9 +49,36 @@ export async function login(email: string, password: string): Promise<AuthSessio
   return toAuthSession(rawLoginResponseSchema.parse(raw));
 }
 
+/**
+ * Manager-Zahl einer einzelnen Liga. `/leagues/selection` (getLeagues) liefert
+ * dafür KEIN brauchbares Feld — `un`, `lpc` und `pl` wurden alle schon fälschlich
+ * dafür gehalten (siehe toLeagueSummary in mappers.ts). Verifiziert am 01.09.2026
+ * per `npm run probe` gegen zwei real unterschiedlich große Ligen: `us.length` auf
+ * `/settings/managers` ergab 12 bzw. 2 — deckungsgleich mit `overview.mgc` und
+ * `ranking.us.length`, aber mit dem schlankesten Payload der drei.
+ * `null` statt eines Requestfehlers, damit ein einzelner ausgefallener
+ * Zusatzrequest nie die ganze Ligenliste zum Absturz bringt (siehe getLeagues).
+ */
+export async function getLeagueManagerCount(token: string, leagueId: string): Promise<number | null> {
+  const raw = await kbFetch(`/v4/leagues/${leagueId}/settings/managers`, { token });
+  return rawLeagueManagersSchema.parse(raw).us.length;
+}
+
 export async function getLeagues(token: string): Promise<LeagueSummary[]> {
   const raw = await kbFetch('/v4/leagues/selection', { token });
-  return rawLeaguesResponseSchema.parse(raw).it.map(toLeagueSummary);
+  const leagues = rawLeaguesResponseSchema.parse(raw).it.map(toLeagueSummary);
+
+  // Pro Liga parallel nachladen statt seriell — und mit allSettled, damit eine
+  // einzelne fehlgeschlagene Liga (z.B. Rechte fehlen) nicht die ganze Liste kippt.
+  const counts = await Promise.allSettled(
+    leagues.map((league) => getLeagueManagerCount(token, league.id)),
+  );
+  leagues.forEach((league, index) => {
+    const result = counts[index];
+    league.memberCount = result?.status === 'fulfilled' ? result.value : null;
+  });
+
+  return leagues;
 }
 
 /**

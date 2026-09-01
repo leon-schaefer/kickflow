@@ -122,12 +122,14 @@ export function toLeagueSummary(raw: RawLeague): LeagueSummary {
     coverImageUrl: imageUrl(raw.lim ?? raw.cpim),
     budget: raw.b ?? 0,
     teamValue: raw.tv ?? 0,
-    // `lpc` ist die Zahl der Manager in der Liga — per scripts/.probe-output/leagues.json
-    // verifiziert (`lpc: 11` für eine 11er-Liga). `un` sah lange nach derselben Größe aus,
-    // ist aber ein Aktivitäts-/Ungelesen-Zähler (dort 46) und wurde deshalb falsch angezeigt.
-    // Nicht mit dem gleichnamigen `lpc` auf lineup/overview verwechseln — das ist die Zahl
-    // der aufgestellten Spieler (siehe lineupPlayerCount in toLineupData unten).
-    memberCount: raw.lpc ?? 0,
+    // Weder `un` (Aktivitäts-/Ungelesen-Zähler) noch `lpc` (Lineup-Spielerzahl,
+    // fast immer 11 — nicht zu verwechseln mit dem gleichnamigen `lpc` auf
+    // lineup/overview, siehe lineupPlayerCount in toLineupData unten) noch `pl`
+    // (eigene Platzierung) sind die Manager-Zahl — alle drei wurden das schon
+    // fälschlich mal. /leagues/selection liefert sie gar nicht; getLeagues() in
+    // endpoints.ts holt sie separat per /settings/managers und setzt sie hier
+    // nachträglich. null = Zusatzrequest fehlgeschlagen.
+    memberCount: null,
     isAdmin: raw.adm ?? false,
     competitionId: raw.cpi ?? '1',
   };

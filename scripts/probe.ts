@@ -66,6 +66,61 @@ async function main() {
   const leagueId = leagueList[0].i;
   console.log(`  Verwende Liga "${leagueList[0].n}" (${leagueId}) für die restlichen Aufrufe.`);
 
+  // --- Manager-Zahl-Kandidaten: über ALLE Ligen, nicht nur leagueList[0] ---
+  // Hintergrund: `memberCount` zeigte zuletzt konstant 11 an, weil es aus `lpc` auf
+  // /leagues/selection gelesen wurde — das ist dort aber die Lineup-Spielerzahl, nicht
+  // die Manager-Zahl (siehe mappers.ts). Mit mindestens zwei unterschiedlich großen
+  // Ligen lässt sich das richtige Feld eindeutig identifizieren statt zu raten.
+  console.log('\n=== Manager-Zahl-Kandidaten ===');
+  console.log('Top-Level-Felder der /leagues/selection-Antwort:', {
+    anol: leagues.anol,
+    anopl: leagues.anopl,
+    anoprl: leagues.anoprl,
+  });
+  for (const l of leagueList) {
+    const numericFields = Object.fromEntries(
+      Object.entries(l).filter(([, v]) => typeof v === 'number'),
+    );
+    console.log(`\nLiga "${l.n}" (${l.i}) — numerische Felder aus /leagues/selection:`, numericFields);
+
+    let overviewMgc: unknown = 'n/a';
+    let overviewMidLen: unknown = 'n/a';
+    let overviewUsLen: unknown = 'n/a';
+    try {
+      const overview = await getJson(`/v4/leagues/${l.i}/overview?includeManagersAndBattles=true`, token);
+      await dump(`overview-${l.i}`, overview);
+      overviewMgc = overview.mgc;
+      overviewMidLen = Array.isArray(overview.mid) ? overview.mid.length : 'n/a';
+      overviewUsLen = Array.isArray(overview.us) ? overview.us.length : 'n/a';
+    } catch (err) {
+      console.warn(`  /leagues/${l.i}/overview fehlgeschlagen:`, err);
+    }
+
+    let rankingUsLen: unknown = 'n/a';
+    try {
+      const ranking = await getJson(`/v4/leagues/${l.i}/ranking`, token);
+      await dump(`ranking-${l.i}`, ranking);
+      rankingUsLen = Array.isArray(ranking.us) ? ranking.us.length : 'n/a';
+    } catch (err) {
+      console.warn(`  /leagues/${l.i}/ranking fehlgeschlagen:`, err);
+    }
+
+    let settingsUsLen: unknown = 'n/a';
+    try {
+      const settingsManagers = await getJson(`/v4/leagues/${l.i}/settings/managers`, token);
+      await dump(`settings-managers-${l.i}`, settingsManagers);
+      settingsUsLen = Array.isArray(settingsManagers.us) ? settingsManagers.us.length : 'n/a';
+    } catch (err) {
+      console.warn(`  /leagues/${l.i}/settings/managers fehlgeschlagen:`, err);
+    }
+
+    console.log(
+      `  ${l.n}: un=${l.un} lpc=${l.lpc} pl=${l.pl} | overview.mgc=${overviewMgc} ` +
+        `overview.mid=${overviewMidLen} overview.us=${overviewUsLen} | ranking.us=${rankingUsLen} | ` +
+        `settings.us=${settingsUsLen}`,
+    );
+  }
+
   console.log('→ Lineup Overview …');
   const overview = await getJson(`/v4/leagues/${leagueId}/lineup/overview`, token);
   await dump('lineup-overview', overview);
