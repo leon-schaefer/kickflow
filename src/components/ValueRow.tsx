@@ -31,7 +31,6 @@ export interface ValueRowPlayer {
 
   /** Angebotspreis des Verkäufers, kann von marketValue abweichen. */
   price?: number;
-  offerCount?: number;
   expiresInSeconds?: number | null;
   ownOfferPrice?: number | null;
 }
@@ -58,13 +57,8 @@ export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
   const markupPercent = isMarket ? marketMarkupPercent(player.price, player.marketValue) : null;
   const hasOwnOffer = player.ownOfferPrice != null;
 
-  const offerCountLabel =
-    player.offerCount && player.offerCount > 0
-      ? `${player.offerCount} Gebot${player.offerCount === 1 ? '' : 'e'}`
-      : null;
   const countdownLabel =
     player.expiresInSeconds != null ? formatCountdown(player.expiresInSeconds * 1000) : null;
-  const metaLabel = [offerCountLabel, countdownLabel].filter(Boolean).join(' · ');
 
   // "—" statt eines Fake-"0,00": ohne Einsatzminuten gibt es kein sinnvolles
   // Verhältnis, und ein "0,00" wäre von echten 0 Punkten nicht zu unterscheiden.
@@ -103,18 +97,18 @@ export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
               {formatPercentDelta(markupPercent)}
             </Text>
           )}
+          {isMarket && hasOwnOffer && (
+            <Text style={styles.ownOfferText} numberOfLines={1}>
+              Mein Gebot {formatCurrency(player.ownOfferPrice!)}
+            </Text>
+          )}
           {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
           {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
           <StatusBadge status={player.status} />
         </View>
-        {isMarket && metaLabel.length > 0 && (
+        {isMarket && countdownLabel && (
           <Text style={styles.metaText} numberOfLines={1}>
-            {metaLabel}
-          </Text>
-        )}
-        {isMarket && hasOwnOffer && (
-          <Text style={styles.ownOfferText} numberOfLines={1}>
-            Mein Gebot {formatCurrency(player.ownOfferPrice!)}
+            {countdownLabel}
           </Text>
         )}
       </View>
