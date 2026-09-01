@@ -240,8 +240,13 @@ const styles = StyleSheet.create({
   },
   // ScrollView setzt intern flexGrow: 1 (auch horizontal) — ohne das hier
   // auf 0 zu setzen, füllt die Zeile den ganzen restlichen Screen-Platz.
+  // minHeight muss hier UND auf chipRow stehen: chipRow bestimmt die Größe
+  // des scrollbaren Inhalts, chipScroll die des sichtbaren Viewports — ohne
+  // beide bleibt der Viewport bei der falsch gemessenen (zu kleinen) Höhe
+  // und schneidet den Inhalt unten ab.
   chipScroll: {
     flexGrow: 0,
+    minHeight: 50,
   },
   chipRow: {
     flexDirection: 'row',
