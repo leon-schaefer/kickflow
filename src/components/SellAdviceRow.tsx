@@ -22,6 +22,7 @@ interface SellAdviceRowProps {
 }
 
 const RECOMMENDATION_COLORS: Record<SellRecommendation, string> = {
+  pflichtverkauf: colors.danger,
   unverzichtbar: colors.accent,
   'effizienz-juwel': colors.accent,
   'punkte-garant': positionColors.GK,
@@ -34,6 +35,9 @@ const RECOMMENDATION_COLORS: Record<SellRecommendation, string> = {
 /** Zeile für die Kader-Empfehlung: Empfehlungs-Pill + Begründung statt Punkte/Mio-Vergleich. */
 export function SellAdviceRow({ player, advice, onPress }: SellAdviceRowProps) {
   const color = RECOMMENDATION_COLORS[advice.recommendation];
+  // 'verkaufen' ist ebenfalls rot — zwei transluzente rote Pills wären nicht
+  // unterscheidbar. Der Pflichtverkauf bekommt deshalb eine deckende Füllung.
+  const urgent = advice.recommendation === 'pflichtverkauf';
 
   return (
     <Pressable
@@ -63,8 +67,10 @@ export function SellAdviceRow({ player, advice, onPress }: SellAdviceRowProps) {
           </View>
         </View>
 
-        <View style={[styles.badge, { backgroundColor: `${color}26` }]}>
-          <Text style={[styles.badgeText, { color }]}>{recommendationLabels[advice.recommendation]}</Text>
+        <View style={[styles.badge, { backgroundColor: urgent ? color : `${color}26` }]}>
+          <Text style={[styles.badgeText, { color: urgent ? colors.textPrimary : color }]}>
+            {recommendationLabels[advice.recommendation]}
+          </Text>
         </View>
       </View>
 
