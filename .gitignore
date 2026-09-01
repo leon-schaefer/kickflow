@@ -46,3 +46,6 @@ scripts/.probe-output/
 # generated native folders
 /ios
 /android
+
+# written by scripts/write-build-id.ts before each web export
+/public/build-id.txt

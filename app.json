@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kickflow.app"
+      "bundleIdentifier": "dev.codewithleon.kickflow",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -49,6 +52,20 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e8a724f7-95f2-4230-bac0-9c61ca7971aa"
+      }
+    },
+    "owner": "leon-schaefer",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e8a724f7-95f2-4230-bac0-9c61ca7971aa",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
