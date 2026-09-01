@@ -85,6 +85,10 @@ export const radius = {
   full: 999,
 } as const;
 
+export const layout = {
+  maxContentWidth: 480,
+} as const;
+
 export const typography = {
   title: { fontSize: 22, fontWeight: '700' as const },
   heading: { fontSize: 17, fontWeight: '600' as const },

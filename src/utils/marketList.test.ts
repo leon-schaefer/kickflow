@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterOwnBids, marketMarkupPercent, sortByExpiry } from './marketList';
+import { filterOwnBids, filteredScoreKey, marketMarkupPercent, sortByExpiry } from './marketList';
 
 describe('marketMarkupPercent', () => {
   it('rechnet den Aufschlag auf den Marktwert in ganze Prozent', () => {
@@ -69,5 +69,17 @@ describe('sortByExpiry', () => {
 
   it('kommt mit einer leeren Liste klar', () => {
     expect(sortByExpiry([])).toEqual([]);
+  });
+});
+
+describe('filteredScoreKey', () => {
+  it('gibt den zum aktiven Sortier-Wert passenden Score zurück', () => {
+    expect(filteredScoreKey('avg')).toBe('avg');
+    expect(filteredScoreKey('total')).toBe('total');
+    expect(filteredScoreKey('perMinute')).toBe('perMinute');
+  });
+
+  it('fällt bei Ablauf-Sortierung auf Ø/Mio zurück, da die Restlaufzeit schon separat steht', () => {
+    expect(filteredScoreKey('expiry')).toBe('avg');
   });
 });

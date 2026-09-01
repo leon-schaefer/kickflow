@@ -24,7 +24,7 @@ import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { colors, layout, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
 import {
   AVAILABLE_FORMATIONS,
@@ -472,6 +472,9 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.md,
+    width: '100%',
+    maxWidth: layout.maxContentWidth,
+    alignSelf: 'center',
   },
   errorText: {
     ...typography.body,
