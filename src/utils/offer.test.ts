@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrencyInput, parseCurrencyInput, validateOffer } from './offer';
+import { formatCurrencyInput, formatCurrencyInputText, parseCurrencyInput, validateOffer } from './offer';
 
 describe('parseCurrencyInput', () => {
   it('parst reine Ziffern', () => {
@@ -17,6 +17,21 @@ describe('parseCurrencyInput', () => {
 describe('formatCurrencyInput', () => {
   it('formatiert mit deutschen Tausendertrennzeichen', () => {
     expect(formatCurrencyInput(6_112_964)).toBe('6.112.964');
+  });
+});
+
+describe('formatCurrencyInputText', () => {
+  it('setzt Tausenderpunkte in eine rohe Eingabe', () => {
+    expect(formatCurrencyInputText('6112964')).toBe('6.112.964');
+  });
+  it('formatiert eine bereits formatierte Eingabe idempotent', () => {
+    expect(formatCurrencyInputText('6.112.964')).toBe('6.112.964');
+  });
+  it('lässt ein geleertes Feld leer', () => {
+    expect(formatCurrencyInputText('')).toBe('');
+  });
+  it('formatiert kurze Eingaben unverändert', () => {
+    expect(formatCurrencyInputText('500')).toBe('500');
   });
 });
 
