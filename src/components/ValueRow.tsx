@@ -97,19 +97,23 @@ export function ValueRow({ player, playtime, onPress, onBid }: ValueRowProps) {
               {formatPercentDelta(markupPercent)}
             </Text>
           )}
-          {isMarket && hasOwnOffer && (
-            <Text style={styles.ownOfferText} numberOfLines={1}>
-              Mein Gebot {formatCurrency(player.ownOfferPrice!)}
-            </Text>
-          )}
           {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
           {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
           <StatusBadge status={player.status} />
         </View>
-        {isMarket && countdownLabel && (
-          <Text style={styles.metaText} numberOfLines={1}>
-            {countdownLabel}
-          </Text>
+        {isMarket && (hasOwnOffer || countdownLabel) && (
+          <View style={styles.metaRow}>
+            {hasOwnOffer && (
+              <Text style={styles.ownOfferText} numberOfLines={1}>
+                Mein Gebot {formatCurrency(player.ownOfferPrice!)}
+              </Text>
+            )}
+            {countdownLabel && (
+              <Text style={styles.metaText} numberOfLines={1}>
+                {countdownLabel}
+              </Text>
+            )}
+          </View>
         )}
       </View>
 
@@ -208,6 +212,11 @@ const styles = StyleSheet.create({
   playtimeText: {
     ...typography.small,
     color: colors.textMuted,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   metaText: {
     ...typography.small,

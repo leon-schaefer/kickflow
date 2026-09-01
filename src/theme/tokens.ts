@@ -1,3 +1,4 @@
+import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
 import type { PlayerStatus, Position } from '@/api/kickbase';
 
 /** Zentrale Design-Tokens. Dark-first, Rasengrün als Akzent. */
@@ -55,6 +56,17 @@ export const statusLabels: Record<PlayerStatus, string> = {
   suspended: 'Gesperrt',
   away: 'Abwesend',
   unknown: 'Unbekannt',
+};
+
+/** Icon je Status für StatusBadge — `fit` bleibt ohne Icon (kein Hinweis nötig). */
+export const statusIcons: Record<PlayerStatus, { ios: SFSymbol; android: AndroidSymbol } | null> = {
+  fit: null,
+  injured: { ios: 'cross.case.fill', android: 'medical_services' },
+  doubtful: { ios: 'exclamationmark.triangle.fill', android: 'warning' },
+  rehab: { ios: 'figure.walk', android: 'directions_walk' },
+  suspended: { ios: 'nosign', android: 'block' },
+  away: { ios: 'airplane', android: 'flight' },
+  unknown: { ios: 'questionmark.circle.fill', android: 'help' },
 };
 
 export const spacing = {

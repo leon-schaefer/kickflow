@@ -1,47 +1,30 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { View } from 'react-native';
 import type { PlayerStatus } from '@/api/kickbase';
-import { radius, spacing, statusColors, statusLabels, typography } from '@/theme/tokens';
+import { statusColors, statusIcons, statusLabels } from '@/theme/tokens';
 
 interface StatusBadgeProps {
   status: PlayerStatus;
-  /** Nur der Farbpunkt, ohne Text — für enge Layouts wie die Pitch-Karte. */
-  dotOnly?: boolean;
+  size?: number;
 }
 
-export function StatusBadge({ status, dotOnly = false }: StatusBadgeProps) {
+/** Status als Icon statt Text-Tag — auf einen Blick unterscheidbar, ohne dass
+ * die Zeile je nach Statuslänge ("Aufbautraining" vs. "Fit") unterschiedlich breit wird. */
+export function StatusBadge({ status, size = 16 }: StatusBadgeProps) {
+  const icon = statusIcons[status];
+  if (!icon) return null;
+
   const color = statusColors[status];
 
-  if (dotOnly) {
-    if (status === 'fit') return null;
-    return <View style={[styles.dot, { backgroundColor: color }]} />;
-  }
-
-  if (status === 'fit') return null;
-
   return (
-    <View style={[styles.badge, { backgroundColor: `${color}26` }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.label, { color }]}>{statusLabels[status]}</Text>
-    </View>
+    <SymbolView
+      name={{ ios: icon.ios, android: icon.android, web: icon.android }}
+      tintColor={color}
+      size={size}
+      style={{ width: size, height: size }}
+      accessibilityLabel={statusLabels[status]}
+      // Web hat keine Material-Symbols-Fonts geladen — dort reicht ein Farbpunkt.
+      fallback={<View style={{ width: size / 2, height: size / 2, borderRadius: size / 2, backgroundColor: color }} />}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    alignSelf: 'flex-start',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: radius.full,
-  },
-  label: {
-    ...typography.small,
-  },
-});
