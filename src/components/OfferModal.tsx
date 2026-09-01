@@ -16,7 +16,7 @@ import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { usePlaceOffer, useRemoveOffer } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency } from '@/utils/format';
-import { formatCurrencyInput, parseCurrencyInput, validateOffer } from '@/utils/offer';
+import { formatCurrencyInput, formatCurrencyInputText, parseCurrencyInput, validateOffer } from '@/utils/offer';
 
 interface OfferModalProps {
   /** null = Modal ist zu. */
@@ -62,6 +62,10 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
 
   function setQuickPrice(value: number) {
     setPriceText(formatCurrencyInput(Math.round(value)));
+  }
+
+  function handlePriceChange(text: string) {
+    setPriceText(formatCurrencyInputText(text));
   }
 
   async function handleSubmit() {
@@ -136,7 +140,7 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
                 style={styles.input}
                 keyboardType="number-pad"
                 value={priceText}
-                onChangeText={setPriceText}
+                onChangeText={handlePriceChange}
                 placeholder="0"
                 placeholderTextColor={colors.textMuted}
               />

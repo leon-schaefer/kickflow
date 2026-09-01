@@ -15,6 +15,12 @@ export function formatCurrencyInput(value: number): string {
   return value.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
+/** Formatiert eine rohe Eingabe fürs Feld: "6112964" → "6.112.964", "" → "". */
+export function formatCurrencyInputText(text: string): string {
+  const value = parseCurrencyInput(text);
+  return value === null ? '' : formatCurrencyInput(value);
+}
+
 export interface ValidateOfferInput {
   price: number | null;
   /** Spielraum inkl. 33%-Überziehungsrahmen und abzüglich anderer offener Gebote, siehe utils/budget.ts. */
