@@ -24,6 +24,27 @@ export function marketMarkupPercent(
   return percent === 0 ? null : percent;
 }
 
+export type ValueSortKey = "avg" | "total" | "perMinute" | "expiry";
+
+/**
+ * Welcher der 3 Wert-Scores (Ø/Mio, Ges/Mio, P/Min) rechts oben in `ValueRow`
+ * steht — der gerade aktive Sortier-Wert. `expiry` hat keinen eigenen Score
+ * unter diesen 3 (die Restlaufzeit steht bereits separat neben dem
+ * Spielernamen), fällt also wie der Default auf Ø/Mio zurück.
+ */
+export function filteredScoreKey(
+  sortKey: ValueSortKey,
+): "avg" | "total" | "perMinute" {
+  switch (sortKey) {
+    case "total":
+      return "total";
+    case "perMinute":
+      return "perMinute";
+    default:
+      return "avg";
+  }
+}
+
 /** Nur Listings, auf die ich selbst geboten habe (Rohfeld `uop`, siehe mappers.ts). */
 export function filterOwnBids<T extends { ownOfferPrice?: number | null }>(
   players: readonly T[],

@@ -13,11 +13,12 @@ import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useLeagues, useLineup, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import type { ValueSortKey } from '@/utils/marketList';
 import { filterOwnBids, sortByExpiry } from '@/utils/marketList';
 import { pointsPerMinute } from '@/utils/playtime';
 
 type Segment = 'squad' | 'market';
-type SortKey = 'avg' | 'total' | 'perMinute' | 'expiry';
+type SortKey = ValueSortKey;
 
 const SEGMENTS: { key: Segment; label: string }[] = [
   { key: 'squad', label: 'Mein Kader' },
@@ -174,6 +175,7 @@ export default function ValueScreen() {
                   playtime={playtimes.get(item.id)}
                   onPress={openPlayer}
                   onBid={bidHandler}
+                  sortKey={isMarket ? sortKey : undefined}
                 />
               )}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
