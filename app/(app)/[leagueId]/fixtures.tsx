@@ -7,6 +7,7 @@ import { Refreshable } from '@/components/Refreshable';
 import { TeamLogo } from '@/components/TeamLogo';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -41,6 +42,7 @@ export default function FixturesScreen() {
   const backTitle = useFocusedLeagueTabTitle();
   const matchdaysQuery = useMatchdays(competitionId);
   const teamsQuery = useCompetitionTeams(competitionId);
+  useMarkInteractive(!!matchdaysQuery.data && !!teamsQuery.data);
   const refresh = useRefresh(matchdaysQuery, teamsQuery);
   const [lens, setLens] = useState<Lens>('attack');
   const [lookahead, setLookahead] = useState<Lookahead>(5);

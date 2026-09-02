@@ -10,6 +10,7 @@ import { Refreshable } from '@/components/Refreshable';
 import { SortChips } from '@/components/SortChips';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useLineup, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionLabels, spacing, typography } from '@/theme/tokens';
@@ -41,6 +42,7 @@ export default function SquadScreen() {
   const router = useRouter();
   const lineupQuery = useLineup(leagueId);
   const { data } = lineupQuery;
+  useMarkInteractive(!!data);
   const [sortKey, setSortKey] = useState<PlayerSortKey>('position');
   const [filter, setFilter] = useState<PlayerFilterCriteria>(EMPTY_PLAYER_FILTER);
   const competitionId = useCompetitionId();

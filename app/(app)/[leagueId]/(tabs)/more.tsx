@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/auth/LogoutButton';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { openExternalUrl } from '@/support/openExternalUrl';
 import { SUPPORT_URL } from '@/support/supportUrl';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -19,6 +20,9 @@ export default function MoreScreen() {
   const [linkFailed, setLinkFailed] = useState(false);
   const appVersion = Constants.expoConfig?.version;
   const gitSha = Constants.expoConfig?.extra?.gitSha;
+
+  // Keine Kickbase-Anfrage auf diesem Tab: sofort bedienbar.
+  useMarkInteractive(true);
 
   async function handleSupport() {
     if (!SUPPORT_URL) return;

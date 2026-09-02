@@ -10,6 +10,7 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { DEFAULT_RULES, violatedRules, type MaxPerTeamRule } from '@/lineup/rules';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useLeagueRanking, useManagerLineup, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -42,6 +43,9 @@ export default function ManagerDetailScreen() {
 
   const rankingQuery = useLeagueRanking(leagueId);
   const entry = rankingQuery.data?.entries.find((e) => e.userId === managerId) ?? null;
+  // Am Query, nicht an `entry`: auch "Manager nicht gefunden" ist ein fertiger
+  // Screen — sonst hätte eine Session mit unbekannter Manager-ID keinen TTI.
+  useMarkInteractive(!!rankingQuery.data);
 
   const { data: competitionTeams } = useCompetitionTeams(competitionId);
   const teamNames = useMemo(
