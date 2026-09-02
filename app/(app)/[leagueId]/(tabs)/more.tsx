@@ -17,6 +17,8 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 export default function MoreScreen() {
   const { userName } = useAuth();
   const [linkFailed, setLinkFailed] = useState(false);
+  const appVersion = Constants.expoConfig?.version;
+  const gitSha = Constants.expoConfig?.extra?.gitSha;
 
   async function handleSupport() {
     if (!SUPPORT_URL) return;
@@ -69,8 +71,11 @@ export default function MoreScreen() {
         <Text style={styles.cardBody}>
           Inoffizieller Begleiter für Kickbase. Nicht mit der Kickbase GmbH verbunden.
         </Text>
-        {Constants.expoConfig?.version && (
-          <Text style={styles.version}>Version {Constants.expoConfig.version}</Text>
+        {appVersion && (
+          <Text style={styles.version}>
+            Version {appVersion}
+            {gitSha ? ` (${gitSha})` : ''}
+          </Text>
         )}
       </View>
     </ScrollView>

@@ -5,7 +5,17 @@
  * stillschweigend kappen. buildNumber/versionCode liegen dank
  * appVersionSource: "remote" in eas.json ohnehin nicht in app.json, version
  * ist also rein kosmetisch und darf raus.
+ *
+ * ExpoConfigExtraSection: app.config.js schreibt den aktuellen git-Sha nach
+ * extra.gitSha (nur zur Anzeige in der App, siehe more.tsx). Ohne diesen
+ * Skip landet der Sha im Fingerprint-Hash — jeder neue Commit hätte dann
+ * eine neue runtimeVersion zur Folge, und ein Update passt nie zum zuvor
+ * gebauten Binary.
  */
 module.exports = {
-  sourceSkips: ['ExpoConfigVersions', 'PackageJsonAndroidAndIosScriptsIfNotContainRun'],
+  sourceSkips: [
+    'ExpoConfigVersions',
+    'PackageJsonAndroidAndIosScriptsIfNotContainRun',
+    'ExpoConfigExtraSection',
+  ],
 };

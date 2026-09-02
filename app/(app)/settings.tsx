@@ -83,8 +83,8 @@ export default function SettingsScreen() {
             )}
 
             <Text style={styles.disclaimer}>
-              Rein lokal geplant, kein Server, kein Push-Dienst — funktioniert nur, solange kickflow von Zeit zu Zeit
-              geöffnet wird, und ist auf maximal 64 gleichzeitig wartende Erinnerungen begrenzt (iOS-Obergrenze).
+              Rein lokal. Funktioniert nur, solange kickflow von Zeit zu Zeit
+              geöffnet wird.
             </Text>
           </View>
         )}
@@ -92,7 +92,7 @@ export default function SettingsScreen() {
         {isWeb && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Benachrichtigungen</Text>
-            <Text style={styles.disclaimer}>Auf Web/PWA nicht verfügbar — dafür bräuchte es einen eigenen Server.</Text>
+            <Text style={styles.disclaimer}>Auf Web/PWA nicht verfügbar.</Text>
           </View>
         )}
 
