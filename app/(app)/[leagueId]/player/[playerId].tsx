@@ -133,7 +133,12 @@ export default function PlayerDetailScreen() {
         {nextOpponentRatings.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Nächste Gegner</Text>
-            <FixtureDifficultyStrip ratings={nextOpponentRatings} lens={nextOpponentLens} size={32} />
+            <FixtureDifficultyStrip
+              ratings={nextOpponentRatings}
+              lens={nextOpponentLens}
+              size={44}
+              showOpponentLogos
+            />
           </View>
         )}
 

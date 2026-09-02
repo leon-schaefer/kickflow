@@ -20,12 +20,17 @@ function fixture(
   return {
     homeTeamId,
     awayTeamId,
-    homeLogoUrl: null,
-    awayLogoUrl: null,
+    homeLogoUrl: `https://cdn.example/${homeTeamId}.svg`,
+    awayLogoUrl: `https://cdn.example/${awayTeamId}.svg`,
     homeGoals,
     awayGoals,
     hasResult: homeGoals !== null && awayGoals !== null,
   };
+}
+
+/** Eine Paarung aus Sicht eines Vereins, wie `buildFixtureIndex` sie liefert. */
+function upcoming(day: number, opponentId: string, isHome: boolean, opponentLogoUrl: string | null = null) {
+  return { day, opponentId, isHome, opponentLogoUrl };
 }
 
 // Drei Vereine: '1' schießt viel und kassiert wenig (stark), '2' ist
@@ -76,16 +81,16 @@ describe('buildFixtureIndex + remainingFixtures', () => {
   it('indiziert beide Seiten jeder Paarung und sortiert nach Spieltag', () => {
     const index = buildFixtureIndex(schedule);
     expect(index.get('1')).toEqual([
-      { day: 1, opponentId: '3', isHome: true },
-      { day: 2, opponentId: '2', isHome: false },
-      { day: 3, opponentId: '2', isHome: true },
+      upcoming(1, '3', true, 'https://cdn.example/3.svg'),
+      upcoming(2, '2', false, 'https://cdn.example/2.svg'),
+      upcoming(3, '2', true, 'https://cdn.example/2.svg'),
     ]);
   });
 
   it('liefert nur zukünftige Paarungen ab fromDay, begrenzt auf count', () => {
     const index = buildFixtureIndex(schedule);
-    expect(remainingFixtures('1', index, 3, 5)).toEqual([{ day: 3, opponentId: '2', isHome: true }]);
-    expect(remainingFixtures('1', index, 1, 1)).toEqual([{ day: 1, opponentId: '3', isHome: true }]);
+    expect(remainingFixtures('1', index, 3, 5)).toEqual([upcoming(3, '2', true, 'https://cdn.example/2.svg')]);
+    expect(remainingFixtures('1', index, 1, 1)).toEqual([upcoming(1, '3', true, 'https://cdn.example/3.svg')]);
   });
 
   it('liefert ein leeres Array für einen unbekannten Verein statt zu crashen', () => {
@@ -98,19 +103,19 @@ describe('fixtureDifficulty', () => {
   const strengths = teamStrength(teamGoalRecord(schedule));
 
   it('macht ein Heimspiel gegen den schwachen Verein leicht für Angreifer', () => {
-    const [rating] = fixtureDifficulty([{ day: 3, opponentId: '3', isHome: true }], strengths);
+    const [rating] = fixtureDifficulty([upcoming(3, '3', true)], strengths);
     // '3' ist die schwächste Abwehr → attackDifficulty niedrig.
     expect(rating!.attackDifficulty).toBeLessThan(0.5);
   });
 
   it('macht ein Auswärtsspiel gegen den starken Verein schwer für die eigene Abwehr', () => {
-    const [rating] = fixtureDifficulty([{ day: 3, opponentId: '1', isHome: false }], strengths);
+    const [rating] = fixtureDifficulty([upcoming(3, '1', false)], strengths);
     // '1' hat den stärksten Angriff, plus Auswärts-Malus → hohe defenseDifficulty.
     expect(rating!.defenseDifficulty).toBeGreaterThan(0.5);
   });
 
   it('fällt bei unbekannter Gegnerstärke auf neutral (0,5) zurück statt zu crashen', () => {
-    const [rating] = fixtureDifficulty([{ day: 3, opponentId: 'unbekannt', isHome: true }], strengths);
+    const [rating] = fixtureDifficulty([upcoming(3, 'unbekannt', true)], strengths);
     expect(rating!.attackDifficulty).toBeCloseTo(0.45, 5); // 0,5 − Heimvorteil 0,05
   });
 });
@@ -118,10 +123,7 @@ describe('fixtureDifficulty', () => {
 describe('averageDifficulty', () => {
   it('mittelt über mehrere Paarungen', () => {
     const ratings = fixtureDifficulty(
-      [
-        { day: 3, opponentId: '1', isHome: true },
-        { day: 4, opponentId: '3', isHome: true },
-      ],
+      [upcoming(3, '1', true), upcoming(4, '3', true)],
       teamStrength(teamGoalRecord(schedule)),
     );
     const avg = averageDifficulty(ratings);
