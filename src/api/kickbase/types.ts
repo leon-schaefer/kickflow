@@ -257,6 +257,12 @@ export interface LeagueRankingEntry {
 
 export interface LeagueRanking {
   seasonName: string | null;
+  /**
+   * Spieltag, auf den sich diese Antwort laut Kickbase bezieht — `null`, wenn
+   * das Feld fehlt. Dient als Gegenprobe zum angefragten `dayNumber`: stimmt
+   * es nicht, ist die gelieferte Startelf nicht die des gewünschten Spieltags.
+   */
+  day: number | null;
   entries: LeagueRankingEntry[];
 }
 
