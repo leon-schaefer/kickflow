@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Checkbox } from '@/components/Checkbox';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MaxPerTeamRuleCard } from '@/components/MaxPerTeamRuleCard';
 import { Refreshable } from '@/components/Refreshable';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
@@ -15,8 +15,6 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { isAvailableForLineup } from '@/utils/lineupOptimizer';
 import { countByTeam } from '@/utils/teamDistribution';
 
-const QUICK_VALUES = [1, 2, 3, 4, 5];
-
 /**
  * Liga-eigene Optimizer-Regeln. Erreichbar über die "Regeln"-Zeile in
  * OptimizerBar (Aufstellungs-Tab). Registriert als Stack-Screen neben
@@ -28,7 +26,7 @@ export default function RulesScreen() {
   const competitionId = useCompetitionId();
   const league = useCurrentLeague();
   const backTitle = useFocusedLeagueTabTitle();
-  const { rules, updateRule, loaded } = useLeagueRulesContext();
+  const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
   const lineupQuery = useLineup(leagueId);
   const { data: lineup } = lineupQuery;
   const { data: teams } = useCompetitionTeams(competitionId);
@@ -72,34 +70,11 @@ export default function RulesScreen() {
          * Stand persistieren (siehe useLeagueRules.ts).
          */}
         {loaded && (
-          <View style={styles.card}>
-            <Checkbox
-              label="Max. Spieler pro Verein"
-              checked={maxPerTeamRule.enabled}
-              onChange={(enabled) => updateRule('maxPerTeam', { enabled })}
-              hint={
-                maxPerTeamRule.enabled
-                  ? 'Gilt für jeden Verein gleich — der Optimizer hält sich immer daran.'
-                  : 'Regel ist aus — der Optimizer ignoriert sie.'
-              }
-            />
-            <View style={styles.chipRow}>
-              {QUICK_VALUES.map((value) => (
-                <Pressable
-                  key={value}
-                  style={[
-                    styles.chip,
-                    maxPerTeamRule.max === value && styles.chipActive,
-                    !maxPerTeamRule.enabled && styles.chipDisabled,
-                  ]}
-                  onPress={() => updateRule('maxPerTeam', { max: value })}
-                  disabled={!maxPerTeamRule.enabled}
-                >
-                  <Text style={[styles.chipText, maxPerTeamRule.max === value && styles.chipTextActive]}>{value}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+          <MaxPerTeamRuleCard
+            rule={maxPerTeamRule}
+            onChange={(patch) => updateRule('maxPerTeam', patch)}
+            leagueMax={leagueMax}
+          />
         )}
 
         {teamRows.length > 0 && (
@@ -151,35 +126,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.heading,
     color: colors.textPrimary,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  chip: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  chipDisabled: {
-    opacity: 0.4,
-  },
-  chipText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  chipTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
   },
   teamRow: {
     flexDirection: 'row',

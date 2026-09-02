@@ -7,6 +7,7 @@ import {
   parseFormation,
   parseMatchdayLabel,
   toAuthSession,
+  toLeagueOverview,
   toLeagueRanking,
   toLeagueSummary,
   toLineupData,
@@ -318,6 +319,10 @@ describe('toLeagueRanking', () => {
         matchdayPlace: 3,
         teamValue: 45_000_000,
         lineupPlayerIds: ['118', '999', null],
+        h2hOpponentUserId: null,
+        h2hPlace: 0,
+        h2hSeasonPoints: 0,
+        h2hMatchdayPoints: 0,
       },
     ]);
   });
@@ -331,6 +336,32 @@ describe('toLeagueRanking', () => {
     expect(toLeagueRanking(parsed).entries[0]?.lineupPlayerIds).toEqual(['118', '4383', null]);
   });
 
+  // hh*-Felder (Kopf-an-Kopf-Duell-Modus) sind undokumentiert, aber in
+  // scripts/.probe-output/ranking-7082511.json verifiziert: 12 Manager bilden
+  // 6 reziproke hhoui-Paare. `hhoui` kommt dort als String, ist aber zur
+  // Sicherheit auch als Zahl zugelassen (wie `lp`).
+  it('mappt das Duell (hh*-Felder), inkl. Zahlen-hhoui', () => {
+    const asString = toLeagueRanking({
+      us: [{ i: '1938871', hhoui: '4244116', hhpl: 9, hhsp: 0, hhmp: 0 }],
+    });
+    expect(asString.entries[0]).toMatchObject({
+      h2hOpponentUserId: '4244116',
+      h2hPlace: 9,
+      h2hSeasonPoints: 0,
+      h2hMatchdayPoints: 0,
+    });
+
+    const asNumber = toLeagueRanking({
+      us: [{ i: '1939211', hhoui: 3592146, hhpl: 5, hhsp: 3, hhmp: 3 }],
+    });
+    expect(asNumber.entries[0]).toMatchObject({
+      h2hOpponentUserId: '3592146',
+      h2hPlace: 5,
+      h2hSeasonPoints: 3,
+      h2hMatchdayPoints: 3,
+    });
+  });
+
   it('fällt bei fehlenden Feldern defensiv zurück statt zu crashen', () => {
     const ranking = toLeagueRanking({ us: [{}] });
     expect(ranking.seasonName).toBeNull();
@@ -341,6 +372,32 @@ describe('toLeagueRanking', () => {
       isAdmin: false,
       hasLineupSet: false,
       lineupPlayerIds: [],
+      h2hOpponentUserId: null,
+      h2hPlace: 0,
+      h2hSeasonPoints: 0,
+      h2hMatchdayPoints: 0,
+    });
+  });
+});
+
+describe('toLeagueOverview', () => {
+  // `mpst`/`mppu` sind nicht offiziell dokumentiert, aber aus zwei realen
+  // Ligen mit unterschiedlichen Werten erschlossen (scripts/.probe-output/
+  // overview-*.json: 3 bzw. 2) — deshalb nur als Vorbelegung genutzt, siehe
+  // useLeagueRules.ts.
+  it('mappt Liga-Einstellungen', () => {
+    expect(toLeagueOverview({ mpst: 3, mppu: 17, mgc: 12 })).toEqual({
+      maxPlayersPerTeam: 3,
+      maxSquadSize: 17,
+      managerCount: 12,
+    });
+  });
+
+  it('fällt bei fehlenden Feldern auf null zurück statt zu crashen', () => {
+    expect(toLeagueOverview({})).toEqual({
+      maxPlayersPerTeam: null,
+      maxSquadSize: null,
+      managerCount: null,
     });
   });
 });

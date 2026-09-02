@@ -10,6 +10,7 @@ import type {
   RawCompetitionMatchdays,
   RawCompetitionTeam,
   RawFixture,
+  RawLeagueOverview,
   RawLeagueRanking,
   RawLeagueRankingEntry,
   RawLineupOverview,
@@ -25,6 +26,7 @@ import type {
 } from './schemas';
 import type {
   AuthSession,
+  LeagueOverview,
   LeagueRanking,
   LeagueRankingEntry,
   LeagueSummary,
@@ -278,6 +280,11 @@ function toLeagueRankingEntry(raw: RawLeagueRankingEntry): LeagueRankingEntry {
     // Auf String normalisieren: die API liefert Zahlen (siehe rawLeagueRankingEntrySchema.lp),
     // die restliche App — bis hin zu `/players/{id}` — rechnet mit String-IDs.
     lineupPlayerIds: (raw.lp ?? []).map((id) => (id === null ? null : String(id))),
+    // `hhoui` kommt real als String, zur Sicherheit auch Zahlen zulassen (wie `lp`).
+    h2hOpponentUserId: raw.hhoui == null ? null : String(raw.hhoui),
+    h2hPlace: raw.hhpl ?? 0,
+    h2hSeasonPoints: raw.hhsp ?? 0,
+    h2hMatchdayPoints: raw.hhmp ?? 0,
   };
 }
 
@@ -287,6 +294,15 @@ export function toLeagueRanking(raw: RawLeagueRanking): LeagueRanking {
     seasonName: raw.sn ?? null,
     day: raw.day ?? null,
     entries: raw.us.map(toLeagueRankingEntry),
+  };
+}
+
+/** `GET /v4/leagues/{id}/overview` — Liga-Einstellungen, siehe getLeagueOverview() in endpoints.ts. */
+export function toLeagueOverview(raw: RawLeagueOverview): LeagueOverview {
+  return {
+    maxPlayersPerTeam: raw.mpst ?? null,
+    maxSquadSize: raw.mppu ?? null,
+    managerCount: raw.mgc ?? null,
   };
 }
 

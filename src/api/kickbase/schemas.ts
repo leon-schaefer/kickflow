@@ -343,6 +343,15 @@ export const rawLeagueRankingEntrySchema = z.looseObject({
    * normalisieren, statt sich auf eine festzulegen.
    */
   lp: z.array(z.union([z.string(), z.number()]).nullable()).optional(),
+  // Duell-Felder (Kickbase-eigener H2H-Modus) — undokumentiert, in echten
+  // Antworten verifiziert (scripts/.probe-output/ranking-7082511.json): 12
+  // Manager bilden 6 reziproke hhoui-Paare. In der noch nicht gestarteten
+  // Dev-Liga (ranking-12924185.json) fehlen sie komplett, deshalb strikt
+  // optional, siehe toLeagueRankingEntry für die Defaults.
+  hhoui: z.union([z.string(), z.number()]).optional(),
+  hhpl: z.number().optional(),
+  hhsp: z.number().optional(),
+  hhmp: z.number().optional(),
 });
 export type RawLeagueRankingEntry = z.infer<typeof rawLeagueRankingEntrySchema>;
 
@@ -358,3 +367,19 @@ export const rawLeagueRankingSchema = z.looseObject({
   day: z.number().optional(),
 });
 export type RawLeagueRanking = z.infer<typeof rawLeagueRankingSchema>;
+
+/**
+ * `GET /v4/leagues/{id}/overview` — bisher nur in scripts/probe.ts geprobt,
+ * nicht in der App verdrahtet. Wir lesen hier nur die Liga-Einstellungen
+ * (`mpst`/`mppu`/`mgc`), nicht `us`/`btls` (Manager-Liste bzw. Liga-Awards,
+ * kein Duell-Bezug — siehe scripts/.probe-output/overview-*.json). `mpst`
+ * unterscheidet sich zwischen zwei realen Ligen (3 bzw. 2) und ist damit der
+ * beste bekannte Kandidat für "max. Spieler pro Verein", aber nicht offiziell
+ * dokumentiert — deshalb nur als Vorbelegung genutzt, siehe useLeagueRules.ts.
+ */
+export const rawLeagueOverviewSchema = z.looseObject({
+  mpst: z.number().optional(),
+  mppu: z.number().optional(),
+  mgc: z.number().optional(),
+});
+export type RawLeagueOverview = z.infer<typeof rawLeagueOverviewSchema>;

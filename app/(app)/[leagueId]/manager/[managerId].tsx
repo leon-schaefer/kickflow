@@ -8,6 +8,8 @@ import { Refreshable } from '@/components/Refreshable';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
+import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
+import { DEFAULT_RULES, violatedRules, type MaxPerTeamRule } from '@/lineup/rules';
 import { useCompetitionTeams, useLeagueRanking, useManagerLineup, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -112,6 +114,20 @@ export default function ManagerDetailScreen() {
   const teamValue = useMemo(() => players.reduce((sum, p) => sum + p.marketValue, 0), [players]);
   const averagePoints = players.length > 0 ? players.reduce((sum, p) => sum + p.averagePoints, 0) / players.length : 0;
 
+  // Liga-weite Regel (LeagueRulesProvider, siehe [leagueId]/_layout.tsx) auch
+  // auf die Rivalen-Elf anwenden — sie gilt für jeden Manager gleich, nicht
+  // nur für den eigenen Kader (rules.tsx). `players` ist hier NUR die Startelf
+  // (siehe Doc-Kommentar oben), ein Verstoß ist also ein echter Regelbruch in
+  // dessen Aufstellung, keine bloße Kaderauffälligkeit.
+  const { rules } = useLeagueRulesContext();
+  const maxPerTeamRule = (rules.find((rule): rule is MaxPerTeamRule => rule.kind === 'maxPerTeam') ??
+    DEFAULT_RULES[0]) as MaxPerTeamRule;
+  const violations = useMemo(
+    () => violatedRules(rules, players, players.map((p) => p.id)),
+    [rules, players],
+  );
+  const violatesMaxPerTeam = violations.some((rule) => rule.kind === 'maxPerTeam');
+
   if (!rankingQuery.data) {
     return (
       <>
@@ -169,12 +185,24 @@ export default function ManagerDetailScreen() {
 
                 <View style={styles.card}>
                   <Text style={styles.cardTitle}>Vereinsverteilung</Text>
-                  {teamRows.map((row) => (
-                    <View key={row.teamId} style={styles.distributionRow}>
-                      <Text style={styles.distributionName}>{row.name}</Text>
-                      <Text style={styles.distributionCount}>{row.count}</Text>
-                    </View>
-                  ))}
+                  {maxPerTeamRule.enabled && (
+                    <Text style={styles.ruleHint}>Regel: max. {maxPerTeamRule.max} pro Verein</Text>
+                  )}
+                  {violatesMaxPerTeam && (
+                    <Text style={styles.ruleViolation}>⚠ Verletzt: Max. {maxPerTeamRule.max} Spieler pro Verein</Text>
+                  )}
+                  {teamRows.map((row) => {
+                    const overLimit = maxPerTeamRule.enabled && row.count > maxPerTeamRule.max;
+                    return (
+                      <View key={row.teamId} style={styles.distributionRow}>
+                        <Text style={styles.distributionName}>{row.name}</Text>
+                        <Text style={[styles.distributionCount, overLimit && styles.distributionCountOver]}>
+                          {row.count}
+                          {overLimit ? ' · über Grenze' : ''}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
 
                 <View style={styles.card}>
@@ -374,6 +402,21 @@ const styles = StyleSheet.create({
   distributionCount: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  distributionCountOver: {
+    color: colors.danger,
+    fontWeight: '600',
+  },
+  ruleHint: {
+    ...typography.small,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+  },
+  ruleViolation: {
+    ...typography.small,
+    color: colors.danger,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
   },
   disclaimer: {
     ...typography.small,
