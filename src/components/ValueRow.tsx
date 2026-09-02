@@ -34,6 +34,7 @@ export interface ValueRowPlayer {
   name: string;
   position: Position;
   status: PlayerStatus;
+  teamId: string;
   imageUrl: string | null;
   marketValue: number;
   averagePoints: number;
