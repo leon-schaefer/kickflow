@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { login as kickbaseLogin } from '@/api/kickbase';
+import { queryClient } from '@/queries/queryClient';
 import * as tokenStore from './tokenStore';
 import { onUnauthorized } from './unauthorizedBus';
 
@@ -28,12 +29,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const session = await kickbaseLogin(email, password);
     await tokenStore.setSession({ token: session.token, refreshToken: session.refreshToken });
+    // Cache des vorherigen Kontos wegwerfen. Nach einem 401 landet man ohne
+    // Umweg über logout() wieder hier, und `useLeagues()` hat staleTime 5 min
+    // bei refetchOnWindowFocus: false — ohne clear() sähe das neue Konto
+    // zuerst die Ligen des alten, ohne dass nachgeladen wird.
+    queryClient.clear();
     setUserName(session.userName);
     setToken(session.token);
   }, []);
 
   const logout = useCallback(async () => {
     await tokenStore.clearSession();
+    // Gegenstück zum clear() in login(): nach dem Abmelden soll nichts vom
+    // Konto im Speicher zurückbleiben. Bewusst nicht in handleUnauthorized —
+    // das läuft aus QueryCache.onError heraus und zöge der gerade
+    // fehlschlagenden Query den Boden weg.
+    queryClient.clear();
     setUserName(null);
     setToken(null);
   }, []);
