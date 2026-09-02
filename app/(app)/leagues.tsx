@@ -5,6 +5,7 @@ import type { LeagueSummary } from '@/api/kickbase';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
 import { getLastLeagueId, setLastLeagueId } from '@/leagues/lastLeague';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useLeagues } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -24,6 +25,8 @@ export default function LeaguesScreen() {
       getLastLeagueId().then(setLastLeagueIdState);
     }, []),
   );
+
+  useMarkInteractive(!!leagues);
 
   async function handleSelect(league: LeagueSummary) {
     await setLastLeagueId(league.id);

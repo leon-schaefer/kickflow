@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 export default function LoginScreen() {
@@ -19,6 +20,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Das Formular ist ab dem ersten Frame bedienbar — nichts zu laden.
+  useMarkInteractive(true);
 
   async function handleSubmit() {
     setError(null);

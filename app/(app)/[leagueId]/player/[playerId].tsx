@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useMatchdays, usePlayer } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
@@ -33,6 +34,7 @@ export default function PlayerDetailScreen() {
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const playerQuery = usePlayer(leagueId, playerId);
   const { data: player } = playerQuery;
+  useMarkInteractive(!!player);
   const [timeframe, setTimeframe] = useState<Timeframe>(92);
   const backTitle = useFocusedLeagueTabTitle();
 
