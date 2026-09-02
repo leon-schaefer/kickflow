@@ -2,6 +2,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { useCallback, useMemo } from 'react';
 import {
   getCompetitionTeams,
+  getLeagueOverview,
   getLeagueRanking,
   getLeagues,
   getLineup,
@@ -83,6 +84,21 @@ export function useLeagueRanking(
     enabled: !!token && !!leagueId && enabled,
     staleTime: live ? 15_000 : 60_000,
     refetchInterval: live ? 60_000 : false,
+  });
+}
+
+/**
+ * Liga-Einstellungen (`mpst`/`mppu`) — ändern sich fast nie, deshalb eine
+ * lange Stale-Time. Genutzt als Vorbelegung für die lokale maxPerTeam-Regel,
+ * siehe LeagueRulesContext.tsx.
+ */
+export function useLeagueOverview(leagueId: string) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.leagueOverview(leagueId),
+    queryFn: () => getLeagueOverview(token!, leagueId),
+    enabled: !!token && !!leagueId,
+    staleTime: 15 * 60_000,
   });
 }
 

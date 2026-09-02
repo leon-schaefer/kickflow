@@ -6,6 +6,7 @@ import { kbFetch } from './client';
 import { withPerformanceLimit, withPlayerLookupLimit } from './limiter';
 import {
   toAuthSession,
+  toLeagueOverview,
   toLeagueRanking,
   toLeagueSummary,
   toLineupData,
@@ -20,6 +21,7 @@ import {
   rawCompetitionMatchdaysSchema,
   rawCompetitionTableSchema,
   rawLeagueManagersSchema,
+  rawLeagueOverviewSchema,
   rawLeagueRankingSchema,
   rawLeaguesResponseSchema,
   rawLineupOverviewSchema,
@@ -32,6 +34,7 @@ import {
 } from './schemas';
 import type {
   AuthSession,
+  LeagueOverview,
   LeagueRanking,
   LeagueSummary,
   LineupData,
@@ -118,6 +121,18 @@ export async function getLeagueRanking(
   const query = dayNumber !== undefined ? `?dayNumber=${dayNumber}` : '';
   const raw = await kbFetch(`/v4/leagues/${leagueId}/ranking${query}`, { token });
   return toLeagueRanking(rawLeagueRankingSchema.parse(raw));
+}
+
+/**
+ * Liga-Einstellungen aus `/v4/leagues/{id}/overview` — ohne
+ * `includeManagersAndBattles=true` (siehe scripts/probe.ts), weil weder
+ * Manager-Liste noch Liga-Awards gebraucht werden. `mpst`/`mppu` sind nicht
+ * offiziell dokumentiert (siehe rawLeagueOverviewSchema), deshalb nur als
+ * Vorbelegung für die lokale Regel genutzt — siehe useLeagueRules.ts.
+ */
+export async function getLeagueOverview(token: string, leagueId: string): Promise<LeagueOverview> {
+  const raw = await kbFetch(`/v4/leagues/${leagueId}/overview`, { token });
+  return toLeagueOverview(rawLeagueOverviewSchema.parse(raw));
 }
 
 export async function getMarket(token: string, leagueId: string): Promise<MarketData> {

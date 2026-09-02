@@ -92,6 +92,10 @@ async function main() {
       overviewMgc = overview.mgc;
       overviewMidLen = Array.isArray(overview.mid) ? overview.mid.length : 'n/a';
       overviewUsLen = Array.isArray(overview.us) ? overview.us.length : 'n/a';
+      // Kandidat für "max. Spieler pro Verein" (mpst) — nicht offiziell
+      // dokumentiert, siehe rawLeagueOverviewSchema. Gegen die
+      // Liga-Einstellungen in der offiziellen Kickbase-App abgleichen.
+      console.log(`  Liga "${l.n}" (${l.i}) — overview.mpst (max/Verein?)=${overview.mpst}, overview.mppu (Kadergröße?)=${overview.mppu}`);
     } catch (err) {
       console.warn(`  /leagues/${l.i}/overview fehlgeschlagen:`, err);
     }
@@ -210,6 +214,26 @@ async function main() {
       open ? { day: open.day, deadline: open.firstKickoff } : null,
     );
     console.log('Erste 5 Spieltage:', summarized.slice(0, 5));
+
+    // Klärt zwei offene Fragen zum Duell-Modus (hh*-Felder, siehe
+    // schemas.ts/rawLeagueRankingEntrySchema): (1) liefert der unskalierte
+    // /ranking-Aufruf mitten in der Saison den Gegner des AKTUELLEN
+    // Spieltags, und (2) verschiebt `?dayNumber=` die Paarung überhaupt.
+    const currentDay = running ? running.day : (open ? open.day : null);
+    if (currentDay !== null) {
+      console.log(`\n=== Duell-Vergleich (hh*) ohne vs. mit ?dayNumber=${currentDay} ===`);
+      try {
+        const rankingUnscoped = await getJson(`/v4/leagues/${leagueId}/ranking`, token);
+        const rankingScoped = await getJson(`/v4/leagues/${leagueId}/ranking?dayNumber=${currentDay}`, token);
+        await dump(`ranking-dayNumber-${currentDay}-${leagueId}`, rankingScoped);
+        const summarizeHh = (us: any[]) =>
+          (us ?? []).map((u: any) => ({ n: u.n, hhoui: u.hhoui, hhpl: u.hhpl, hhsp: u.hhsp, hhmp: u.hhmp }));
+        console.log('  ohne dayNumber:', summarizeHh(rankingUnscoped.us));
+        console.log(`  mit dayNumber=${currentDay}:`, summarizeHh(rankingScoped.us));
+      } catch (err) {
+        console.warn('  Duell-Vergleich fehlgeschlagen:', err);
+      }
+    }
   } else {
     console.log('Kein Spielplan verfügbar — mdln/lis bleiben die einzige Quelle.');
   }

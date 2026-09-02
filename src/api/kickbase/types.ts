@@ -253,6 +253,16 @@ export interface LeagueRankingEntry {
    * Kader (Bankspieler bleiben unsichtbar). `null` = leerer Slot.
    */
   lineupPlayerIds: (string | null)[];
+  /**
+   * Duell-Gegner im ligaeigenen Kopf-an-Kopf-Modus (`hhoui`) — `null` = Liga
+   * ohne Duell-Modus oder Saison noch nicht gestartet (fehlt komplett in
+   * scripts/.probe-output/ranking-12924185.json, einer 2-Manager-Dev-Liga).
+   */
+  h2hOpponentUserId: string | null;
+  /** Platz in der Duell-Tabelle; 0 = kein Duell-Modus. */
+  h2hPlace: number;
+  h2hSeasonPoints: number;
+  h2hMatchdayPoints: number;
 }
 
 export interface LeagueRanking {
@@ -264,6 +274,15 @@ export interface LeagueRanking {
    */
   day: number | null;
   entries: LeagueRankingEntry[];
+}
+
+/** `GET /v4/leagues/{id}/overview` — Liga-Einstellungen, siehe getLeagueOverview(). */
+export interface LeagueOverview {
+  /** `mpst` — Kickbases eigener Wert für "max. Spieler pro Verein"; nicht offiziell dokumentiert. */
+  maxPlayersPerTeam: number | null;
+  /** `mppu` — maximale Kadergröße. */
+  maxSquadSize: number | null;
+  managerCount: number | null;
 }
 
 export interface LeagueSummary {

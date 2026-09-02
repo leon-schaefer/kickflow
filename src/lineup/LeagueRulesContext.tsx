@@ -1,4 +1,5 @@
 import { createContext, use } from 'react';
+import { useLeagueOverview } from '@/queries/hooks';
 import { useLeagueRules, type LeagueRules } from './useLeagueRules';
 
 /**
@@ -25,7 +26,12 @@ export function LeagueRulesProvider({
   // `leagueId` ist hier praktisch immer gesetzt (die Route hat gematcht); der
   // Fallback hält nur die Hook-Reihenfolge stabil und liefert dann bewusst
   // `null`, damit Konsumenten denselben klaren Fehler sehen wie bei useLeagueId().
-  const value = useLeagueRules(leagueId ?? '');
+  //
+  // Kickbases eigener Wert (`overview.mpst`) fließt hier als reine Vorbelegung
+  // ein — useLeagueRules() ist der einzige Aufrufer, siehe dort für die genaue
+  // Semantik (nie automatisch persistiert, überschreibt nie einen gespeicherten Wert).
+  const overviewQuery = useLeagueOverview(leagueId ?? '');
+  const value = useLeagueRules(leagueId ?? '', overviewQuery.data?.maxPlayersPerTeam ?? null);
   return <LeagueRulesContext.Provider value={leagueId ? value : null}>{children}</LeagueRulesContext.Provider>;
 }
 
