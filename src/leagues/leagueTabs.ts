@@ -3,6 +3,7 @@ export const leagueTabTitles = {
   lineup: 'Aufstellung',
   squad: 'Kader',
   value: 'Wert',
+  more: 'Mehr',
 } as const;
 
 export type LeagueTabName = keyof typeof leagueTabTitles;

@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
+import { MoreIcon } from '@/components/icons/MoreIcon';
 import { PitchIcon } from '@/components/icons/PitchIcon';
 import { SquadIcon } from '@/components/icons/SquadIcon';
 import { TrendIcon } from '@/components/icons/TrendIcon';
@@ -40,6 +41,17 @@ export default function LeagueTabsLayout() {
         options={{
           title: leagueTabTitles.value,
           tabBarIcon: ({ color, size }) => <TrendIcon color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: leagueTabTitles.more,
+          // Überschreibt den LeagueSwitcher aus screenOptions: auf diesem Tab
+          // ist nichts liga-spezifisch, ein Liga-Umschalter im Titel wäre nur
+          // irreführend.
+          headerTitle: leagueTabTitles.more,
+          tabBarIcon: ({ color, size }) => <MoreIcon color={color} size={size} />,
         }}
       />
     </Tabs>
