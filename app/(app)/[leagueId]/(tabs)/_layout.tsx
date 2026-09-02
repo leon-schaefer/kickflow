@@ -38,9 +38,9 @@ export default function LeagueTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="value"
+        name="market"
         options={{
-          title: leagueTabTitles.value,
+          title: leagueTabTitles.market,
           tabBarIcon: ({ color, size }) => <TrendIcon color={color} size={size} />,
         }}
       />

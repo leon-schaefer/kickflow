@@ -157,7 +157,7 @@ export function usePlayer(leagueId: string, playerId: string) {
 export interface PlaytimeState {
   /** playerId → Saison-Aggregat. Eintrag fehlt, solange der Request läuft oder scheitert. */
   playtimes: Map<string, PlaytimeTotals>;
-  /** Noch laufende Requests — für den Lade-Hinweis im Wert-Tab. */
+  /** Noch laufende Requests — für den Lade-Hinweis im Kader- und im Markt-Tab. */
   pending: number;
   /** Gesamtzahl der Spieler, für die Spielzeit abgefragt wird. */
   total: number;
@@ -166,12 +166,13 @@ export interface PlaytimeState {
 }
 
 /**
- * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Spalte im Wert-Tab.
+ * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Kennzahl im Kader- und
+ * im Markt-Tab.
  *
  * Ein `/performance`-Request PRO Spieler, weil Kickbase in Kader- und
  * Marktlisten kein Minutenfeld liefert. Eigener Cache-Key je Spieler, damit
  * beim Wechsel Kader↔Transfermarkt und beim Zurückkehren in den Tab keine
- * Requests doppelt laufen — Spieler, die in beiden Segmenten auftauchen, werden
+ * Requests doppelt laufen — Spieler, die in beiden Listen auftauchen, werden
  * nur einmal geholt. Die Parallelität begrenzt das Gate in
  * src/api/kickbase/limiter.ts.
  *

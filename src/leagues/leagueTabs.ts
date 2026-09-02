@@ -2,7 +2,7 @@
 export const leagueTabTitles = {
   lineup: 'Aufstellung',
   squad: 'Kader',
-  value: 'Wert',
+  market: 'Markt',
   league: 'Liga',
   more: 'Mehr',
 } as const;

@@ -7,7 +7,7 @@ import { useCurrentLeague } from './useCurrentLeague';
 /**
  * Der Kickbase-„33%-Überziehungsrahmen" (utils/budget.ts) für die aktuelle
  * Liga, inklusive der Summe der eigenen offenen Gebote. Nutzt dieselbe
- * `useMarket`-Query wie die Wert-Seite (queryKeys.market), erzeugt also
+ * `useMarket`-Query wie der Markt-Tab (queryKeys.market), erzeugt also
  * höchstens einen zusätzlichen Request pro Minute (staleTime dort).
  *
  * `excludePlayerId` beim Bieten im OfferModal übergeben — ein erneutes

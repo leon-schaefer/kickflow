@@ -1,73 +1,69 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { SquadPlayer } from '@/api/kickbase';
-import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
-import { formatCurrency, formatDelta, formatPoints } from '@/utils/format';
+import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { formatCurrency, formatDelta, formatMinutes } from '@/utils/format';
+import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
+import type { PlaytimeTotals } from '@/utils/playtime';
+import type { StatCell } from './PlayerRowFrame';
+import { PlayerRowFrame, PlayerStatColumn } from './PlayerRowFrame';
 import { StatusBadge } from './StatusBadge';
 import { TeamLogo } from './TeamLogo';
 
 interface PlayerRowProps {
   player: SquadPlayer;
+  /** Kennzahl unter dem Marktwert — folgt der aktiven Sortierung im Kader-Tab. */
+  metric: PlayerMetric;
+  /** Nur gesetzt, wenn `metric === 'pointsPerMinute'` und der Request durch ist. */
+  playtime?: PlaytimeTotals;
   onPress?: (player: SquadPlayer) => void;
 }
 
-/** Eine Zeile im Kader-Screen: Position, Bild, Name, Marktwert, Punkte, Status. */
-export function PlayerRow({ player, onPress }: PlayerRowProps) {
+/** Eine Zeile im Kader-Tab: Position, Bild, Name, Marktwert, aktive Kennzahl, Status. */
+export function PlayerRow({ player, metric, playtime, onPress }: PlayerRowProps) {
+  // Der Marktwert steht schon als Anker in Zeile 1 — eine zweite identische
+  // Zahl wäre Rauschen, deshalb fällt diese Kennzahl auf Ø Punkte zurück.
+  const secondary = metric === 'marketValue' ? 'avgPoints' : metric;
+
+  const cells: StatCell[] = [{ value: formatCurrency(player.marketValue) }];
+  if (player.marketValueChangeToday !== 0) {
+    cells.push({
+      value: formatDelta(player.marketValueChangeToday),
+      tone: player.marketValueChangeToday > 0 ? 'positive' : 'negative',
+    });
+  }
+  cells.push({ value: formatMetric(player, secondary, playtime), label: metricLabels[secondary].cell });
+
   return (
-    <Pressable
+    <PlayerRowFrame
+      position={player.position}
+      imageUrl={player.imageUrl}
       onPress={() => onPress?.(player)}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      right={<PlayerStatColumn cells={cells} />}
     >
-      <View style={[styles.positionTag, { backgroundColor: `${positionColors[player.position]}26` }]}>
-        <Text style={[styles.positionText, { color: positionColors[player.position] }]}>
-          {positionLabels[player.position]}
+      <View style={styles.nameRow}>
+        <Text style={styles.name} numberOfLines={1}>
+          {player.name}
         </Text>
+        {player.inLineup && <View style={styles.lineupDot} />}
       </View>
-
-      {player.imageUrl ? (
-        <Image source={{ uri: player.imageUrl }} style={styles.image} />
-      ) : (
-        <View style={[styles.image, styles.imageFallback]} />
-      )}
-
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {player.name}
-          </Text>
-          {player.inLineup && <View style={styles.lineupDot} />}
-        </View>
-        <View style={styles.metaRow}>
-          <StatusBadge status={player.status} />
-          {player.nextMatch && <NextMatchTag player={player} />}
-          {player.onMarket && (
-            <View style={styles.marketTag}>
-              <Text style={styles.marketTagText}>
-                Gelistet{player.offerCount > 0 ? ` · ${player.offerCount}` : ''}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.stats}>
-        <Text style={styles.marketValue}>{formatCurrency(player.marketValue)}</Text>
-        {player.marketValueChangeToday !== 0 && (
-          <Text
-            style={[
-              styles.delta,
-              { color: player.marketValueChangeToday > 0 ? colors.positive : colors.negative },
-            ]}
-          >
-            {formatDelta(player.marketValueChangeToday)}
-          </Text>
+      <View style={styles.metaRow}>
+        <StatusBadge status={player.status} />
+        {player.nextMatch && <NextMatchTag player={player} />}
+        {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
+        {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
+        {player.onMarket && (
+          <View style={styles.marketTag}>
+            <Text style={styles.marketTagText}>
+              Gelistet{player.offerCount > 0 ? ` · ${player.offerCount}` : ''}
+            </Text>
+          </View>
         )}
-        <Text style={styles.points}>Ø {formatPoints(player.averagePoints)}</Text>
       </View>
-    </Pressable>
+    </PlayerRowFrame>
   );
 }
 
-/** Gegner-Logo + H/A des nächsten Spiels — aus `SquadPlayer.nextMatch`, das bisher nirgends gerendert wurde. */
+/** Gegner-Logo + H/A des nächsten Spiels — aus `SquadPlayer.nextMatch`. */
 function NextMatchTag({ player }: { player: SquadPlayer }) {
   const match = player.nextMatch;
   if (!match) return null;
@@ -82,40 +78,6 @@ function NextMatchTag({ player }: { player: SquadPlayer }) {
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  pressed: {
-    backgroundColor: colors.surfaceRaised,
-  },
-  positionTag: {
-    width: 36,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-  },
-  positionText: {
-    ...typography.small,
-    fontWeight: '700',
-  },
-  image: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-  },
-  imageFallback: {
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -146,6 +108,10 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
   },
+  playtimeText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
   marketTag: {
     paddingHorizontal: spacing.xs,
     borderRadius: radius.sm,
@@ -155,21 +121,5 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.accent,
     fontWeight: '600',
-  },
-  stats: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  marketValue: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  delta: {
-    ...typography.small,
-  },
-  points: {
-    ...typography.small,
-    color: colors.textSecondary,
   },
 });

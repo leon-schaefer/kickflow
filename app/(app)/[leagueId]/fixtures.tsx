@@ -31,7 +31,7 @@ const LENS_OPTIONS: { key: Lens; label: string }[] = [
 /**
  * Restprogramm/Gegner-Härte über die ganze Liga — nicht nur den eigenen
  * Kader. Erreichbar über die "Restprogramm"-Zeile im Liga-Header (siehe
- * value.tsx/lineup.tsx). Keine eigene Datenquelle: derselbe Spielplan, den
+ * lineup.tsx). Keine eigene Datenquelle: derselbe Spielplan, den
  * useMatchdays ohnehin lädt (15 min Stale-Time), reduziert auf Tore-Bilanz —
  * siehe src/utils/fixtureDifficulty.ts für die Begründung, warum das ohne
  * einen neuen Kickbase-Endpoint auskommt.

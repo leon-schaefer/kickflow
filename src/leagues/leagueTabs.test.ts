@@ -9,7 +9,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 1,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }],
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }],
           },
         },
         { name: 'player/[playerId]' },
@@ -18,20 +18,20 @@ describe('focusedLeagueTabTitle', () => {
     expect(focusedLeagueTabTitle(state)).toBe('Kader');
   });
 
-  it('liefert den Titel des fokussierten Tabs (value)', () => {
+  it('liefert den Titel des fokussierten Tabs (market)', () => {
     const state = {
       routes: [
         {
           name: '(tabs)',
           state: {
             index: 2,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }],
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }],
           },
         },
         { name: 'player/[playerId]' },
       ],
     };
-    expect(focusedLeagueTabTitle(state)).toBe('Wert');
+    expect(focusedLeagueTabTitle(state)).toBe('Markt');
   });
 
   it('fällt auf „Aufstellung“ zurück, wenn `(tabs)` keinen State hat', () => {
@@ -52,7 +52,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 3,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }, { name: 'league' }],
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }, { name: 'league' }],
           },
         },
         { name: 'manager/[managerId]' },
@@ -69,7 +69,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 3,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }, { name: 'league' }],
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }, { name: 'league' }],
           },
         },
         { name: 'manager/[managerId]' },

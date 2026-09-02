@@ -199,7 +199,7 @@ export async function getPlayerBasic(token: string, leagueId: string, playerId: 
  * NUR die Saison-Performance eines Spielers — bewusst schmal, im Gegensatz zu
  * getPlayer(), das dafür vier Requests abfeuert. Kickbase liefert Spielminuten
  * ausschließlich hier (`ph[].mp`), nicht in Kader- oder Marktlisten; der
- * Wert-Tab ruft das deshalb pro Spieler auf. Das Concurrency-Gate hält den
+ * Kader- und der Markt-Tab rufen das deshalb pro Spieler auf. Das Concurrency-Gate hält den
  * daraus entstehenden Schwung Requests von Cloudflare fern.
  */
 export async function getPlayerPerformance(

@@ -29,7 +29,7 @@ export interface OpenBid {
   /**
    * Restlaufzeit in Sekunden, so wie `MarketPlayer.expiresInSeconds` sie zum
    * Zeitpunkt `nowMs` (Parameter unten) geliefert hat — dieselbe Momentaufnahme,
-   * die auch der Countdown in ValueRow.tsx anzeigt, kein Live-Timer.
+   * die auch der Countdown in MarketRow.tsx anzeigt, kein Live-Timer.
    */
   expiresInSeconds: number;
 }

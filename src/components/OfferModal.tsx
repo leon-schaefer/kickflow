@@ -25,7 +25,7 @@ interface OfferModalProps {
 }
 
 /**
- * Gebots-Dialog aus der Wert-Seite: Shell aus LeagueSwitcher (transparentes
+ * Gebots-Dialog aus dem Markt-Tab: Shell aus LeagueSwitcher (transparentes
  * Modal, Backdrop-Pressable), Formularteile aus app/login.tsx.
  */
 export function OfferModal({ player, onClose }: OfferModalProps) {
