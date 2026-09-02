@@ -285,6 +285,7 @@ describe('toLeagueRanking', () => {
   it('mappt Manager-Einträge inkl. Aufstellungs-Spieler-IDs', () => {
     const ranking = toLeagueRanking({
       sn: '25/26',
+      day: 3,
       us: [
         {
           i: '4232017',
@@ -302,6 +303,7 @@ describe('toLeagueRanking', () => {
       ],
     });
     expect(ranking.seasonName).toBe('25/26');
+    expect(ranking.day).toBe(3);
     expect(ranking.entries).toEqual([
       {
         userId: '4232017',
@@ -322,6 +324,7 @@ describe('toLeagueRanking', () => {
   it('fällt bei fehlenden Feldern defensiv zurück statt zu crashen', () => {
     const ranking = toLeagueRanking({ us: [{}] });
     expect(ranking.seasonName).toBeNull();
+    expect(ranking.day).toBeNull();
     expect(ranking.entries[0]).toMatchObject({
       userId: '',
       userName: 'Unbekannt',
