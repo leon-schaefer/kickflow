@@ -2,13 +2,17 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { Position, SquadPlayer } from '@/api/kickbase';
+import { PlayerFilterBar } from '@/components/PlayerFilterBar';
 import { PlayerRow } from '@/components/PlayerRow';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
+import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
-import { useLineup } from '@/queries/hooks';
+import { useCompetitionTeams, useLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import type { PlayerFilterCriteria } from '@/utils/playerFilter';
+import { EMPTY_PLAYER_FILTER, filterPlayers } from '@/utils/playerFilter';
 
 type SortKey = 'position' | 'value' | 'points' | 'avg';
 
@@ -28,20 +32,30 @@ export default function SquadScreen() {
   const { data } = lineupQuery;
   const refresh = useRefresh(lineupQuery);
   const [sortKey, setSortKey] = useState<SortKey>('position');
+  const [filter, setFilter] = useState<PlayerFilterCriteria>(EMPTY_PLAYER_FILTER);
+  const competitionId = useCompetitionId();
+  const teamsQuery = useCompetitionTeams(competitionId);
+
+  const filteredPlayers = useMemo(
+    () => (data ? filterPlayers(data.players, filter) : []),
+    [data, filter],
+  );
 
   const sections = useMemo(() => {
     if (!data) return [];
     if (sortKey !== 'position') {
       const comparator = sortComparator(sortKey);
-      return [{ title: '', data: [...data.players].sort(comparator) }];
+      return [{ title: '', data: [...filteredPlayers].sort(comparator) }];
     }
+    // Filter greift VOR der Section-Bildung — sonst blieben leere Positions-
+    // Überschriften stehen, sobald ein Filter eine Position komplett wegfiltert.
     return POSITION_ORDER.map((position) => ({
       title: positionLabels[position],
-      data: data.players
+      data: filteredPlayers
         .filter((p) => p.position === position)
         .sort((a, b) => b.marketValue - a.marketValue),
     })).filter((section) => section.data.length > 0);
-  }, [data, sortKey]);
+  }, [data, sortKey, filteredPlayers]);
 
   function openPlayer(player: SquadPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
@@ -53,6 +67,8 @@ export default function SquadScreen() {
 
   return (
     <View style={styles.container}>
+      <PlayerFilterBar criteria={filter} onChange={setFilter} teams={teamsQuery.data} />
+
       <View style={styles.sortBar}>
         {SORT_OPTIONS.map((option) => (
           <Pressable
@@ -83,6 +99,11 @@ export default function SquadScreen() {
             }
             renderItem={({ item }) => <PlayerRow player={item} onPress={openPlayer} />}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Kein Spieler passt zum Filter.</Text>
+              </View>
+            }
           />
         )}
       </Refreshable>
@@ -114,6 +135,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     padding: spacing.md,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
   sortChip: {
     paddingHorizontal: spacing.md,

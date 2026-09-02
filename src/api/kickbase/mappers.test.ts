@@ -7,8 +7,10 @@ import {
   parseFormation,
   parseMatchdayLabel,
   toAuthSession,
+  toLeagueRanking,
   toLeagueSummary,
   toLineupData,
+  toMarketData,
   toMarketPlayer,
   toMarketValueHistory,
   toMatchdaySchedule,
@@ -63,6 +65,17 @@ describe('mapStatus', () => {
   it('fällt bei unbekanntem Code auf unknown zurück statt zu raten', () => {
     expect(mapStatus(128)).toBe('unknown');
     expect(mapStatus(7)).toBe('unknown');
+  });
+});
+
+describe('toSquadPlayer/toPlayerDetail statusDetails (stl)', () => {
+  it('bleibt leer, wenn stl fehlt oder leer ist (bisher einziger real beobachteter Fall)', () => {
+    expect(toSquadPlayer({ i: '1', stl: [] }, undefined).statusDetails).toEqual([]);
+    expect(toSquadPlayer({ i: '1' }, undefined).statusDetails).toEqual([]);
+  });
+  it('übernimmt String-Einträge, verwirft aber alles andere defensiv statt zu raten', () => {
+    const mapped = toSquadPlayer({ i: '1', stl: ['Wadenprobleme', { code: 3 }, 42, null] }, undefined);
+    expect(mapped.statusDetails).toEqual(['Wadenprobleme']);
   });
 });
 
@@ -202,12 +215,18 @@ describe('toSquadPlayer + toLineupData (der zentrale Merge)', () => {
     expect(mapped.marketValueTrend).toBe('down');
     expect(mapped.valueScoreAvg).toBeCloseTo(72 / 10.973197, 2);
     expect(mapped.valueScoreTotal).toBeCloseTo(1659 / 10.973197, 2);
+    expect(mapped.onMarket).toBe(false);
     expect(mapped.nextMatch).toEqual({
       homeTeamId: '5',
       awayTeamId: '9',
       homeLogoUrl: 'https://kickbase.b-cdn.net/content/file/home.svg',
       awayLogoUrl: 'https://kickbase.b-cdn.net/content/file/away.svg',
     });
+  });
+
+  it('liest onMarket aus dem Rohfeld iotm statt es hart auf false zu setzen', () => {
+    const mapped = toSquadPlayer({ ...squadPlayer, iotm: true }, lineupEntry);
+    expect(mapped.onMarket).toBe(true);
   });
 
   it('markiert einen Bankspieler korrekt (kein Lineup-Eintrag)', () => {
@@ -259,6 +278,71 @@ describe('toSquadPlayer + toLineupData (der zentrale Merge)', () => {
   });
 });
 
+describe('toLeagueRanking', () => {
+  // Feldform 1:1 aus der (nicht mit scripts/probe.ts, sondern gegen die
+  // inoffiziellen v4-Spezifikationen samt echter Beispielantwort verifizierten)
+  // Doku für GET /v4/leagues/{id}/ranking.
+  it('mappt Manager-Einträge inkl. Aufstellungs-Spieler-IDs', () => {
+    const ranking = toLeagueRanking({
+      sn: '25/26',
+      us: [
+        {
+          i: '4232017',
+          n: 'Leon',
+          uim: 'user/abc.jpe',
+          adm: true,
+          pa: true,
+          sp: 2313,
+          spl: 1,
+          mdp: 88,
+          mdpl: 3,
+          tv: 45_000_000,
+          lp: ['118', '999', null],
+        },
+      ],
+    });
+    expect(ranking.seasonName).toBe('25/26');
+    expect(ranking.entries).toEqual([
+      {
+        userId: '4232017',
+        userName: 'Leon',
+        userImageUrl: 'https://kickbase.b-cdn.net/user/abc.jpe',
+        isAdmin: true,
+        hasLineupSet: true,
+        seasonPoints: 2313,
+        seasonPlace: 1,
+        matchdayPoints: 88,
+        matchdayPlace: 3,
+        teamValue: 45_000_000,
+        lineupPlayerIds: ['118', '999', null],
+      },
+    ]);
+  });
+
+  it('fällt bei fehlenden Feldern defensiv zurück statt zu crashen', () => {
+    const ranking = toLeagueRanking({ us: [{}] });
+    expect(ranking.seasonName).toBeNull();
+    expect(ranking.entries[0]).toMatchObject({
+      userId: '',
+      userName: 'Unbekannt',
+      isAdmin: false,
+      hasLineupSet: false,
+      lineupPlayerIds: [],
+    });
+  });
+});
+
+describe('toMarketData', () => {
+  it('mappt Spieler-Liste und den nächsten Marktwert-Update-Zeitpunkt (mvud)', () => {
+    const result = toMarketData({ it: [], mvud: '2026-09-01T20:00:00Z' });
+    expect(result.players).toEqual([]);
+    expect(result.marketValueUpdateAt).toBe('2026-09-01T20:00:00Z');
+  });
+  it('fällt ohne mvud auf null zurück statt einen leeren String zu zeigen', () => {
+    expect(toMarketData({ it: [] }).marketValueUpdateAt).toBeNull();
+  });
+});
+
 describe('parseMatchdayLabel', () => {
   it.each([
     ['1 Match Day', 1],
@@ -293,14 +377,53 @@ describe('toMatchdaySchedule', () => {
     });
     expect(schedule.currentDay).toBe(2);
     expect(schedule.matchdays).toEqual([
-      { day: 1, firstKickoff: '2026-08-28T18:30:00Z', allPlayed: false },
-      { day: 2, firstKickoff: '2026-09-05T13:30:00Z', allPlayed: false },
+      {
+        day: 1,
+        firstKickoff: '2026-08-28T18:30:00Z',
+        allPlayed: false,
+        fixtures: [
+          {
+            homeTeamId: '5',
+            awayTeamId: '9',
+            homeLogoUrl: null,
+            awayLogoUrl: null,
+            homeGoals: 4,
+            awayGoals: 1,
+            hasResult: true,
+          },
+          {
+            homeTeamId: '3',
+            awayTeamId: '7',
+            homeLogoUrl: null,
+            awayLogoUrl: null,
+            homeGoals: null,
+            awayGoals: null,
+            hasResult: false,
+          },
+        ],
+      },
+      {
+        day: 2,
+        firstKickoff: '2026-09-05T13:30:00Z',
+        allPlayed: false,
+        fixtures: [
+          {
+            homeTeamId: '10',
+            awayTeamId: '43',
+            homeLogoUrl: null,
+            awayLogoUrl: null,
+            homeGoals: null,
+            awayGoals: null,
+            hasResult: false,
+          },
+        ],
+      },
     ]);
   });
 
   it('verwirft Einträge ohne "day" statt sie als Spieltag 0 zu zählen', () => {
     const schedule = toMatchdaySchedule({ it: [{ it: [] }, { day: 3, it: [] }] });
-    expect(schedule.matchdays).toEqual([{ day: 3, firstKickoff: null, allPlayed: false }]);
+    expect(schedule.matchdays).toEqual([{ day: 3, firstKickoff: null, allPlayed: false, fixtures: [] }]);
   });
 
   it('leitet den frühesten Anstoß als Deadline ab, unabhängig von der Reihenfolge in der Antwort', () => {
@@ -315,7 +438,23 @@ describe('toMatchdaySchedule', () => {
         },
       ],
     });
-    expect(schedule.matchdays[0]).toEqual({ day: 1, firstKickoff: '2026-08-28T18:30:00Z', allPlayed: true });
+    expect(schedule.matchdays[0]).toMatchObject({ day: 1, firstKickoff: '2026-08-28T18:30:00Z', allPlayed: true });
+    expect(schedule.matchdays[0]?.fixtures).toHaveLength(2);
+  });
+
+  it('mappt die Team-Logos einer Paarung (t1im/t2im)', () => {
+    const schedule = toMatchdaySchedule({
+      it: [
+        {
+          day: 1,
+          it: [{ dt: '2026-08-28T18:30:00Z', t1: '5', t2: '9', t1im: 'content/file/home.svg', t2im: 'content/file/away.svg' }],
+        },
+      ],
+    });
+    expect(schedule.matchdays[0]?.fixtures[0]).toMatchObject({
+      homeLogoUrl: 'https://kickbase.b-cdn.net/content/file/home.svg',
+      awayLogoUrl: 'https://kickbase.b-cdn.net/content/file/away.svg',
+    });
   });
 });
 

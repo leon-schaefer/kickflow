@@ -3,6 +3,7 @@ import type { SquadPlayer } from '@/api/kickbase';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatDelta, formatPoints } from '@/utils/format';
 import { StatusBadge } from './StatusBadge';
+import { TeamLogo } from './TeamLogo';
 
 interface PlayerRowProps {
   player: SquadPlayer;
@@ -35,7 +36,17 @@ export function PlayerRow({ player, onPress }: PlayerRowProps) {
           </Text>
           {player.inLineup && <View style={styles.lineupDot} />}
         </View>
-        <StatusBadge status={player.status} />
+        <View style={styles.metaRow}>
+          <StatusBadge status={player.status} />
+          {player.nextMatch && <NextMatchTag player={player} />}
+          {player.onMarket && (
+            <View style={styles.marketTag}>
+              <Text style={styles.marketTagText}>
+                Gelistet{player.offerCount > 0 ? ` · ${player.offerCount}` : ''}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.stats}>
@@ -53,6 +64,20 @@ export function PlayerRow({ player, onPress }: PlayerRowProps) {
         <Text style={styles.points}>Ø {formatPoints(player.averagePoints)}</Text>
       </View>
     </Pressable>
+  );
+}
+
+/** Gegner-Logo + H/A des nächsten Spiels — aus `SquadPlayer.nextMatch`, das bisher nirgends gerendert wurde. */
+function NextMatchTag({ player }: { player: SquadPlayer }) {
+  const match = player.nextMatch;
+  if (!match) return null;
+  const isHome = match.homeTeamId === player.teamId;
+  const opponentLogoUrl = isHome ? match.awayLogoUrl : match.homeLogoUrl;
+  return (
+    <View style={styles.nextMatchTag}>
+      <Text style={styles.nextMatchText}>{isHome ? 'H' : 'A'}</Text>
+      <TeamLogo uri={opponentLogoUrl} size={14} />
+    </View>
   );
 }
 
@@ -106,6 +131,30 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: radius.full,
     backgroundColor: colors.accent,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  nextMatchTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  nextMatchText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  marketTag: {
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accentMuted,
+  },
+  marketTagText: {
+    ...typography.small,
+    color: colors.accent,
+    fontWeight: '600',
   },
   stats: {
     alignItems: 'flex-end',

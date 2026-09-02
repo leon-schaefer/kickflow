@@ -8,6 +8,14 @@ interface AuthState {
   /** undefined = wird noch aus dem Store geladen, null = kein Login. */
   token: string | null | undefined;
   userName: string | null;
+  /**
+   * Eigene Kickbase-User-ID — nur für die Dauer der Session im Speicher, wie
+   * `userName` NICHT persistiert (tokenStore speichert nur token/refreshToken).
+   * Nach einem App-Neustart also wieder `null`, bis erneut eingeloggt wird.
+   * Gebraucht, um die eigene Zeile in der Liga-Tabelle zu markieren (siehe
+   * app/(app)/[leagueId]/(tabs)/league.tsx).
+   */
+  userId: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Vom API-Client bei jedem 401/403 aufgerufen — löscht die Session sofort. */
@@ -19,6 +27,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     tokenStore.getSession().then((session) => {
@@ -35,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // zuerst die Ligen des alten, ohne dass nachgeladen wird.
     queryClient.clear();
     setUserName(session.userName);
+    setUserId(session.userId);
     setToken(session.token);
   }, []);
 
@@ -59,8 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => onUnauthorized(handleUnauthorized), [handleUnauthorized]);
 
   const value = useMemo(
-    () => ({ token, userName, login, logout, handleUnauthorized }),
-    [token, userName, login, logout, handleUnauthorized],
+    () => ({ token, userName, userId, login, logout, handleUnauthorized }),
+    [token, userName, userId, login, logout, handleUnauthorized],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

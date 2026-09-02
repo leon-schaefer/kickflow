@@ -35,12 +35,13 @@ export default function AppLayout() {
           headerRight: () => <LogoutButton compact />,
         }}
       />
+      <Stack.Screen name="settings" options={{ title: 'Einstellungen' }} />
       {/*
        * `title` ist bei `headerShown: false` unsichtbar und dient — wie beim
        * `(tabs)`-Screen in [leagueId]/_layout.tsx — nur als Label-Quelle für
-       * den Zurück-Button darüberliegender Screens. Ohne ihn fällt der Stack
-       * auf den Routennamen zurück und beschriftet den Zurück-Button wörtlich
-       * mit `[leagueId]`.
+       * den Zurück-Button darüberliegender Screens. Ohne ihn beschriftet der
+       * Stack den Zurück-Button von `settings` (aus dem LeagueSwitcher-Footer
+       * heraus geöffnet) wörtlich mit dem Routennamen `[leagueId]`.
        */}
       <Stack.Screen name="[leagueId]" options={{ headerShown: false, title: 'Liga' }} />
     </Stack>
