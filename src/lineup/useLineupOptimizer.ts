@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SquadPlayer } from '@/api/kickbase';
 import { DEFAULT_RULES, toConstraints, violatedRules, type LineupRule } from '@/lineup/rules';
 import { optimizeLineupWithRules } from '@/utils/constrainedLineup';
+import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
+import { difficultyFactor, positionDifficulty } from '@/utils/fixtureDifficulty';
 import { AVAILABLE_FORMATIONS } from '@/utils/formations';
 import type { OptimizationResult, OptimizerMetric } from '@/utils/lineupOptimizer';
 import { deriveSellAdvice, type SellAdvice } from '@/utils/sellAdvice';
@@ -64,6 +66,13 @@ export function useLineupOptimizer(
   draftIds: readonly string[],
   deficit = 0,
   rules: readonly LineupRule[] = DEFAULT_RULES,
+  /**
+   * Restprogramm-Härte je Verein (siehe src/utils/fixtureDifficulty.ts),
+   * gemittelt über die nächsten paar Spieltage — vom Aufrufer (lineup.tsx)
+   * aus `useMatchdays` gebaut. Ohne diese Map (z. B. Spielplan noch nicht
+   * geladen) verhält sich die Metrik 'expectedPoints' wie 'points'.
+   */
+  fixtureDifficultyByTeam?: Map<string, AverageDifficulty>,
 ): LineupOptimizer {
   const [metric, setMetric] = useState<OptimizerMetric>('valuePerMillion');
   const [balanceBudget, setBalanceBudget] = useState(false);
@@ -80,6 +89,19 @@ export function useLineupOptimizer(
   );
   const constraints = useMemo(() => toConstraints(effectiveRules), [effectiveRules]);
 
+  // Nur für die neue 'expectedPoints'-Metrik angereichert — efficiencyResult/
+  // pointsResult unten bleiben bewusst auf den unveränderten `players`, damit
+  // diese Erweiterung ihr bisheriges Verhalten unter keinen Umständen ändert.
+  const playersWithExpectedPoints = useMemo(() => {
+    if (!fixtureDifficultyByTeam) return players;
+    return players.map((player) => {
+      const avg = fixtureDifficultyByTeam.get(player.teamId);
+      if (!avg) return player;
+      const factor = difficultyFactor(positionDifficulty(player.position, avg));
+      return { ...player, expectedPoints: player.averagePoints * factor };
+    });
+  }, [players, fixtureDifficultyByTeam]);
+
   const efficiencyResult = useMemo(
     () => optimizeLineupWithRules(players, 'valuePerMillion', AVAILABLE_FORMATIONS, constraints),
     [players, constraints],
@@ -88,7 +110,12 @@ export function useLineupOptimizer(
     () => optimizeLineupWithRules(players, 'points', AVAILABLE_FORMATIONS, constraints),
     [players, constraints],
   );
-  const unconstrainedResult = metric === 'valuePerMillion' ? efficiencyResult : pointsResult;
+  const expectedPointsResult = useMemo(
+    () => optimizeLineupWithRules(playersWithExpectedPoints, 'expectedPoints', AVAILABLE_FORMATIONS, constraints),
+    [playersWithExpectedPoints, constraints],
+  );
+  const unconstrainedResult =
+    metric === 'valuePerMillion' ? efficiencyResult : metric === 'points' ? pointsResult : expectedPointsResult;
 
   // Immer berechnet, sobald das Konto im Minus ist — die Kaufen/Verkaufen-Liste
   // zeigt die Pflichtverkäufe auch ohne aktive Checkbox und außerhalb des

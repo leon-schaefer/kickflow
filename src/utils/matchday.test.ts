@@ -10,9 +10,9 @@ describe('resolveMatchdayState', () => {
   const schedule: MatchdaySchedule = {
     currentDay: 1,
     matchdays: [
-      { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: true },
-      { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false },
-      { day: 3, firstKickoff: '2026-09-12T16:30:00Z', allPlayed: false },
+      { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: true, fixtures: [] },
+      { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false, fixtures: [] },
+      { day: 3, firstKickoff: '2026-09-12T16:30:00Z', allPlayed: false, fixtures: [] },
     ],
   };
 
@@ -26,8 +26,8 @@ describe('resolveMatchdayState', () => {
     const midMatchday: MatchdaySchedule = {
       currentDay: 1,
       matchdays: [
-        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: false },
-        { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false },
+        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: false, fixtures: [] },
+        { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false, fixtures: [] },
       ],
     };
     const state = resolveMatchdayState(midMatchday, now);
@@ -39,8 +39,8 @@ describe('resolveMatchdayState', () => {
     const beforeSeason: MatchdaySchedule = {
       currentDay: 1,
       matchdays: [
-        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: false },
-        { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false },
+        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: false, fixtures: [] },
+        { day: 2, firstKickoff: '2026-09-04T18:30:00Z', allPlayed: false, fixtures: [] },
       ],
     };
     const beforeKickoff = new Date('2026-08-20T00:00:00Z').getTime();
@@ -52,7 +52,7 @@ describe('resolveMatchdayState', () => {
   it('nach dem letzten Spieltag der Saison ist nichts mehr offen', () => {
     const seasonEnd: MatchdaySchedule = {
       currentDay: 34,
-      matchdays: [{ day: 34, firstKickoff: '2027-05-15T13:30:00Z', allPlayed: true }],
+      matchdays: [{ day: 34, firstKickoff: '2027-05-15T13:30:00Z', allPlayed: true, fixtures: [] }],
     };
     const afterSeason = new Date('2027-05-16T00:00:00Z').getTime();
     const state = resolveMatchdayState(seasonEnd, afterSeason);
@@ -78,9 +78,9 @@ describe('resolveMatchdayState', () => {
     const missingKickoff: MatchdaySchedule = {
       currentDay: 1,
       matchdays: [
-        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: true },
-        { day: 2, firstKickoff: null, allPlayed: false },
-        { day: 3, firstKickoff: '2026-09-12T16:30:00Z', allPlayed: false },
+        { day: 1, firstKickoff: '2026-08-30T13:30:00Z', allPlayed: true, fixtures: [] },
+        { day: 2, firstKickoff: null, allPlayed: false, fixtures: [] },
+        { day: 3, firstKickoff: '2026-09-12T16:30:00Z', allPlayed: false, fixtures: [] },
       ],
     };
     const state = resolveMatchdayState(missingKickoff, now);

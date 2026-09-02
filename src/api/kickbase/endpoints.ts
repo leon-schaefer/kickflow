@@ -3,12 +3,13 @@
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
 import { kbFetch } from './client';
-import { withPerformanceLimit } from './limiter';
+import { withPerformanceLimit, withPlayerLookupLimit } from './limiter';
 import {
   toAuthSession,
+  toLeagueRanking,
   toLeagueSummary,
   toLineupData,
-  toMarketPlayer,
+  toMarketData,
   toMarketValueHistory,
   toMatchdaySchedule,
   toPlayerDetail,
@@ -19,6 +20,7 @@ import {
   rawCompetitionMatchdaysSchema,
   rawCompetitionTableSchema,
   rawLeagueManagersSchema,
+  rawLeagueRankingSchema,
   rawLeaguesResponseSchema,
   rawLineupOverviewSchema,
   rawLoginResponseSchema,
@@ -30,9 +32,10 @@ import {
 } from './schemas';
 import type {
   AuthSession,
+  LeagueRanking,
   LeagueSummary,
   LineupData,
-  MarketPlayer,
+  MarketData,
   MatchdaySchedule,
   PlaceOfferInput,
   PlayerDetail,
@@ -96,9 +99,29 @@ export async function getLineup(token: string, leagueId: string): Promise<Lineup
   return toLineupData(overview, squad.it);
 }
 
-export async function getMarket(token: string, leagueId: string): Promise<MarketPlayer[]> {
+/**
+ * Liga-Tabelle mit Platzierung, Punkten, Teamwert und — je Manager — den
+ * Spieler-IDs seiner AKTUELLEN Startelf (`lp[]`, nur Startelf, nicht der
+ * ganze Kader). Der Pfad selbst ist in `scripts/probe.ts` gegen einen echten
+ * Account verifiziert; die einzelnen Feldnamen stammen aus den inoffiziellen
+ * v4-Spezifikationen samt echter Beispielantwort (siehe schemas.ts) — daher
+ * das durchgehend defensive Mapping in toLeagueRanking(). `dayNumber` liefert
+ * den Stand eines vergangenen Spieltags statt der Saison; ohne Angabe zeigt
+ * Kickbase die Saisonwertung.
+ */
+export async function getLeagueRanking(
+  token: string,
+  leagueId: string,
+  dayNumber?: number,
+): Promise<LeagueRanking> {
+  const query = dayNumber !== undefined ? `?dayNumber=${dayNumber}` : '';
+  const raw = await kbFetch(`/v4/leagues/${leagueId}/ranking${query}`, { token });
+  return toLeagueRanking(rawLeagueRankingSchema.parse(raw));
+}
+
+export async function getMarket(token: string, leagueId: string): Promise<MarketData> {
   const raw = await kbFetch(`/v4/leagues/${leagueId}/market`, { token });
-  return rawMarketResponseSchema.parse(raw).it.map(toMarketPlayer);
+  return toMarketData(rawMarketResponseSchema.parse(raw));
 }
 
 /**
@@ -140,6 +163,20 @@ export async function getPlayer(
   playerDetail.marketValueHistory92 = toMarketValueHistory(marketValue92);
   playerDetail.marketValueHistory365 = toMarketValueHistory(marketValue365);
   return playerDetail;
+}
+
+/**
+ * NUR die Basis-Spielerdaten (Name, Position, Marktwert, Foto, Status) — EIN
+ * Request statt der vier von getPlayer(). Gebraucht für die Rivalen-Elf im
+ * Liga-Tab (siehe manager/[managerId].tsx): dort müssen bis zu 11 fremde
+ * Spieler-IDs auf einmal aufgelöst werden, ohne für jeden zusätzlich
+ * Marktwertverlauf und Saison-Performance mitzuladen. `toPlayerDetail()`
+ * verlangt eine Performance-Antwort für seine Signatur — hier bewusst leer,
+ * `PlayerDetail.performance` bleibt entsprechend `[]`.
+ */
+export async function getPlayerBasic(token: string, leagueId: string, playerId: string): Promise<PlayerDetail> {
+  const raw = await withPlayerLookupLimit(() => kbFetch(`/v4/leagues/${leagueId}/players/${playerId}`, { token }));
+  return toPlayerDetail(rawPlayerDetailSchema.parse(raw), { it: [] });
 }
 
 /**

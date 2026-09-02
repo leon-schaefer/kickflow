@@ -26,6 +26,15 @@ import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, layout, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
+import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
+import {
+  averageDifficulty,
+  buildFixtureIndex,
+  fixtureDifficulty,
+  remainingFixtures,
+  teamGoalRecord,
+  teamStrength,
+} from '@/utils/fixtureDifficulty';
 import {
   AVAILABLE_FORMATIONS,
   formationFor,
@@ -34,6 +43,9 @@ import {
 } from '@/utils/formations';
 import { compareByMetric } from '@/utils/lineupOptimizer';
 import { resolveMatchdayState } from '@/utils/matchday';
+
+/** Wie viele kommende Spieltage in die 'expectedPoints'-Metrik einfließen (siehe fixtureDifficulty.ts). */
+const FIXTURE_LOOKAHEAD = 5;
 
 export default function LineupScreen() {
   const leagueId = useLeagueId();
@@ -70,8 +82,6 @@ export default function LineupScreen() {
   const [appliedDiff, setAppliedDiff] = useState<OptimizerDiff | null>(null);
   const [preOptimize, setPreOptimize] = useState<{ formation: string; draftIds: string[] } | null>(null);
 
-  const optimizer = useLineupOptimizer(data?.players ?? [], draftIds, budgetLimit?.deficit ?? 0, rules);
-
   // Countdown-Anzeige lebendig halten, ohne dafür zu pollen (kein Netzwerk-Request).
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 60_000);
@@ -86,6 +96,33 @@ export default function LineupScreen() {
     if (!matchdaysQuery.data) return null;
     return resolveMatchdayState(matchdaysQuery.data, Date.now());
   }, [matchdaysQuery.data]);
+
+  // Gegner-Härte je Verein für die 'expectedPoints'-Metrik (siehe
+  // src/utils/fixtureDifficulty.ts), gemittelt über die nächsten
+  // FIXTURE_LOOKAHEAD Spieltage ab dem nächsten noch offenen. Ohne Spielplan
+  // (Query lädt noch) bleibt die Map undefined — useLineupOptimizer
+  // degradiert dann sauber auf reine Ø-Punkte.
+  const fixtureDifficultyByTeam = useMemo(() => {
+    if (!matchdaysQuery.data || !data) return undefined;
+    const fromDay = matchdayState?.open?.day ?? matchdaysQuery.data.currentDay ?? 1;
+    const index = buildFixtureIndex(matchdaysQuery.data);
+    const strengths = teamStrength(teamGoalRecord(matchdaysQuery.data));
+    const teamIds = new Set(data.players.map((p) => p.teamId));
+    const map = new Map<string, AverageDifficulty>();
+    for (const teamId of teamIds) {
+      const upcoming = remainingFixtures(teamId, index, fromDay, FIXTURE_LOOKAHEAD);
+      map.set(teamId, averageDifficulty(fixtureDifficulty(upcoming, strengths)));
+    }
+    return map;
+  }, [matchdaysQuery.data, data, matchdayState]);
+
+  const optimizer = useLineupOptimizer(
+    data?.players ?? [],
+    draftIds,
+    budgetLimit?.deficit ?? 0,
+    rules,
+    fixtureDifficultyByTeam,
+  );
 
   const fallbackDeadlineMs = data ? msUntil(data.lineupDeadline) : null;
   const openDeadlineMs = matchdayState
@@ -290,6 +327,10 @@ export default function LineupScreen() {
     router.push({ pathname: '/[leagueId]/rules', params: { leagueId } });
   }
 
+  function openFixtures() {
+    router.push({ pathname: '/[leagueId]/fixtures', params: { leagueId } });
+  }
+
   if (!data) {
     return <QueryState query={lineupQuery} label="Aufstellung" refresh={refresh} />;
   }
@@ -339,6 +380,11 @@ export default function LineupScreen() {
           {budgetLimit && <Text style={styles.headerSub}>Verfügbar {formatCurrency(budgetLimit.available)}</Text>}
         </View>
       </View>
+
+      <Pressable style={styles.fixturesLink} onPress={openFixtures}>
+        <Text style={styles.fixturesLinkText}>Restprogramm</Text>
+        <Text style={styles.fixturesLinkChevron}>›</Text>
+      </Pressable>
 
       {hasOpenMatchday && (
         <Pressable
@@ -508,6 +554,20 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  fixturesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 2,
+  },
+  fixturesLinkText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  fixturesLinkChevron: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   editToggle: {
     alignSelf: 'flex-start',

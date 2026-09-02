@@ -33,6 +33,11 @@ export function LeagueSwitcher() {
     router.navigate('/leagues');
   }
 
+  function openSettings() {
+    setOpen(false);
+    router.navigate('/settings');
+  }
+
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setOpen(true)} hitSlop={spacing.sm}>
@@ -62,9 +67,14 @@ export function LeagueSwitcher() {
                 )}
               />
             )}
-            <Pressable style={styles.footer} onPress={openLeaguesScreen}>
-              <Text style={styles.footerText}>Meine Ligen</Text>
-            </Pressable>
+            <View style={styles.footerRow}>
+              <Pressable style={styles.footer} onPress={openLeaguesScreen}>
+                <Text style={styles.footerText}>Meine Ligen</Text>
+              </Pressable>
+              <Pressable style={styles.footer} onPress={openSettings}>
+                <Text style={styles.footerText}>Einstellungen</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -132,8 +142,12 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
-  footer: {
+  footerRow: {
+    flexDirection: 'row',
     marginTop: spacing.sm,
+  },
+  footer: {
+    flex: 1,
     paddingVertical: spacing.sm,
     alignItems: 'center',
   },
