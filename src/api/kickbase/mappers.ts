@@ -9,11 +9,15 @@
 import type {
   RawCompetitionMatchdays,
   RawCompetitionTeam,
+  RawFixture,
+  RawLeagueRanking,
+  RawLeagueRankingEntry,
   RawLineupOverview,
   RawLineupPlayer,
   RawLoginResponse,
   RawMarketOffer,
   RawMarketPlayer,
+  RawMarketResponse,
   RawMarketValueHistory,
   RawPerformanceResponse,
   RawPlayerDetail,
@@ -21,8 +25,11 @@ import type {
 } from './schemas';
 import type {
   AuthSession,
+  LeagueRanking,
+  LeagueRankingEntry,
   LeagueSummary,
   LineupData,
+  MarketData,
   MarketOffer,
   MarketPlayer,
   MarketValueHistory,
@@ -31,6 +38,7 @@ import type {
   PlayerDetail,
   PlayerStatus,
   Position,
+  ScheduledFixture,
   ScheduledMatchday,
   SeasonPerformance,
   SquadPlayer,
@@ -75,6 +83,18 @@ export function mapStatus(st: number | undefined): PlayerStatus {
   if (st === undefined || st === 0) return 'fit';
   if (st === 2 || st === 4) return 'injured';
   return 'unknown';
+}
+
+/**
+ * `stl` ist gegen echte Accounts bisher AUSSCHLIESSLICH als leeres Array
+ * beobachtet worden (siehe scripts/.probe-output/{squad,player-detail}.json)
+ * — die Item-Form (Klartext-String? Objekt mit eigenen Kürzeln?) ist komplett
+ * unverifiziert. Statt zu raten und im Zweifel "[object Object]" anzuzeigen,
+ * werden nur String-Einträge übernommen; alles andere wird still verworfen.
+ */
+function mapStatusDetails(stl: unknown[] | undefined): string[] {
+  if (!stl) return [];
+  return stl.filter((entry): entry is string => typeof entry === 'string');
 }
 
 /**
@@ -174,7 +194,7 @@ export function toSquadPlayer(
     valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
 
     status: mapStatus(raw.st ?? lineupEntry?.st),
-    statusDetails: [],
+    statusDetails: mapStatusDetails(raw.stl),
 
     imageUrl: imageUrl(raw.pim ?? lineupEntry?.pim),
     teamLogoUrl: null,
@@ -183,7 +203,7 @@ export function toSquadPlayer(
     lineupSlot: lineupEntry?.lo ?? null,
     isCaptain: lineupEntry?.ictp ?? false,
 
-    onMarket: false,
+    onMarket: raw.iotm ?? false,
     offerCount: raw.ofc ?? 0,
 
     nextMatch:
@@ -240,6 +260,37 @@ export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
     ownOfferPrice: raw.uop ?? null,
     ownOfferId: raw.uoid ?? null,
     offers: (raw.ofs ?? []).map(toMarketOffer),
+  };
+}
+
+function toLeagueRankingEntry(raw: RawLeagueRankingEntry): LeagueRankingEntry {
+  return {
+    userId: raw.i ?? '',
+    userName: raw.n ?? 'Unbekannt',
+    userImageUrl: imageUrl(raw.uim),
+    isAdmin: raw.adm ?? false,
+    hasLineupSet: raw.pa ?? false,
+    seasonPoints: raw.sp ?? 0,
+    seasonPlace: raw.spl ?? 0,
+    matchdayPoints: raw.mdp ?? 0,
+    matchdayPlace: raw.mdpl ?? 0,
+    teamValue: raw.tv ?? 0,
+    lineupPlayerIds: raw.lp ?? [],
+  };
+}
+
+/** `GET /v4/leagues/{id}/ranking` — die Liga-Tabelle, siehe getLeagueRanking() in endpoints.ts. */
+export function toLeagueRanking(raw: RawLeagueRanking): LeagueRanking {
+  return {
+    seasonName: raw.sn ?? null,
+    entries: raw.us.map(toLeagueRankingEntry),
+  };
+}
+
+export function toMarketData(raw: RawMarketResponse): MarketData {
+  return {
+    players: raw.it.map(toMarketPlayer),
+    marketValueUpdateAt: raw.mvud ?? null,
   };
 }
 
@@ -309,7 +360,7 @@ export function toPlayerDetail(raw: RawPlayerDetail, performance: RawPerformance
     yellowCards: raw.y ?? 0,
     redCards: raw.r ?? 0,
     status: mapStatus(raw.st),
-    statusDetails: [],
+    statusDetails: mapStatusDetails(raw.stl),
     imageUrl: imageUrl(raw.pim),
     teamLogoUrl: imageUrl(raw.tim),
     seasonMatchCount: raw.smdc ?? 0,
@@ -374,5 +425,18 @@ function toScheduledMatchday(raw: RawCompetitionMatchdays['it'][number] & { day:
     day: raw.day,
     firstKickoff,
     allPlayed: raw.it.length > 0 && raw.it.every((fixture) => fixture.t1g !== undefined && fixture.t2g !== undefined),
+    fixtures: raw.it.map(toScheduledFixture),
+  };
+}
+
+function toScheduledFixture(raw: RawFixture): ScheduledFixture {
+  return {
+    homeTeamId: raw.t1 ?? '',
+    awayTeamId: raw.t2 ?? '',
+    homeLogoUrl: imageUrl(raw.t1im),
+    awayLogoUrl: imageUrl(raw.t2im),
+    homeGoals: raw.t1g ?? null,
+    awayGoals: raw.t2g ?? null,
+    hasResult: raw.t1g !== undefined && raw.t2g !== undefined,
   };
 }

@@ -1,20 +1,25 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
 import { BudgetBar } from '@/components/BudgetBar';
 import { OfferModal } from '@/components/OfferModal';
+import { PlayerFilterBar } from '@/components/PlayerFilterBar';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
 import type { ValueRowPlayer } from '@/components/ValueRow';
 import { ValueRow } from '@/components/ValueRow';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
-import { useLeagues, useLineup, useMarket, usePlaytimes } from '@/queries/hooks';
+import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { useCompetitionTeams, useLeagues, useLineup, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { formatCountdown, msUntil } from '@/utils/format';
 import type { ValueSortKey } from '@/utils/marketList';
 import { filterOwnBids, sortByExpiry } from '@/utils/marketList';
+import type { PlayerFilterCriteria } from '@/utils/playerFilter';
+import { EMPTY_PLAYER_FILTER, filterPlayers, isPlayerFilterActive } from '@/utils/playerFilter';
 import { pointsPerMinute } from '@/utils/playtime';
 
 type Segment = 'squad' | 'market';
@@ -44,14 +49,27 @@ export default function ValueScreen() {
   const [sortKey, setSortKey] = useState<SortKey>('avg');
   const [onlyOwnBids, setOnlyOwnBids] = useState(false);
   const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
+  const [filter, setFilter] = useState<PlayerFilterCriteria>(EMPTY_PLAYER_FILTER);
   const limit = useBudgetLimit();
+  const competitionId = useCompetitionId();
+  const teamsQuery = useCompetitionTeams(competitionId);
 
   const lineup = useLineup(leagueId);
   const market = useMarket(leagueId, { enabled: segment === 'market' });
   const leaguesQuery = useLeagues();
 
   const active = segment === 'squad' ? lineup : market;
-  const rawPlayers: ValueRowPlayer[] = segment === 'squad' ? (lineup.data?.players ?? []) : (market.data ?? []);
+  const rawPlayers: ValueRowPlayer[] =
+    segment === 'squad' ? (lineup.data?.players ?? []) : (market.data?.players ?? []);
+
+  // Countdown-Anzeige lebendig halten, ohne dafür zu pollen (kein Netzwerk-
+  // Request) — gleicher Trick wie der Deadline-Countdown auf lineup.tsx.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const marketValueUpdateMs = market.data ? msUntil(market.data.marketValueUpdateAt) : null;
 
   // Spielminuten gibt es nur pro Spieler (siehe usePlaytimes) — stabile
   // ID-Liste, damit useQueries seine Query-Liste nicht bei jedem Render neu baut.
@@ -69,7 +87,8 @@ export default function ValueScreen() {
   const ownBidsOnly = isMarket && onlyOwnBids;
 
   const sorted = useMemo(() => {
-    const base = ownBidsOnly ? filterOwnBids(rawPlayers) : rawPlayers;
+    const filtered = filterPlayers(rawPlayers, filter);
+    const base = ownBidsOnly ? filterOwnBids(filtered) : filtered;
     if (sortKey === 'expiry') {
       return sortByExpiry(base);
     }
@@ -84,7 +103,7 @@ export default function ValueScreen() {
     }
     const key = sortKey === 'avg' ? 'valueScoreAvg' : 'valueScoreTotal';
     return [...base].sort((a, b) => b[key] - a[key]);
-  }, [rawPlayers, sortKey, playtimes, ownBidsOnly]);
+  }, [rawPlayers, sortKey, playtimes, ownBidsOnly, filter]);
 
   function openPlayer(player: ValueRowPlayer) {
     router.push(`/${leagueId}/player/${player.id}`);
@@ -119,6 +138,8 @@ export default function ValueScreen() {
         ))}
       </View>
 
+      <PlayerFilterBar criteria={filter} onChange={setFilter} teams={teamsQuery.data} />
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -150,6 +171,10 @@ export default function ValueScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {isMarket && marketValueUpdateMs != null && marketValueUpdateMs > 0 && (
+        <Text style={styles.updateHint}>Nächstes Marktwert-Update in {formatCountdown(marketValueUpdateMs)}</Text>
+      )}
 
       {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}
       {playtimeState.pending > 0 && (
@@ -184,7 +209,11 @@ export default function ValueScreen() {
                   {/* Eigener Text bei aktivem Filter — „Keine Spieler gefunden“
                       würde hier wie ein Ladefehler wirken. */}
                   <Text style={styles.emptyText}>
-                    {ownBidsOnly ? 'Du hast auf keinen Spieler geboten.' : 'Keine Spieler gefunden.'}
+                    {ownBidsOnly
+                      ? 'Du hast auf keinen Spieler geboten.'
+                      : isPlayerFilterActive(filter)
+                        ? 'Kein Spieler passt zum Filter.'
+                        : 'Keine Spieler gefunden.'}
                   </Text>
                 </View>
               }
@@ -289,6 +318,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   playtimeHint: {
+    ...typography.small,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  updateHint: {
     ...typography.small,
     color: colors.textMuted,
     paddingHorizontal: spacing.md,

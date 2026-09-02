@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FixtureDifficultyStrip } from '@/components/FixtureDifficultyStrip';
 import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
 import { QueryState } from '@/components/QueryState';
@@ -9,16 +10,21 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
-import { useCompetitionTeams, usePlayer } from '@/queries/hooks';
+import { useCompetitionTeams, useMatchdays, usePlayer } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import { buildFixtureIndex, fixtureDifficulty, remainingFixtures, teamGoalRecord, teamStrength } from '@/utils/fixtureDifficulty';
 import {
   formatCurrency,
   formatMinutes,
   formatPoints,
   formatPointsPerMinute,
 } from '@/utils/format';
+import { resolveMatchdayState } from '@/utils/matchday';
 import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
+
+/** Wie viele kommende Spiele im "Nächste Gegner"-Streifen stehen — passend zur Standard-Ansicht des Restprogramm-Screens. */
+const NEXT_OPPONENTS_COUNT = 5;
 
 type Timeframe = 92 | 365;
 
@@ -27,16 +33,34 @@ export default function PlayerDetailScreen() {
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const playerQuery = usePlayer(leagueId, playerId);
   const { data: player } = playerQuery;
-  const refresh = useRefresh(playerQuery);
   const [timeframe, setTimeframe] = useState<Timeframe>(92);
   const backTitle = useFocusedLeagueTabTitle();
 
   const competitionId = useCompetitionId();
   const { data: competitionTeams } = useCompetitionTeams(competitionId);
+  const matchdaysQuery = useMatchdays(competitionId);
+  const refresh = useRefresh(playerQuery, matchdaysQuery);
   const teamNames = useMemo(
     () => new Map((competitionTeams ?? []).map((team) => [team.id, team.name])),
     [competitionTeams],
   );
+
+  // "Nächste Gegner" — dieselbe Härte-Herleitung wie das Restprogramm
+  // (app/(app)/[leagueId]/fixtures.tsx), nur auf diesen einen Spieler und
+  // dessen Position zugeschnitten. Ohne geladenen Spielplan bleibt es leer.
+  const nextOpponentRatings = useMemo(() => {
+    if (!player || !matchdaysQuery.data) return [];
+    const schedule = matchdaysQuery.data;
+    const fromDay = resolveMatchdayState(schedule, Date.now()).open?.day ?? schedule.currentDay ?? 1;
+    const index = buildFixtureIndex(schedule);
+    const strengths = teamStrength(teamGoalRecord(schedule));
+    const upcoming = remainingFixtures(player.teamId, index, fromDay, NEXT_OPPONENTS_COUNT);
+    return fixtureDifficulty(upcoming, strengths);
+  }, [player, matchdaysQuery.data]);
+  // Torwart/Abwehr: relevant ist die Angriffsgefahr der Gegner (defenseDifficulty).
+  // Mittelfeld/Sturm: relevant ist deren Abwehrstärke (attackDifficulty). Siehe
+  // positionDifficulty() in fixtureDifficulty.ts für dieselbe Zuordnung beim Optimizer.
+  const nextOpponentLens = player && (player.position === 'GK' || player.position === 'DEF') ? 'defense' : 'attack';
 
   if (!player) {
     return (
@@ -82,6 +106,9 @@ export default function PlayerDetailScreen() {
               </View>
               <StatusBadge status={player.status} />
             </View>
+            {player.statusDetails.length > 0 && (
+              <Text style={styles.statusDetails}>{player.statusDetails.join(' · ')}</Text>
+            )}
           </View>
         </View>
 
@@ -102,6 +129,13 @@ export default function PlayerDetailScreen() {
             }
           />
         </View>
+
+        {nextOpponentRatings.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Nächste Gegner</Text>
+            <FixtureDifficultyStrip ratings={nextOpponentRatings} lens={nextOpponentLens} size={32} />
+          </View>
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -206,6 +240,11 @@ const styles = StyleSheet.create({
   positionText: {
     ...typography.small,
     fontWeight: '700',
+  },
+  statusDetails: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   statsGrid: {
     flexDirection: 'row',

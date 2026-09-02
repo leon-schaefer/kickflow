@@ -2,17 +2,19 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { useCallback, useMemo } from 'react';
 import {
   getCompetitionTeams,
+  getLeagueRanking,
   getLeagues,
   getLineup,
   getMarket,
   getMatchdays,
   getPlayer,
+  getPlayerBasic,
   getPlayerPerformance,
   placeOffer,
   removeOffer,
   saveLineup,
 } from '@/api/kickbase';
-import type { PlaceOfferInput, SaveLineupInput } from '@/api/kickbase';
+import type { PlaceOfferInput, PlayerDetail, SaveLineupInput } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import type { PlaytimeTotals } from '@/utils/playtime';
@@ -56,6 +58,59 @@ export function useMarket(leagueId: string, options: { enabled?: boolean } = {})
     enabled: !!token && !!leagueId && (options.enabled ?? true),
     staleTime: 60_000,
   });
+}
+
+/** Liga-Tabelle (Platzierung, Punkte, Teamwert je Manager, plus dessen Startelf-IDs). */
+export function useLeagueRanking(leagueId: string, dayNumber?: number) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.leagueRanking(leagueId, dayNumber),
+    queryFn: () => getLeagueRanking(token!, leagueId, dayNumber),
+    enabled: !!token && !!leagueId,
+    staleTime: 60_000,
+  });
+}
+
+export interface ManagerLineupState {
+  /** playerId → Basis-Spielerdaten. Eintrag fehlt, solange der Request läuft oder scheitert. */
+  players: Map<string, PlayerDetail>;
+  pending: number;
+  total: number;
+  /** Erfüllt das Refetchable-Interface von useRefresh (Pull-to-Refresh). */
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Löst die Startelf-Spieler-IDs eines Rivalen (LeagueRankingEntry.lineupPlayerIds)
+ * zu Basis-Spielerdaten auf — ein `getPlayerBasic`-Request je ID, gedrosselt
+ * über withPlayerLookupLimit (siehe limiter.ts). Analog zu usePlaytimes() oben:
+ * `playerIds` muss stabil sein (useMemo beim Aufrufer).
+ */
+export function useManagerLineup(leagueId: string, playerIds: readonly (string | null)[]): ManagerLineupState {
+  const { token } = useAuth();
+  const ids = playerIds.filter((id): id is string => id !== null);
+  const results = useQueries({
+    queries: ids.map((playerId) => ({
+      queryKey: queryKeys.playerBasic(leagueId, playerId),
+      queryFn: () => getPlayerBasic(token!, leagueId, playerId),
+      enabled: !!token && !!leagueId && !!playerId,
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  const players = useMemo(() => {
+    const map = new Map<string, PlayerDetail>();
+    results.forEach((result, index) => {
+      const playerId = ids[index];
+      if (playerId && result.data) map.set(playerId, result.data);
+    });
+    return map;
+  }, [results, playerIds]);
+
+  const pending = results.reduce((count, r) => (r.isPending ? count + 1 : count), 0);
+  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+
+  return { players, pending, total: ids.length, refetch };
 }
 
 export function usePlayer(leagueId: string, playerId: string) {
