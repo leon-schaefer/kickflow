@@ -275,7 +275,9 @@ function toLeagueRankingEntry(raw: RawLeagueRankingEntry): LeagueRankingEntry {
     matchdayPoints: raw.mdp ?? 0,
     matchdayPlace: raw.mdpl ?? 0,
     teamValue: raw.tv ?? 0,
-    lineupPlayerIds: raw.lp ?? [],
+    // Auf String normalisieren: die API liefert Zahlen (siehe rawLeagueRankingEntrySchema.lp),
+    // die restliche App — bis hin zu `/players/{id}` — rechnet mit String-IDs.
+    lineupPlayerIds: (raw.lp ?? []).map((id) => (id === null ? null : String(id))),
   };
 }
 

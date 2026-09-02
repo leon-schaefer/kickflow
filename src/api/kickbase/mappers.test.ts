@@ -18,6 +18,7 @@ import {
   toSquadPlayer,
   toTeam,
 } from './mappers';
+import { rawLeagueRankingSchema } from './schemas';
 import type {
   RawLeague,
   RawLineupOverview,
@@ -319,6 +320,15 @@ describe('toLeagueRanking', () => {
         lineupPlayerIds: ['118', '999', null],
       },
     ]);
+  });
+
+  // Der Fall aus der echten Antwort (02.09.2026): `lp` kommt als Zahlen-Array.
+  // Vorher scheiterte hier schon das Schema, und der Liga-Tab blieb leer.
+  it('normalisiert Zahlen-IDs in lp zu Strings', () => {
+    const parsed = rawLeagueRankingSchema.parse({
+      us: [{ i: '4232017', lp: [118, 4383, null] }],
+    });
+    expect(toLeagueRanking(parsed).entries[0]?.lineupPlayerIds).toEqual(['118', '4383', null]);
   });
 
   it('fällt bei fehlenden Feldern defensiv zurück statt zu crashen', () => {
