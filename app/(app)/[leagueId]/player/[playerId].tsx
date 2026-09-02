@@ -136,7 +136,7 @@ export default function PlayerDetailScreen() {
             <FixtureDifficultyStrip
               ratings={nextOpponentRatings}
               lens={nextOpponentLens}
-              size={36}
+              size={44}
               showOpponentLogos
             />
           </View>

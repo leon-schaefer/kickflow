@@ -9,10 +9,11 @@ interface FixtureDifficultyStripProps {
   lens: 'attack' | 'defense';
   size?: number;
   /**
-   * true = jede Zelle zeigt zusätzlich das Vereinslogo des Gegners (aus dem
-   * Spielplan, siehe UpcomingFixture.opponentLogoUrl). Im Restprogramm aus,
-   * weil dort der Verein schon links in der Zeile steht und die Zellen mit
-   * 10 Spielen zu klein dafür sind.
+   * true = die Zelle wird vom Vereinslogo des Gegners gefüllt (aus dem
+   * Spielplan, siehe UpcomingFixture.opponentLogoUrl), das H/A sitzt dann nur
+   * noch klein in der oberen rechten Ecke. Im Restprogramm aus, weil dort der
+   * Verein schon links in der Zeile steht und die Zellen mit 10 Spielen zu
+   * klein für ein erkennbares Logo sind.
    */
   showOpponentLogos?: boolean;
 }
@@ -36,8 +37,14 @@ export function FixtureDifficultyStrip({ ratings, lens, size = 24, showOpponentL
               { width: size, height: size, backgroundColor: difficultyBackground(value), borderColor: difficultyBorder(value) },
             ]}
           >
-            {showOpponentLogos && <TeamLogo uri={rating.opponentLogoUrl} size={Math.round(size * 0.5)} />}
-            <Text style={styles.cellText}>{rating.isHome ? 'H' : 'A'}</Text>
+            {showOpponentLogos ? (
+              <>
+                <TeamLogo uri={rating.opponentLogoUrl} size={Math.round(size * 0.8)} />
+                <Text style={[styles.cellText, styles.venueBadge]}>{rating.isHome ? 'H' : 'A'}</Text>
+              </>
+            ) : (
+              <Text style={styles.cellText}>{rating.isHome ? 'H' : 'A'}</Text>
+            )}
           </View>
         );
       })}
@@ -73,5 +80,17 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textSecondary,
     fontWeight: '700',
+  },
+  /** Mit Logo ist das H/A nur noch Beiwerk: klein oben rechts über die Ecke gelegt. */
+  venueBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 1,
+    fontSize: 9,
+    lineHeight: 11,
+    paddingHorizontal: 1,
+    borderRadius: radius.sm,
+    // Eigener Hintergrund, damit das H/A auch über einem hellen Logo lesbar bleibt.
+    backgroundColor: colors.background,
   },
 });
