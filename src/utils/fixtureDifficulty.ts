@@ -95,6 +95,13 @@ export interface UpcomingFixture {
   day: number;
   opponentId: string;
   isHome: boolean;
+  /**
+   * Vereinslogo des Gegners, direkt aus dem Spielplan — damit die Anzeige
+   * (siehe FixtureDifficultyStrip) kein zweites Query auf die Competition-
+   * Tabelle braucht und nicht davon abhängt, dass beide Quellen dieselben
+   * teamIds benutzen.
+   */
+  opponentLogoUrl: string | null;
 }
 
 /** Index Verein → alle seine Paarungen der Saison, nach Spieltag sortiert. */
@@ -110,8 +117,18 @@ export function buildFixtureIndex(schedule: MatchdaySchedule): Map<string, Upcom
 
   for (const matchday of schedule.matchdays) {
     for (const fixture of matchday.fixtures) {
-      add(fixture.homeTeamId, { day: matchday.day, opponentId: fixture.awayTeamId, isHome: true });
-      add(fixture.awayTeamId, { day: matchday.day, opponentId: fixture.homeTeamId, isHome: false });
+      add(fixture.homeTeamId, {
+        day: matchday.day,
+        opponentId: fixture.awayTeamId,
+        isHome: true,
+        opponentLogoUrl: fixture.awayLogoUrl,
+      });
+      add(fixture.awayTeamId, {
+        day: matchday.day,
+        opponentId: fixture.homeTeamId,
+        isHome: false,
+        opponentLogoUrl: fixture.homeLogoUrl,
+      });
     }
   }
   for (const list of index.values()) list.sort((a, b) => a.day - b.day);
