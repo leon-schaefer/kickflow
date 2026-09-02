@@ -2,6 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SquadPlayer } from '@/api/kickbase';
 import { colors, positionColors, radius, spacing, statusColors, typography } from '@/theme/tokens';
 import { formatPoints } from '@/utils/format';
+import { StatusBadge } from './StatusBadge';
 
 interface PlayerCardProps {
   player: SquadPlayer;
@@ -44,10 +45,14 @@ export function PlayerCard({
         {player.status !== 'fit' && (
           <View
             style={[
-              styles.statusDot,
+              styles.statusBadge,
               { backgroundColor: statusColors[player.status], borderColor: backgroundColor },
             ]}
-          />
+          >
+            {/* Icon statt reinem Farbpunkt: Verletzt und Angeschlagen sind sonst
+             * nur an der Farbe zu unterscheiden — auf 12 px kaum verlässlich. */}
+            <StatusBadge status={player.status} size={STATUS_ICON_SIZE} color={colors.background} />
+          </View>
         )}
         {player.isCaptain && (
           <View style={styles.captainBadge}>
@@ -67,6 +72,9 @@ export function PlayerCard({
 }
 
 const CARD_WIDTH = 68;
+/** Kreis um das Statusicon — knapp größer als der alte 12-px-Punkt, damit das Glyph lesbar bleibt. */
+const STATUS_BADGE_SIZE = 18;
+const STATUS_ICON_SIZE = 11;
 
 const styles = StyleSheet.create({
   card: {
@@ -100,14 +108,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  statusDot: {
+  statusBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
+    bottom: -2,
+    right: -2,
+    width: STATUS_BADGE_SIZE,
+    height: STATUS_BADGE_SIZE,
     borderRadius: radius.full,
     borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   captainBadge: {
     position: 'absolute',

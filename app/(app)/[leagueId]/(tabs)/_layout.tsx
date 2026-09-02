@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
+import { LeagueIcon } from '@/components/icons/LeagueIcon';
 import { MoreIcon } from '@/components/icons/MoreIcon';
 import { PitchIcon } from '@/components/icons/PitchIcon';
 import { SquadIcon } from '@/components/icons/SquadIcon';
@@ -44,6 +45,13 @@ export default function LeagueTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="league"
+        options={{
+          title: leagueTabTitles.league,
+          tabBarIcon: ({ color, size }) => <LeagueIcon color={color} size={size} />,
+        }}
+      />
+<Tabs.Screen
         name="more"
         options={{
           title: leagueTabTitles.more,
@@ -52,8 +60,7 @@ export default function LeagueTabsLayout() {
           // irreführend.
           headerTitle: leagueTabTitles.more,
           tabBarIcon: ({ color, size }) => <MoreIcon color={color} size={size} />,
-        }}
-      />
+        }} />
     </Tabs>
   );
 }
