@@ -1,10 +1,11 @@
 /**
- * Reine Helfer für die Transfermarkt-Liste (Wert-Tab, Markt-Segment) — hält den
- * Screen dumm, damit Filter und Sortierung isoliert testbar bleiben.
+ * Reine Helfer für die Transfermarkt-Liste (Markt-Tab) — hält den Screen dumm,
+ * damit Filter und Sortierung isoliert testbar bleiben. Kennzahl-Sortierung
+ * (Ø/Mio, Ges/Mio, P/Min) und deren Anzeige stehen in `playerMetric.ts`; hier
+ * nur, was wirklich marktspezifisch ist.
  *
- * Beide Funktionen sind generisch über die optionalen Gebots-/Ablauffelder, die
- * `ValueRowPlayer` bereits deklariert — so kommt der Screen ohne Casts auf
- * `MarketPlayer` aus.
+ * Beide Funktionen unten sind generisch über die optionalen Gebots-/Ablauf-
+ * felder, die `MarketPlayer` deklariert.
  */
 
 /**
@@ -22,27 +23,6 @@ export function marketMarkupPercent(
   if (price === undefined || marketValue <= 0) return null;
   const percent = Math.round(((price - marketValue) / marketValue) * 100);
   return percent === 0 ? null : percent;
-}
-
-export type ValueSortKey = "avg" | "total" | "perMinute" | "expiry";
-
-/**
- * Welcher der 3 Wert-Scores (Ø/Mio, Ges/Mio, P/Min) rechts oben in `ValueRow`
- * steht — der gerade aktive Sortier-Wert. `expiry` hat keinen eigenen Score
- * unter diesen 3 (die Restlaufzeit steht bereits separat neben dem
- * Spielernamen), fällt also wie der Default auf Ø/Mio zurück.
- */
-export function filteredScoreKey(
-  sortKey: ValueSortKey,
-): "avg" | "total" | "perMinute" {
-  switch (sortKey) {
-    case "total":
-      return "total";
-    case "perMinute":
-      return "perMinute";
-    default:
-      return "avg";
-  }
 }
 
 /** Nur Listings, auf die ich selbst geboten habe (Rohfeld `uop`, siehe mappers.ts). */

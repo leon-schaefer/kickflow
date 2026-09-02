@@ -12,7 +12,7 @@ import { useNotificationSync } from './useNotificationSync';
  * aktuellen Liga — Deadline aus dem Spielplan, offene Gebote aus dem
  * Transfermarkt. Gemountet in [leagueId]/_layout.tsx, läuft also unabhängig
  * davon, welcher Tab gerade offen ist. `useMatchdays`/`useMarket` sind
- * dieselben Queries, die lineup.tsx/value.tsx ohnehin laden (useBudgetLimit
+ * dieselben Queries, die lineup.tsx/market.tsx ohnehin laden (useBudgetLimit
  * hält `useMarket` bereits unconditional) — kein zusätzlicher Request.
  */
 export function useLeagueNotifications(): void {

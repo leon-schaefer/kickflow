@@ -179,8 +179,8 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
-  // Gleicher Fix wie im Sort-Chip-Row des Wert-Tabs: ohne feste Mindesthöhe
-  // schrumpft die ScrollView beim Scrollen auf reine Texthöhe (siehe value.tsx).
+  // Gleicher Fix wie in SortChips (src/components/SortChips.tsx): ohne feste
+  // Mindesthöhe schrumpft die ScrollView beim Scrollen auf reine Texthöhe.
   chipScroll: {
     flexGrow: 0,
     minHeight: 42,

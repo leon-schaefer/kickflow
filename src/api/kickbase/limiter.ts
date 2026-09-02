@@ -1,9 +1,9 @@
 /**
  * Winziges Semaphor, damit N gleichzeitige Requests nicht als Burst bei
  * Cloudflare landen (Kickbase hängt dahinter, siehe Kommentar in
- * src/queries/useRefresh.ts). Gebraucht für die Spielzeit-Spalte im Wert-Tab:
- * dort steht ein `/performance`-Request pro Kader-/Marktspieler an, also
- * schnell 20–30 auf einmal.
+ * src/queries/useRefresh.ts). Gebraucht für die Punkte/Min-Kennzahl im Kader-
+ * und im Markt-Tab: dort steht ein `/performance`-Request pro Kader-/
+ * Marktspieler an, also schnell 20–30 auf einmal.
  *
  * WICHTIG: Das Gate liegt UM den fetch-Aufruf, nicht darin — sonst würde der
  * 10-Sekunden-Timeout aus client.ts bereits in der Warteschlange laufen und

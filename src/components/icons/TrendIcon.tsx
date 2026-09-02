@@ -2,7 +2,7 @@ import Svg, { Polyline } from 'react-native-svg';
 import type { TabIconProps } from './types';
 
 /**
- * Aufwärtstrend mit Pfeilspitze für den Wert-Tab (Punkte pro Mio).
+ * Aufwärtstrend mit Pfeilspitze für den Markt-Tab (Transfermarkt).
  * Bewusst ohne Achsen — bei Tab-Größe ist der bloße Pfeilzug lesbarer.
  */
 export function TrendIcon({ color, size = 24 }: TabIconProps) {

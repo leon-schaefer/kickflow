@@ -26,7 +26,7 @@ export type OptimizerMetric = 'valuePerMillion' | 'points' | 'expectedPoints';
 
 /**
  * Minimale Feldmenge, die der Optimizer braucht — SquadPlayer erfüllt sie
- * strukturell (Vorbild: ValueRowPlayer in src/components/ValueRow.tsx).
+ * strukturell (Vorbild: MetricPlayer in src/utils/playerMetric.ts).
  * `expectedPoints` ist optional: nur useLineupOptimizer() reichert Spieler
  * damit an (wenn ein Spielplan vorliegt); ohne den Wert fällt die Metrik
  * `'expectedPoints'` auf `averagePoints` zurück, verhält sich also wie 'points'.
