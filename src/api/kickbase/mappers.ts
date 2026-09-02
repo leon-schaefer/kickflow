@@ -9,9 +9,12 @@
 import type {
   RawCompetitionMatchdays,
   RawCompetitionTeam,
+  RawLeagueRanking,
   RawLineupOverview,
   RawLineupPlayer,
   RawLoginResponse,
+  RawManagerSquad,
+  RawManagerSquadPlayer,
   RawMarketOffer,
   RawMarketPlayer,
   RawMarketValueHistory,
@@ -21,8 +24,10 @@ import type {
 } from './schemas';
 import type {
   AuthSession,
+  LeagueManager,
   LeagueSummary,
   LineupData,
+  ManagerSquad,
   MarketOffer,
   MarketPlayer,
   MarketValueHistory,
@@ -195,6 +200,134 @@ export function toSquadPlayer(
             awayLogoUrl: imageUrl(lineupEntry.t2im) ?? '',
           }
         : null,
+  };
+}
+
+/** Ein Eintrag der Liga-Tabelle. `spl` ist der Saisonplatz, `mdp` die Spieltagspunkte. */
+export function toLeagueManager(raw: RawLeagueRanking['us'][number]): LeagueManager {
+  return {
+    id: raw.i,
+    name: raw.n ?? 'Unbekannt',
+    placement: raw.spl ?? null,
+    seasonPoints: raw.sp ?? null,
+    matchdayPoints: raw.mdp ?? null,
+    teamValue: raw.tv ?? null,
+    isAdmin: raw.adm ?? false,
+    imageUrl: imageUrl(raw.uim),
+  };
+}
+
+/**
+ * Die Liga-Tabelle, nach Platzierung sortiert. Die API liefert `us` zwar
+ * erfahrungsgemäß schon sortiert, aber Einträge ohne `spl` (kein Platz
+ * geliefert) dürfen die Reihenfolge nicht durcheinanderbringen — sie landen
+ * hinten, in der von der API gelieferten Reihenfolge.
+ */
+export function toLeagueManagers(raw: RawLeagueRanking): LeagueManager[] {
+  return raw.us.map(toLeagueManager).sort((a, b) => {
+    if (a.placement === b.placement) return 0;
+    if (a.placement === null) return 1;
+    if (b.placement === null) return -1;
+    return a.placement - b.placement;
+  });
+}
+
+/**
+ * Ein Spieler aus dem Kader eines fremden Managers. Anders als beim eigenen
+ * Kader gibt es hier keinen zweiten Aufstellungs-Request pro Spieler: ob er
+ * in der Elf steht, entscheidet der Aufrufer (siehe getManagerSquad).
+ *
+ * Nicht verfügbar und deshalb hart auf Default: `isCaptain` (kommt beim
+ * eigenen Kader aus `lineup/overview.lp[].ictp`), `offerCount` und
+ * `nextMatch` — die Antwort enthält dafür keine Felder.
+ */
+function toManagerSquadPlayer(
+  raw: RawManagerSquadPlayer,
+  id: string,
+  inLineup: boolean,
+): SquadPlayer {
+  const marketValue = raw.mv ?? 0;
+  const totalPoints = raw.p ?? 0;
+  const averagePoints = raw.ap ?? 0;
+  return {
+    id,
+    name: raw.pn ?? raw.n ?? 'Unbekannt',
+    position: mapPosition(raw.pos),
+    teamId: raw.tid ?? '',
+
+    marketValue,
+    marketValueTrend: mapMarketValueTrend(raw.mvt),
+    marketValueChangeToday: raw.sdmvt ?? 0,
+
+    totalPoints,
+    averagePoints,
+    valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
+    valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
+
+    status: mapStatus(raw.st),
+    statusDetails: [],
+
+    imageUrl: imageUrl(raw.pim),
+    teamLogoUrl: null,
+
+    inLineup,
+    lineupSlot: raw.lo ?? null,
+    isCaptain: false,
+
+    onMarket: false,
+    offerCount: 0,
+
+    nextMatch: null,
+  };
+}
+
+/** `pi` laut Doku, `i` wie beim eigenen Kader — was da ist, gewinnt. */
+function managerSquadPlayerId(raw: RawManagerSquadPlayer): string | null {
+  return raw.pi ?? raw.i ?? null;
+}
+
+/**
+ * "4-4-2" aus den Positionen einer Startelf. Der Torwart steht bei Kickbase
+ * nie im Formationsstring, deshalb nur ABW-MF-ANG. Leerer String bei leerer
+ * Elf — dann gibt es keine Formation, die man behaupten könnte.
+ */
+export function formationFromLineup(players: readonly SquadPlayer[]): string {
+  if (players.length === 0) return '';
+  const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const player of players) counts[player.position]++;
+  return `${counts.DEF}-${counts.MID}-${counts.FWD}`;
+}
+
+/**
+ * Kader + Startelf eines Managers. `lineupPlayerIds` sind die IDs seiner Elf
+ * aus dem Teamcenter; fehlen sie (Endpoint ausgefallen, siehe
+ * getManagerSquad), fällt die Erkennung auf `lo` des Kadereintrags zurück.
+ * `lo > 0` als "steht in der Elf" ist eine unverifizierte Annahme — der
+ * eigene Kader braucht dafür `lineup/overview`, weil die Basierung von `lo`
+ * nie gegen echte Daten geprüft wurde (siehe schemas.ts).
+ *
+ * Spieler ohne ID werden verworfen statt mit leerer ID durchgereicht: sie
+ * wären nicht antippbar (das Spielerdetail lädt über die ID) und würden als
+ * Karte ohne Ziel auf dem Feld stehen.
+ */
+export function toManagerSquad(
+  raw: RawManagerSquad,
+  options: { managerId: string; lineupPlayerIds?: ReadonlySet<string> },
+): ManagerSquad {
+  const { managerId, lineupPlayerIds } = options;
+  const players = raw.it.flatMap((entry) => {
+    const id = managerSquadPlayerId(entry);
+    if (id === null) return [];
+    const inLineup = lineupPlayerIds ? lineupPlayerIds.has(id) : (entry.lo ?? 0) > 0;
+    return [toManagerSquadPlayer(entry, id, inLineup)];
+  });
+
+  return {
+    managerId: raw.u ?? managerId,
+    managerName: raw.unm ?? '',
+    teamValue: players.reduce((sum, p) => sum + p.marketValue, 0),
+    formation: formationFromLineup(players.filter((p) => p.inLineup)),
+    players,
   };
 }
 

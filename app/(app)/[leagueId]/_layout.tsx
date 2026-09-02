@@ -34,6 +34,13 @@ export default function LeagueLayout() {
            */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Liga' }} />
           <Stack.Screen name="player/[playerId]" options={{ title: 'Spieler' }} />
+          {/*
+           * Der Titel wird im Screen selbst per <Stack.Title> auf den
+           * Managernamen gesetzt; 'Manager' ist nur der Platzhalter, solange
+           * die Daten noch laden. Das Zurück-Label eines darüber gepushten
+           * Spielerdetails kommt aus leagueStackTitles (siehe leagueTabs.ts).
+           */}
+          <Stack.Screen name="manager/[managerId]" options={{ title: 'Manager' }} />
           <Stack.Screen name="rules" options={{ title: 'Regeln' }} />
         </Stack>
       </LeagueRulesProvider>
