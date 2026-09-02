@@ -9,11 +9,12 @@ interface FixtureDifficultyStripProps {
   lens: 'attack' | 'defense';
   size?: number;
   /**
-   * teamId → Vereinslogo (i.d.R. aus `useCompetitionTeams()`). Gesetzt = jede
-   * Zelle zeigt das Logo des Gegners über dem H/A, sonst bleibt es beim reinen
-   * H/A wie im Restprogramm, wo der Verein schon in der Zeile links steht.
+   * true = jede Zelle zeigt zusätzlich das Vereinslogo des Gegners (aus dem
+   * Spielplan, siehe UpcomingFixture.opponentLogoUrl). Im Restprogramm aus,
+   * weil dort der Verein schon links in der Zeile steht und die Zellen mit
+   * 10 Spielen zu klein dafür sind.
    */
-  teamLogos?: Map<string, string | null>;
+  showOpponentLogos?: boolean;
 }
 
 /**
@@ -22,7 +23,7 @@ interface FixtureDifficultyStripProps {
  * Gegner"-Streifen auf dem Spieler-Detail, damit die Farbstufen an beiden
  * Stellen garantiert gleich aussehen.
  */
-export function FixtureDifficultyStrip({ ratings, lens, size = 24, teamLogos }: FixtureDifficultyStripProps) {
+export function FixtureDifficultyStrip({ ratings, lens, size = 24, showOpponentLogos = false }: FixtureDifficultyStripProps) {
   return (
     <View style={styles.row}>
       {ratings.map((rating, index) => {
@@ -35,9 +36,7 @@ export function FixtureDifficultyStrip({ ratings, lens, size = 24, teamLogos }: 
               { width: size, height: size, backgroundColor: difficultyBackground(value), borderColor: difficultyBorder(value) },
             ]}
           >
-            {teamLogos && (
-              <TeamLogo uri={teamLogos.get(rating.opponentId) ?? null} size={Math.round(size * 0.5)} />
-            )}
+            {showOpponentLogos && <TeamLogo uri={rating.opponentLogoUrl} size={Math.round(size * 0.5)} />}
             <Text style={styles.cellText}>{rating.isHome ? 'H' : 'A'}</Text>
           </View>
         );
