@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { PlayerDetail, SquadPlayer } from '@/api/kickbase';
@@ -38,6 +38,7 @@ export default function ManagerDetailScreen() {
   const competitionId = useCompetitionId();
   const backTitle = useFocusedLeagueTabTitle();
   const { managerId } = useLocalSearchParams<{ managerId: string }>();
+  const router = useRouter();
 
   const rankingQuery = useLeagueRanking(leagueId);
   const entry = rankingQuery.data?.entries.find((e) => e.userId === managerId) ?? null;
@@ -128,6 +129,16 @@ export default function ManagerDetailScreen() {
   );
   const violatesMaxPerTeam = violations.some((rule) => rule.kind === 'maxPerTeam');
 
+  /**
+   * Dieselbe Route wie aus dem eigenen Aufstellungs-Tab und dem Kader — ein
+   * Spieler auf einem fremden Feld ist derselbe Spieler. Ohne diesen Handler
+   * blieb `Pitch` ohne `onSelectPlayer`, und `PlayerCard` rief ein
+   * undefiniertes `onPress` auf: der Tap sah gedrückt aus und tat nichts.
+   */
+  function openPlayer(player: SquadPlayer) {
+    router.push(`/${leagueId}/player/${player.id}`);
+  }
+
   if (!rankingQuery.data) {
     return (
       <>
@@ -165,6 +176,9 @@ export default function ManagerDetailScreen() {
             <View style={styles.lineupHeader}>
               <Text style={styles.lineupTitle}>{lineupLabel.title}</Text>
               <Text style={styles.lineupHint}>{lineupLabel.hint}</Text>
+              {players.length > 0 && (
+                <Text style={styles.lineupHint}>Spieler antippen öffnet sein Profil.</Text>
+              )}
             </View>
 
             {managerLineup.pending > 0 && (
@@ -175,7 +189,7 @@ export default function ManagerDetailScreen() {
 
             {players.length > 0 && (
               <>
-                <Pitch players={players} />
+                <Pitch players={players} onSelectPlayer={openPlayer} />
 
                 <View style={styles.card}>
                   <Text style={styles.cardTitle}>Startelf-Kennzahlen</Text>
