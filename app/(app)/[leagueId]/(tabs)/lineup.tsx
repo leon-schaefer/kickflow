@@ -22,6 +22,7 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, layout, radius, spacing, typography } from '@/theme/tokens';
@@ -53,6 +54,7 @@ export default function LineupScreen() {
   const router = useRouter();
   const lineupQuery = useLineup(leagueId);
   const { data } = lineupQuery;
+  useMarkInteractive(!!data);
   const matchdaysQuery = useMatchdays(competitionId);
   const leaguesQuery = useLeagues();
   // Dieselbe Query, die useBudgetLimit unten ohnehin mountet — React Query

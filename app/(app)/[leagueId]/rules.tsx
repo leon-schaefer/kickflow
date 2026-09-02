@@ -9,6 +9,7 @@ import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { DEFAULT_RULES, type MaxPerTeamRule } from '@/lineup/rules';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -27,6 +28,7 @@ export default function RulesScreen() {
   const league = useCurrentLeague();
   const backTitle = useFocusedLeagueTabTitle();
   const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
+  useMarkInteractive(loaded);
   const lineupQuery = useLineup(leagueId);
   const { data: lineup } = lineupQuery;
   const { data: teams } = useCompetitionTeams(competitionId);

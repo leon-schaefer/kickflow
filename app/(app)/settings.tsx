@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useAuth } from '@/auth/AuthProvider';
 import { Checkbox } from '@/components/Checkbox';
 import { useNotificationPreferences } from '@/notifications/useNotificationPreferences';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 type PermissionState = 'loading' | 'granted' | 'denied' | 'undetermined';
@@ -20,6 +21,10 @@ export default function SettingsScreen() {
   const { preferences, setPreference, loaded } = useNotificationPreferences();
   const [permission, setPermission] = useState<PermissionState>('loading');
   const isWeb = Platform.OS === 'web';
+
+  // Auf Web fehlt die Benachrichtigungs-Karte komplett, dort ist der Screen
+  // sofort fertig; nativ erscheinen die Schalter erst mit `loaded`.
+  useMarkInteractive(isWeb || loaded);
 
   useEffect(() => {
     if (isWeb) return;

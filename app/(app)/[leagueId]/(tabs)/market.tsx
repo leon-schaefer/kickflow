@@ -13,6 +13,7 @@ import { SortChips, SortChipsDivider } from '@/components/SortChips';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useCompetitionTeams, useLeagues, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -45,6 +46,7 @@ export default function MarketScreen() {
   const teamsQuery = useCompetitionTeams(competitionId);
 
   const market = useMarket(leagueId);
+  useMarkInteractive(!!market.data);
   const leaguesQuery = useLeagues();
   const rawPlayers: MarketPlayer[] = market.data?.players ?? [];
 

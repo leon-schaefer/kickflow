@@ -10,6 +10,7 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { DEFAULT_RULES, type MaxPerTeamRule } from '@/lineup/rules';
+import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { useLeagueRanking, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -35,6 +36,7 @@ export default function LeagueScreen() {
   const { userId } = useAuth();
   const rankingQuery = useLeagueRanking(leagueId);
   const { data } = rankingQuery;
+  useMarkInteractive(!!data);
   const matchdaysQuery = useMatchdays(competitionId);
   const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
   const refresh = useRefresh(rankingQuery);
