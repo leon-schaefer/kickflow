@@ -60,14 +60,29 @@ export function useMarket(leagueId: string, options: { enabled?: boolean } = {})
   });
 }
 
-/** Liga-Tabelle (Platzierung, Punkte, Teamwert je Manager, plus dessen Startelf-IDs). */
-export function useLeagueRanking(leagueId: string, dayNumber?: number) {
+/**
+ * Liga-Tabelle (Platzierung, Punkte, Teamwert je Manager, plus dessen
+ * Startelf-IDs). Ohne `dayNumber` die Saisonwertung — deren `lp[]` ist der
+ * Stand des zuletzt abgerechneten Spieltags und damit für die Rivalen-Elf zu
+ * alt; wer die aktuelle Elf will, übergibt den Spieltag (siehe
+ * resolveLineupMatchday() und manager/[managerId].tsx).
+ *
+ * `live` = der Spieltag läuft gerade: dann kurz cachen und im Hintergrund
+ * nachziehen, damit Ein-/Auswechslungen ohne Pull-to-Refresh ankommen.
+ */
+export function useLeagueRanking(
+  leagueId: string,
+  dayNumber?: number,
+  options: { enabled?: boolean; live?: boolean } = {},
+) {
   const { token } = useAuth();
+  const { enabled = true, live = false } = options;
   return useQuery({
     queryKey: queryKeys.leagueRanking(leagueId, dayNumber),
     queryFn: () => getLeagueRanking(token!, leagueId, dayNumber),
-    enabled: !!token && !!leagueId,
-    staleTime: 60_000,
+    enabled: !!token && !!leagueId && enabled,
+    staleTime: live ? 15_000 : 60_000,
+    refetchInterval: live ? 60_000 : false,
   });
 }
 

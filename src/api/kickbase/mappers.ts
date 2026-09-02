@@ -283,6 +283,7 @@ function toLeagueRankingEntry(raw: RawLeagueRankingEntry): LeagueRankingEntry {
 export function toLeagueRanking(raw: RawLeagueRanking): LeagueRanking {
   return {
     seasonName: raw.sn ?? null,
+    day: raw.day ?? null,
     entries: raw.us.map(toLeagueRankingEntry),
   };
 }

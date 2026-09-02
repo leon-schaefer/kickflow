@@ -340,5 +340,12 @@ export type RawLeagueRankingEntry = z.infer<typeof rawLeagueRankingEntrySchema>;
 export const rawLeagueRankingSchema = z.looseObject({
   us: z.array(rawLeagueRankingEntrySchema).default([]),
   sn: z.string().optional(),
+  /**
+   * Der Spieltag, auf den sich die Antwort bezieht — Gegenprobe zum
+   * angefragten `?dayNumber=` (siehe getLeagueRanking). Optional, weil
+   * unverifiziert ist, ob Kickbase das Feld in JEDER Antwort mitschickt;
+   * fehlt es, kann die App die Zuordnung eben nicht prüfen.
+   */
+  day: z.number().optional(),
 });
 export type RawLeagueRanking = z.infer<typeof rawLeagueRankingSchema>;

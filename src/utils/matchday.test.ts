@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MatchdaySchedule } from '@/api/kickbase';
-import { resolveMatchdayState } from './matchday';
+import { resolveLineupMatchday, resolveMatchdayState } from './matchday';
 
 describe('resolveMatchdayState', () => {
   // Der reale Fall, der den "Spieltag 0 nach Spieltag 1 durch"-Bug ausgelöst
@@ -85,5 +85,25 @@ describe('resolveMatchdayState', () => {
     };
     const state = resolveMatchdayState(missingKickoff, now);
     expect(state.open).toEqual({ day: 3, deadline: '2026-09-12T16:30:00Z' });
+  });
+});
+
+describe('resolveLineupMatchday', () => {
+  it('nimmt den laufenden Spieltag — dessen Elf ist die, die gerade zählt', () => {
+    const state = { running: { day: 3 }, open: { day: 4, deadline: '2026-09-12T16:30:00Z' } };
+    expect(resolveLineupMatchday(state, 2)).toEqual({ day: 3, phase: 'running' });
+  });
+
+  it('läuft keiner, nimmt es den nächsten offenen — NICHT den abgerechneten', () => {
+    const state = { running: null, open: { day: 4, deadline: '2026-09-12T16:30:00Z' } };
+    expect(resolveLineupMatchday(state, 3)).toEqual({ day: 4, phase: 'open' });
+  });
+
+  it('fällt auf currentDay zurück, wenn der Spielplan nichts hergibt (Saisonende)', () => {
+    expect(resolveLineupMatchday({ running: null, open: null }, 34)).toEqual({ day: 34, phase: 'fallback' });
+  });
+
+  it('liefert null, wenn es auch kein currentDay gibt', () => {
+    expect(resolveLineupMatchday({ running: null, open: null }, null)).toBeNull();
   });
 });
