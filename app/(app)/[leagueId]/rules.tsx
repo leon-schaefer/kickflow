@@ -13,6 +13,7 @@ import { useCompetitionTeams, useLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { isAvailableForLineup } from '@/utils/lineupOptimizer';
+import { countByTeam } from '@/utils/teamDistribution';
 
 const QUICK_VALUES = [1, 2, 3, 4, 5];
 
@@ -40,13 +41,7 @@ export default function RulesScreen() {
 
   const players = lineup?.players ?? [];
 
-  const teamRows = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const player of players) counts.set(player.teamId, (counts.get(player.teamId) ?? 0) + 1);
-    return [...counts.entries()]
-      .map(([teamId, count]) => ({ teamId, name: teamNames.get(teamId) ?? teamId, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [players, teamNames]);
+  const teamRows = useMemo(() => countByTeam(players, teamNames), [players, teamNames]);
 
   // Nur einsatzfähige Spieler zählen für die Aufstellbar-Obergrenze — ein
   // verletzter Spieler bindet zwar einen Kaderplatz beim Verein, aber nie

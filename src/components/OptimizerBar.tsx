@@ -10,6 +10,7 @@ import { Checkbox } from './Checkbox';
 const METRIC_OPTIONS: { key: OptimizerMetric; label: string }[] = [
   { key: 'valuePerMillion', label: 'Ø-Punkte/Mio' },
   { key: 'points', label: 'Ø-Punkte' },
+  { key: 'expectedPoints', label: 'Erwartete Punkte' },
 ];
 
 interface OptimizerBarProps {
@@ -132,6 +133,14 @@ export function OptimizerBar({
 
       {metric === 'valuePerMillion' && (
         <Text style={styles.hint}>Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig.</Text>
+      )}
+
+      {metric === 'expectedPoints' && (
+        <Text style={styles.hint}>
+          Ø-Punkte gewichtet mit der Gegner-Härte der nächsten Spiele — Angreifer/Mittelfeld nach
+          gegnerischer Abwehr, Abwehr/Torwart nach gegnerischem Angriff. Grobe Tendenz, kein
+          kalibriertes Vorhersagemodell.
+        </Text>
       )}
 
       {draftViolations.length > 0 && (

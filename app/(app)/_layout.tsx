@@ -35,6 +35,7 @@ export default function AppLayout() {
           headerRight: () => <LogoutButton compact />,
         }}
       />
+      <Stack.Screen name="settings" options={{ title: 'Einstellungen' }} />
       <Stack.Screen name="[leagueId]" options={{ headerShown: false }} />
     </Stack>
   );

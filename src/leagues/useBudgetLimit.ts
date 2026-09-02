@@ -20,7 +20,7 @@ export function useBudgetLimit(excludePlayerId?: string): BudgetLimit | null {
 
   return useMemo(() => {
     if (!league) return null;
-    const pendingOffers = sumOpenOffers(market.data ?? [], excludePlayerId);
+    const pendingOffers = sumOpenOffers(market.data?.players ?? [], excludePlayerId);
     return computeBudgetLimit({ budget: league.budget, teamValue: league.teamValue, pendingOffers });
   }, [league, market.data, excludePlayerId]);
 }

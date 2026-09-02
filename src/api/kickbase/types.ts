@@ -118,6 +118,13 @@ export interface MarketPlayer {
   offers: MarketOffer[];
 }
 
+/** Rückgabe von getMarket() — die Liste plus den Zeitpunkt, zu dem Kickbase als Nächstes die Marktwerte neu berechnet. */
+export interface MarketData {
+  players: MarketPlayer[];
+  /** ISO-Zeitpunkt des nächsten Marktwert-Updates (Rohfeld `mvud`), oder null wenn nicht geliefert. */
+  marketValueUpdateAt: string | null;
+}
+
 export interface LineupData {
   /** Aus `mdln` geparst — nur Fallback, siehe `MatchdaySchedule`/`resolveMatchdayState`. */
   matchday: number | null;
@@ -171,6 +178,18 @@ export interface SeasonPerformance {
   matchdays: MatchdayPerformance[];
 }
 
+/** Eine Paarung eines Spieltags — Grundlage für Restprogramm/Gegner-Härte (src/utils/fixtureDifficulty.ts). */
+export interface ScheduledFixture {
+  homeTeamId: string;
+  awayTeamId: string;
+  homeLogoUrl: string | null;
+  awayLogoUrl: string | null;
+  /** null = noch kein Ergebnis (Spiel steht noch aus). */
+  homeGoals: number | null;
+  awayGoals: number | null;
+  hasResult: boolean;
+}
+
 /** Ein Spieltag aus `/v4/competitions/{id}/matchdays` — der Spielplan der gesamten Competition. */
 export interface ScheduledMatchday {
   day: number;
@@ -178,6 +197,8 @@ export interface ScheduledMatchday {
   firstKickoff: string | null;
   /** true, wenn ALLE Spiele des Tages ein Ergebnis haben (Spieltag durch). */
   allPlayed: boolean;
+  /** Alle Paarungen dieses Spieltags — für Restprogramm/Gegner-Härte, ungenutzt von resolveMatchdayState(). */
+  fixtures: ScheduledFixture[];
 }
 
 export interface MatchdaySchedule {
@@ -212,6 +233,31 @@ export interface PlayerDetail {
   marketValueHistory92: MarketValueHistory;
   marketValueHistory365: MarketValueHistory;
   performance: SeasonPerformance[];
+}
+
+/** Ein Manager in der Liga-Tabelle (`/v4/leagues/{id}/ranking`), siehe getLeagueRanking(). */
+export interface LeagueRankingEntry {
+  userId: string;
+  userName: string;
+  userImageUrl: string | null;
+  isAdmin: boolean;
+  /** true = Aufstellung für den aktuellen Spieltag steht. */
+  hasLineupSet: boolean;
+  seasonPoints: number;
+  seasonPlace: number;
+  matchdayPoints: number;
+  matchdayPlace: number;
+  teamValue: number;
+  /**
+   * Die 11 Spieler-IDs seiner Startelf — NUR die Startelf, nicht der ganze
+   * Kader (Bankspieler bleiben unsichtbar). `null` = leerer Slot.
+   */
+  lineupPlayerIds: (string | null)[];
+}
+
+export interface LeagueRanking {
+  seasonName: string | null;
+  entries: LeagueRankingEntry[];
 }
 
 export interface LeagueSummary {
