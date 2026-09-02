@@ -16,12 +16,20 @@ import { AVAILABLE_FORMATIONS, requiredCountsForFormation } from './formations';
  * Aufstellung".
  */
 
-/** 'valuePerMillion' = Ø-Punkte/Mio (Effizienz), 'points' = Ø-Punkte (Rohertrag). */
-export type OptimizerMetric = 'valuePerMillion' | 'points';
+/**
+ * 'valuePerMillion' = Ø-Punkte/Mio (Effizienz), 'points' = Ø-Punkte (Rohertrag),
+ * 'expectedPoints' = Ø-Punkte gewichtet mit der Gegner-Härte der nächsten
+ * Spiele (siehe src/utils/fixtureDifficulty.ts) — ein grober, transparent
+ * kommunizierter Faktor um 1,0, kein kalibriertes Vorhersagemodell.
+ */
+export type OptimizerMetric = 'valuePerMillion' | 'points' | 'expectedPoints';
 
 /**
  * Minimale Feldmenge, die der Optimizer braucht — SquadPlayer erfüllt sie
  * strukturell (Vorbild: ValueRowPlayer in src/components/ValueRow.tsx).
+ * `expectedPoints` ist optional: nur useLineupOptimizer() reichert Spieler
+ * damit an (wenn ein Spielplan vorliegt); ohne den Wert fällt die Metrik
+ * `'expectedPoints'` auf `averagePoints` zurück, verhält sich also wie 'points'.
  */
 export interface OptimizerPlayer {
   id: string;
@@ -31,6 +39,7 @@ export interface OptimizerPlayer {
   marketValue: number;
   averagePoints: number;
   valueScoreAvg: number;
+  expectedPoints?: number;
 }
 
 export interface FormationResult {
@@ -90,9 +99,17 @@ export function isAvailableForLineup(status: PlayerStatus): boolean {
 }
 
 export function metricValue(player: OptimizerPlayer, metric: OptimizerMetric): number {
-  return metric === 'valuePerMillion' ? player.valueScoreAvg : player.averagePoints;
+  switch (metric) {
+    case 'valuePerMillion':
+      return player.valueScoreAvg;
+    case 'expectedPoints':
+      return player.expectedPoints ?? player.averagePoints;
+    case 'points':
+      return player.averagePoints;
+  }
 }
 
+/** "Die jeweils andere Metrik" fürs Tie-Break — 'expectedPoints' ist punkteartig, tie-breakt also wie 'points' auf die Effizienz. */
 function otherMetricValue(player: OptimizerPlayer, metric: OptimizerMetric): number {
   return metric === 'valuePerMillion' ? player.averagePoints : player.valueScoreAvg;
 }

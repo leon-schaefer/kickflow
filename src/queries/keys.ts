@@ -8,4 +8,8 @@ export const queryKeys = {
     ['playerPerformance', leagueId, playerId] as const,
   competitionTeams: (competitionId: string) => ['competitionTeams', competitionId] as const,
   matchdays: (competitionId: string) => ['matchdays', competitionId] as const,
+  leagueRanking: (leagueId: string, dayNumber?: number) =>
+    ['leagueRanking', leagueId, dayNumber ?? 'season'] as const,
+  /** Basis-Spielerdaten für die Rivalen-Elf (getPlayerBasic) — eigener Key, damit sie nicht mit `player` (voller Detail-Query) kollidieren. */
+  playerBasic: (leagueId: string, playerId: string) => ['playerBasic', leagueId, playerId] as const,
 };
