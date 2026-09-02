@@ -44,6 +44,13 @@ export default function PlayerDetailScreen() {
     () => new Map((competitionTeams ?? []).map((team) => [team.id, team.name])),
     [competitionTeams],
   );
+  // Vereinslogos für die Gegner-Zellen. Solange die Team-Tabelle noch nicht da
+  // ist, bleibt die Map leer — dann zeigt der Streifen wie bisher nur H/A statt
+  // einer Reihe leerer Logo-Platzhalter.
+  const teamLogos = useMemo(
+    () => new Map((competitionTeams ?? []).map((team) => [team.id, team.logoUrl])),
+    [competitionTeams],
+  );
 
   // "Nächste Gegner" — dieselbe Härte-Herleitung wie das Restprogramm
   // (app/(app)/[leagueId]/fixtures.tsx), nur auf diesen einen Spieler und
@@ -133,7 +140,12 @@ export default function PlayerDetailScreen() {
         {nextOpponentRatings.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Nächste Gegner</Text>
-            <FixtureDifficultyStrip ratings={nextOpponentRatings} lens={nextOpponentLens} size={32} />
+            <FixtureDifficultyStrip
+              ratings={nextOpponentRatings}
+              lens={nextOpponentLens}
+              size={36}
+              teamLogos={teamLogos.size > 0 ? teamLogos : undefined}
+            />
           </View>
         )}
 

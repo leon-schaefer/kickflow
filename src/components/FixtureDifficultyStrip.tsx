@@ -1,12 +1,19 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import type { FixtureDifficultyRating } from '@/utils/fixtureDifficulty';
+import { TeamLogo } from './TeamLogo';
 
 interface FixtureDifficultyStripProps {
   ratings: readonly FixtureDifficultyRating[];
   /** 'attack' = schwer fürs eigene Stürmer/Mittelfeld, 'defense' = schwer für Abwehr/Torwart. */
   lens: 'attack' | 'defense';
   size?: number;
+  /**
+   * teamId → Vereinslogo (i.d.R. aus `useCompetitionTeams()`). Gesetzt = jede
+   * Zelle zeigt das Logo des Gegners über dem H/A, sonst bleibt es beim reinen
+   * H/A wie im Restprogramm, wo der Verein schon in der Zeile links steht.
+   */
+  teamLogos?: Map<string, string | null>;
 }
 
 /**
@@ -15,7 +22,7 @@ interface FixtureDifficultyStripProps {
  * Gegner"-Streifen auf dem Spieler-Detail, damit die Farbstufen an beiden
  * Stellen garantiert gleich aussehen.
  */
-export function FixtureDifficultyStrip({ ratings, lens, size = 24 }: FixtureDifficultyStripProps) {
+export function FixtureDifficultyStrip({ ratings, lens, size = 24, teamLogos }: FixtureDifficultyStripProps) {
   return (
     <View style={styles.row}>
       {ratings.map((rating, index) => {
@@ -28,6 +35,9 @@ export function FixtureDifficultyStrip({ ratings, lens, size = 24 }: FixtureDiff
               { width: size, height: size, backgroundColor: difficultyBackground(value), borderColor: difficultyBorder(value) },
             ]}
           >
+            {teamLogos && (
+              <TeamLogo uri={teamLogos.get(rating.opponentId) ?? null} size={Math.round(size * 0.5)} />
+            )}
             <Text style={styles.cellText}>{rating.isHome ? 'H' : 'A'}</Text>
           </View>
         );
