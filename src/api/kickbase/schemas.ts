@@ -186,6 +186,8 @@ export type RawMarketPlayer = z.infer<typeof rawMarketPlayerSchema>;
 
 export const rawMarketResponseSchema = z.looseObject({
   it: z.array(rawMarketPlayerSchema).default([]),
+  /** Zeitpunkt des nächsten Marktwert-Updates (üblicherweise 22:00 Uhr) — bisher ungenutzt. */
+  mvud: z.string().optional(),
 });
 export type RawMarketResponse = z.infer<typeof rawMarketResponseSchema>;
 
@@ -198,7 +200,11 @@ export const rawMatchdaySummarySchema = z.looseObject({
   t2g: z.number().optional(),
 });
 
-/** Ein Spiel aus `/v4/competitions/{id}/matchdays` — `dt` ist der Anstoß. */
+/**
+ * Ein Spiel aus `/v4/competitions/{id}/matchdays` — `dt` ist der Anstoß.
+ * `t1im`/`t2im` (Team-Logos) sind 1:1 aus scripts/.probe-output/matchdays.json
+ * übernommen — dieselben Felder wie in `rawCompetitionTeamSchema.tim`.
+ */
 export const rawFixtureSchema = z.looseObject({
   mi: z.string().optional(),
   dt: z.string().optional(),
@@ -207,7 +213,10 @@ export const rawFixtureSchema = z.looseObject({
   t2: z.string().optional(),
   t1g: z.number().optional(),
   t2g: z.number().optional(),
+  t1im: z.string().optional(),
+  t2im: z.string().optional(),
 });
+export type RawFixture = z.infer<typeof rawFixtureSchema>;
 
 export const rawCompetitionMatchdaysSchema = z.looseObject({
   day: z.number().optional(),
@@ -303,3 +312,33 @@ export const rawPerformanceResponseSchema = z.looseObject({
   it: z.array(rawSeasonPerformanceSchema).default([]),
 });
 export type RawPerformanceResponse = z.infer<typeof rawPerformanceResponseSchema>;
+
+/**
+ * Ein Manager-Eintrag aus `GET /v4/leagues/{id}/ranking` — der Pfad selbst ist
+ * bereits in scripts/probe.ts gegen einen echten Account verifiziert (dort nur
+ * `us.length` gelesen). Die einzelnen Feldnamen stammen aus den inoffiziellen
+ * v4-Spezifikationen (kevinskyba/simonsagstetter) samt echter Beispielantwort,
+ * NICHT aus einem eigenen Probe-Lauf — deshalb strikt `.optional()`/Fallback
+ * statt Vertrauen in Pflichtfelder. `lp` kann laut Doku `null`-Einträge für
+ * leere Aufstellungs-Slots enthalten.
+ */
+export const rawLeagueRankingEntrySchema = z.looseObject({
+  i: z.string().optional(),
+  n: z.string().optional(),
+  uim: z.string().optional(),
+  adm: z.boolean().optional(),
+  pa: z.boolean().optional(),
+  sp: z.number().optional(),
+  spl: z.number().optional(),
+  mdp: z.number().optional(),
+  mdpl: z.number().optional(),
+  tv: z.number().optional(),
+  lp: z.array(z.string().nullable()).optional(),
+});
+export type RawLeagueRankingEntry = z.infer<typeof rawLeagueRankingEntrySchema>;
+
+export const rawLeagueRankingSchema = z.looseObject({
+  us: z.array(rawLeagueRankingEntrySchema).default([]),
+  sn: z.string().optional(),
+});
+export type RawLeagueRanking = z.infer<typeof rawLeagueRankingSchema>;

@@ -47,3 +47,12 @@ export function createLimiter(max: number): Limiter {
 
 /** Gate für die Spielzeit-Abfragen (getPlayerPerformance). */
 export const withPerformanceLimit = createLimiter(4);
+
+/**
+ * Gate für die Rivalen-Elf im Liga-Tab (getPlayerBasic): bis zu 11 fremde
+ * Spieler-IDs auf einmal, sonst derselbe Burst-Effekt wie bei der
+ * Spielzeit-Spalte oben — eigenes Gate statt withPerformanceLimit
+ * mitzubenutzen, damit ein Spielerdetail-Screen mit paralleler
+ * Spielzeit-Abfrage nicht in dieselbe Warteschlange gerät.
+ */
+export const withPlayerLookupLimit = createLimiter(4);
