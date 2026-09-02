@@ -130,38 +130,6 @@ export interface LineupData {
   players: SquadPlayer[];
 }
 
-/**
- * Ein Manager der Liga-Tabelle (`/v4/leagues/{id}/ranking`). Punkte und
- * Platzierung sind `null`, wenn die API sie nicht liefert — ein "0. Platz mit
- * 0 Punkten" wäre von einem echten Nuller nicht zu unterscheiden.
- */
-export interface LeagueManager {
-  id: string;
-  name: string;
-  placement: number | null;
-  seasonPoints: number | null;
-  matchdayPoints: number | null;
-  teamValue: number | null;
-  isAdmin: boolean;
-  imageUrl: string | null;
-}
-
-/**
- * Kader eines Managers samt seiner Startelf — die Rivalen-Ansicht.
- * Bewusst `SquadPlayer[]` wie LineupData, damit Spielfeld (Pitch) und
- * Spielerkarten unverändert weiterverwendet werden können.
- */
-export interface ManagerSquad {
-  managerId: string;
-  /** Aus der Kader-Antwort (`unm`) — leer, wenn sie den Namen nicht mitschickt. */
-  managerName: string;
-  /** Aus den Marktwerten summiert, dieselbe Rechnung wie LineupData.teamValue. */
-  teamValue: number;
-  /** "4-4-2", aus den Positionen der Startelf gebildet — leer ohne bekannte Elf. */
-  formation: string;
-  players: SquadPlayer[];
-}
-
 export interface MarketValuePoint {
   date: number;
   value: number;

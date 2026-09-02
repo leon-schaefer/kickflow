@@ -6,10 +6,8 @@ import { kbFetch } from './client';
 import { withPerformanceLimit } from './limiter';
 import {
   toAuthSession,
-  toLeagueManagers,
   toLeagueSummary,
   toLineupData,
-  toManagerSquad,
   toMarketPlayer,
   toMarketValueHistory,
   toMatchdaySchedule,
@@ -21,24 +19,19 @@ import {
   rawCompetitionMatchdaysSchema,
   rawCompetitionTableSchema,
   rawLeagueManagersSchema,
-  rawLeagueRankingSchema,
   rawLeaguesResponseSchema,
   rawLineupOverviewSchema,
   rawLoginResponseSchema,
-  rawManagerSquadSchema,
   rawMarketResponseSchema,
   rawMarketValueHistorySchema,
   rawPerformanceResponseSchema,
   rawPlayerDetailSchema,
   rawSquadResponseSchema,
-  rawTeamcenterSchema,
 } from './schemas';
 import type {
   AuthSession,
-  LeagueManager,
   LeagueSummary,
   LineupData,
-  ManagerSquad,
   MarketPlayer,
   MatchdaySchedule,
   PlaceOfferInput,
@@ -101,49 +94,6 @@ export async function getLineup(token: string, leagueId: string): Promise<Lineup
   const overview = rawLineupOverviewSchema.parse(overviewRaw);
   const squad = rawSquadResponseSchema.parse(squadRaw);
   return toLineupData(overview, squad.it);
-}
-
-/**
- * Die Tabelle der Liga: alle Manager mit Platz, Punkten und Teamwert. Quelle
- * für die Liga-Ansicht und damit den Einstieg in die Kader der Rivalen.
- */
-export async function getLeagueRanking(token: string, leagueId: string): Promise<LeagueManager[]> {
-  const raw = await kbFetch(`/v4/leagues/${leagueId}/ranking`, { token });
-  return toLeagueManagers(rawLeagueRankingSchema.parse(raw));
-}
-
-/**
- * Kader + Startelf eines Managers — dasselbe Prinzip wie getLineup(), nur für
- * ein fremdes Team: `/managers/{id}/squad` liefert den kompletten Kader
- * (Positionen, Marktwerte, Punkte), `/users/{id}/teamcenter` die IDs seiner
- * Startelf.
- *
- * Nur der Kader ist Pflicht. Das Teamcenter ist noch nicht per
- * `npm run probe` gegen echte Daten verifiziert, deshalb darf es ausfallen
- * (Fehler ODER unerwartete Struktur ODER leere Elf): dann leitet
- * toManagerSquad() die Elf best effort aus `lo` ab. Ein halb geladener
- * Rivalen-Screen ist besser als gar keiner — und die Spielerkarten bleiben in
- * jedem Fall antippbar, weil die IDs aus dem Kader kommen.
- */
-export async function getManagerSquad(
-  token: string,
-  leagueId: string,
-  managerId: string,
-): Promise<ManagerSquad> {
-  const [squadRaw, teamcenter] = await Promise.all([
-    kbFetch(`/v4/leagues/${leagueId}/managers/${managerId}/squad`, { token }),
-    kbFetch(`/v4/leagues/${leagueId}/users/${managerId}/teamcenter`, { token })
-      .then((raw) => rawTeamcenterSchema.parse(raw))
-      .catch(() => null),
-  ]);
-
-  const squad = rawManagerSquadSchema.parse(squadRaw);
-  const lineupPlayerIds =
-    teamcenter && teamcenter.lp.length > 0
-      ? new Set(teamcenter.lp.map((entry) => entry.i))
-      : undefined;
-
-  return toManagerSquad(squad, { managerId, lineupPlayerIds });
 }
 
 export async function getMarket(token: string, leagueId: string): Promise<MarketPlayer[]> {
