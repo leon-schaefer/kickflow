@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { PlayerDetail, SquadPlayer } from '@/api/kickbase';
 import { Pitch } from '@/components/Pitch';
@@ -8,10 +8,12 @@ import { Refreshable } from '@/components/Refreshable';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
-import { useCompetitionTeams, useLeagueRanking, useManagerLineup } from '@/queries/hooks';
+import { useCompetitionTeams, useLeagueRanking, useManagerLineup, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatPoints } from '@/utils/format';
+import type { LineupMatchday } from '@/utils/matchday';
+import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
 import { countByPosition, countByTeam } from '@/utils/teamDistribution';
 import { pointsPerMillion } from '@/utils/valueScore';
 
@@ -20,6 +22,14 @@ import { pointsPerMillion } from '@/utils/valueScore';
  * Erreichbar durch Antippen einer Zeile in league.tsx. `lineupPlayerIds`
  * (aus `/leagues/{id}/ranking`) sind NUR die Startelf, nicht der ganze Kader
  * — Bankspieler eines Rivalen bleiben unsichtbar, das wird unten benannt.
+ *
+ * Die Elf kommt AUSDRÜCKLICH aus dem spieltagsbezogenen Ranking
+ * (`?dayNumber=`), nicht aus der Saisonwertung: deren `lp[]` ist der Stand des
+ * zuletzt abgerechneten Spieltags — also genau eine Runde zu alt. Welcher
+ * Spieltag gefragt ist, entscheidet resolveLineupMatchday(): der laufende,
+ * sonst der nächste offene. Gibt Kickbase dafür (noch) keine Elf heraus —
+ * fremde Aufstellungen sind vor Anstoß nicht sichtbar —, fällt die Ansicht auf
+ * die Saisonwertung zurück und sagt das in der Kopfzeile über dem Feld dazu.
  */
 export default function ManagerDetailScreen() {
   const leagueId = useLeagueId();
@@ -36,19 +46,66 @@ export default function ManagerDetailScreen() {
     [competitionTeams],
   );
 
-  const lineupIds = useMemo(() => entry?.lineupPlayerIds ?? [], [entry]);
-  const managerLineup = useManagerLineup(leagueId, lineupIds);
-  const refresh = useRefresh(rankingQuery, managerLineup);
+  // Minutentakt, damit der Wechsel „offen → läuft" beim Anstoß von selbst
+  // greift, ohne dass der Screen neu geöffnet werden muss. Kein Request:
+  // resolveMatchdayState() rechnet nur auf dem längst geladenen Spielplan.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const matchdaysQuery = useMatchdays(competitionId);
+  const lineupMatchday = matchdaysQuery.data
+    ? resolveLineupMatchday(resolveMatchdayState(matchdaysQuery.data, Date.now()), matchdaysQuery.data.currentDay)
+    : null;
+  // `lineupDay` als Primitive statt des Objekts: geht so unverändert in die
+  // Query und in die Memo-Deps unten, ohne sie bei jedem Render zu kippen.
+  const lineupDay = lineupMatchday?.day ?? null;
+  const dayRankingQuery = useLeagueRanking(leagueId, lineupMatchday?.day, {
+    enabled: lineupDay !== null,
+    live: lineupMatchday?.phase === 'running',
+  });
+
+  // Nur EIN Memo für beides: `ids` muss über Renders hinweg stabil bleiben
+  // (useManagerLineup feuert daraus eine Query je Spieler), und `fromDay`
+  // hängt an derselben Entscheidung.
+  const lineup = useMemo(() => {
+    const seasonIds = entry?.lineupPlayerIds ?? [];
+    // Ohne bekannten Spieltag zeigt `dayRankingQuery` (dayNumber === undefined)
+    // dieselbe Saisonwertung wie oben — die dürfen wir dann NICHT als
+    // spieltagsaktuell ausgeben.
+    if (lineupDay === null) return { ids: seasonIds, fromDay: false };
+    const dayRanking = dayRankingQuery.data;
+    // Meldet die Antwort einen anderen Spieltag als den angefragten, hat
+    // Kickbase `dayNumber` nicht berücksichtigt — dann ist ihre Elf nicht die
+    // gesuchte, und die Kopfzeile soll das auch sagen.
+    if (!dayRanking || (dayRanking.day !== null && dayRanking.day !== lineupDay)) {
+      return { ids: seasonIds, fromDay: false };
+    }
+    const dayIds = dayRanking.entries.find((e) => e.userId === managerId)?.lineupPlayerIds ?? [];
+    if (dayIds.some((id) => id !== null)) return { ids: dayIds, fromDay: true };
+    return { ids: seasonIds, fromDay: false };
+  }, [dayRankingQuery.data, entry, managerId, lineupDay]);
+
+  const managerLineup = useManagerLineup(leagueId, lineup.ids);
+  const refresh = useRefresh(rankingQuery, dayRankingQuery, matchdaysQuery, managerLineup);
 
   const players = useMemo(() => {
     const resolved: SquadPlayer[] = [];
-    lineupIds.forEach((playerId, index) => {
+    lineup.ids.forEach((playerId, index) => {
       if (!playerId) return;
       const detail = managerLineup.players.get(playerId);
       if (detail) resolved.push(toRivalSquadPlayer(detail, index));
     });
     return resolved;
-  }, [lineupIds, managerLineup.players]);
+  }, [lineup.ids, managerLineup.players]);
+
+  const lineupLabel = describeLineupSource(
+    lineupMatchday,
+    lineup.fromDay,
+    lineupDay !== null && dayRankingQuery.isPending,
+  );
 
   const teamRows = useMemo(() => countByTeam(players, teamNames), [players, teamNames]);
   const positionRows = useMemo(() => countByPosition(players), [players]);
@@ -87,6 +144,11 @@ export default function ManagerDetailScreen() {
               <Stat label="Saisonpunkte" value={formatPoints(entry.seasonPoints)} />
               <Stat label="Spieltagspunkte" value={formatPoints(entry.matchdayPoints)} />
               <Stat label="Teamwert (Liga)" value={formatCurrency(entry.teamValue)} />
+            </View>
+
+            <View style={styles.lineupHeader}>
+              <Text style={styles.lineupTitle}>{lineupLabel.title}</Text>
+              <Text style={styles.lineupHint}>{lineupLabel.hint}</Text>
             </View>
 
             {managerLineup.pending > 0 && (
@@ -135,6 +197,45 @@ export default function ManagerDetailScreen() {
       </Refreshable>
     </>
   );
+}
+
+/**
+ * Kopfzeile über dem Feld: welcher Spieltag da steht und wie verlässlich er
+ * ist. Ohne diese Zeile ist eine fremde Elf nicht interpretierbar — vor Anstoß
+ * gibt Kickbase Aufstellungen anderer Manager nicht heraus, dann bleibt
+ * zwangsläufig der letzte abgerechnete Spieltag stehen (`fromDay === false`).
+ */
+function describeLineupSource(
+  matchday: LineupMatchday | null,
+  fromDay: boolean,
+  loading: boolean,
+): { title: string; hint: string } {
+  if (!fromDay) {
+    return {
+      title: 'Startelf · letzter abgerechneter Spieltag',
+      hint: !matchday
+        ? 'Spielplan noch nicht geladen — Stand aus der Saisonwertung.'
+        : loading
+          ? `Spieltag ${matchday.day} wird geladen …`
+          : `Für Spieltag ${matchday.day} gibt Kickbase noch keine Elf dieses Managers heraus.`,
+    };
+  }
+  if (matchday?.phase === 'running') {
+    return {
+      title: `Startelf · Spieltag ${matchday.day} (läuft)`,
+      hint: 'Live-Stand — aktualisiert sich jede Minute von selbst.',
+    };
+  }
+  if (matchday?.phase === 'open') {
+    return {
+      title: `Startelf · Spieltag ${matchday.day}`,
+      hint: 'Aufstellung für den kommenden Spieltag.',
+    };
+  }
+  return {
+    title: `Startelf · Spieltag ${matchday?.day ?? '—'}`,
+    hint: 'Von Kickbase als aktueller Spieltag gemeldet.',
+  };
 }
 
 /**
@@ -230,6 +331,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   hint: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  lineupHeader: {
+    gap: 2,
+  },
+  lineupTitle: {
+    ...typography.heading,
+    color: colors.textPrimary,
+  },
+  lineupHint: {
     ...typography.small,
     color: colors.textMuted,
   },

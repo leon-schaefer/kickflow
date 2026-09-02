@@ -101,13 +101,14 @@ export async function getLineup(token: string, leagueId: string): Promise<Lineup
 
 /**
  * Liga-Tabelle mit Platzierung, Punkten, Teamwert und — je Manager — den
- * Spieler-IDs seiner AKTUELLEN Startelf (`lp[]`, nur Startelf, nicht der
- * ganze Kader). Der Pfad selbst ist in `scripts/probe.ts` gegen einen echten
- * Account verifiziert; die einzelnen Feldnamen stammen aus den inoffiziellen
+ * Spieler-IDs seiner Startelf (`lp[]`, nur Startelf, nicht der ganze Kader).
+ * Der Pfad selbst ist in `scripts/probe.ts` gegen einen echten Account
+ * verifiziert; die einzelnen Feldnamen stammen aus den inoffiziellen
  * v4-Spezifikationen samt echter Beispielantwort (siehe schemas.ts) — daher
  * das durchgehend defensive Mapping in toLeagueRanking(). `dayNumber` liefert
- * den Stand eines vergangenen Spieltags statt der Saison; ohne Angabe zeigt
- * Kickbase die Saisonwertung.
+ * den Stand GENAU dieses Spieltags — inklusive der an ihm aufgestellten `lp[]`.
+ * Ohne Angabe antwortet Kickbase mit der Saisonwertung, deren `lp[]` der Stand
+ * des zuletzt abgerechneten Spieltags ist (und eben NICHT die aktuelle Elf).
  */
 export async function getLeagueRanking(
   token: string,

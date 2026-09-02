@@ -333,12 +333,28 @@ export const rawLeagueRankingEntrySchema = z.looseObject({
   mdp: z.number().optional(),
   mdpl: z.number().optional(),
   tv: z.number().optional(),
-  lp: z.array(z.string().nullable()).optional(),
+  /**
+   * Startelf-Spieler-IDs. Kickbase liefert sie hier als ZAHLEN — anders als
+   * `i` im selben Objekt und anders als die Spieler-IDs in Kader-, Markt- und
+   * Aufstellungslisten, die alle Strings sind. Gegen einen echten Account
+   * gesehen (02.09.2026): ein `z.string()` hier lässt `parse()` mit 132
+   * `invalid_type`-Fehlern scheitern und reißt den ganzen Liga-Tab mit.
+   * Beide Formen annehmen und in toLeagueRankingEntry() zu String
+   * normalisieren, statt sich auf eine festzulegen.
+   */
+  lp: z.array(z.union([z.string(), z.number()]).nullable()).optional(),
 });
 export type RawLeagueRankingEntry = z.infer<typeof rawLeagueRankingEntrySchema>;
 
 export const rawLeagueRankingSchema = z.looseObject({
   us: z.array(rawLeagueRankingEntrySchema).default([]),
   sn: z.string().optional(),
+  /**
+   * Der Spieltag, auf den sich die Antwort bezieht — Gegenprobe zum
+   * angefragten `?dayNumber=` (siehe getLeagueRanking). Optional, weil
+   * unverifiziert ist, ob Kickbase das Feld in JEDER Antwort mitschickt;
+   * fehlt es, kann die App die Zuordnung eben nicht prüfen.
+   */
+  day: z.number().optional(),
 });
 export type RawLeagueRanking = z.infer<typeof rawLeagueRankingSchema>;

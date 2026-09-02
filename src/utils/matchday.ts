@@ -75,3 +75,32 @@ export function resolveMatchdayState(schedule: MatchdaySchedule, nowMs: number):
     running: running ? { day: running.day } : null,
   };
 }
+
+export interface LineupMatchday {
+  day: number;
+  /**
+   * `running` = angepfiffen und noch nicht abgerechnet, `open` = noch
+   * aufstellbar, `fallback` = weder das eine noch das andere ableitbar, es
+   * bleibt nur das `day` der API (siehe MatchdaySchedule.currentDay).
+   */
+  phase: 'running' | 'open' | 'fallback';
+}
+
+/**
+ * Der Spieltag, dessen AUFSTELLUNGEN gerade interessieren — Grundlage für den
+ * `dayNumber`-Parameter von `getLeagueRanking()` (Rivalen-Elf im Liga-Tab).
+ *
+ * Reihenfolge bewusst anders als bei der eigenen Deadline-Anzeige: läuft ein
+ * Spieltag, ist DESSEN Elf die relevante (sie ist fix und live), erst danach
+ * zählt der nächste noch offene. `currentDay` ist nur die letzte Rückfallebene,
+ * weil es dem echten Stand erfahrungsgemäß hinterherhängt.
+ */
+export function resolveLineupMatchday(
+  state: MatchdayState,
+  fallbackDay: number | null,
+): LineupMatchday | null {
+  if (state.running) return { day: state.running.day, phase: 'running' };
+  if (state.open) return { day: state.open.day, phase: 'open' };
+  if (fallbackDay !== null) return { day: fallbackDay, phase: 'fallback' };
+  return null;
+}

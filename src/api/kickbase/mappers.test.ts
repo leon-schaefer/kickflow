@@ -18,6 +18,7 @@ import {
   toSquadPlayer,
   toTeam,
 } from './mappers';
+import { rawLeagueRankingSchema } from './schemas';
 import type {
   RawLeague,
   RawLineupOverview,
@@ -285,6 +286,7 @@ describe('toLeagueRanking', () => {
   it('mappt Manager-Einträge inkl. Aufstellungs-Spieler-IDs', () => {
     const ranking = toLeagueRanking({
       sn: '25/26',
+      day: 3,
       us: [
         {
           i: '4232017',
@@ -302,6 +304,7 @@ describe('toLeagueRanking', () => {
       ],
     });
     expect(ranking.seasonName).toBe('25/26');
+    expect(ranking.day).toBe(3);
     expect(ranking.entries).toEqual([
       {
         userId: '4232017',
@@ -319,9 +322,19 @@ describe('toLeagueRanking', () => {
     ]);
   });
 
+  // Der Fall aus der echten Antwort (02.09.2026): `lp` kommt als Zahlen-Array.
+  // Vorher scheiterte hier schon das Schema, und der Liga-Tab blieb leer.
+  it('normalisiert Zahlen-IDs in lp zu Strings', () => {
+    const parsed = rawLeagueRankingSchema.parse({
+      us: [{ i: '4232017', lp: [118, 4383, null] }],
+    });
+    expect(toLeagueRanking(parsed).entries[0]?.lineupPlayerIds).toEqual(['118', '4383', null]);
+  });
+
   it('fällt bei fehlenden Feldern defensiv zurück statt zu crashen', () => {
     const ranking = toLeagueRanking({ us: [{}] });
     expect(ranking.seasonName).toBeNull();
+    expect(ranking.day).toBeNull();
     expect(ranking.entries[0]).toMatchObject({
       userId: '',
       userName: 'Unbekannt',
