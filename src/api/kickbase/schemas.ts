@@ -73,33 +73,6 @@ export const rawLeagueManagersSchema = z.looseObject({
 });
 export type RawLeagueManagers = z.infer<typeof rawLeagueManagersSchema>;
 
-/**
- * `GET /v4/leagues/{id}/ranking` — die Tabelle der Liga: ein Eintrag je
- * Manager. Feldnamen aus der inoffiziellen v4-Doku
- * (simonsagstetter/kickbase-api-v4-docs), noch NICHT per scripts/probe.ts
- * gegen echte Daten verifiziert — deshalb ist außer der ID alles optional:
- * `n` (Name), `sp`/`mdp` (Saison-/Spieltagspunkte), `spl`/`mdpl` (Plätze),
- * `tv` (Teamwert), `uim` (Profilbild).
- */
-export const rawLeagueRankingUserSchema = z.looseObject({
-  i: z.string(),
-  n: z.string().optional(),
-  sp: z.number().optional(),
-  mdp: z.number().optional(),
-  spl: z.number().optional(),
-  mdpl: z.number().optional(),
-  tv: z.number().optional(),
-  adm: z.boolean().optional(),
-  uim: z.string().optional(),
-});
-export type RawLeagueRankingUser = z.infer<typeof rawLeagueRankingUserSchema>;
-
-export const rawLeagueRankingSchema = z.looseObject({
-  day: z.number().optional(),
-  us: z.array(rawLeagueRankingUserSchema).default([]),
-});
-export type RawLeagueRanking = z.infer<typeof rawLeagueRankingSchema>;
-
 export const rawLineupPlayerSchema = z.looseObject({
   pi: z.string(),
   n: z.string().optional(),
@@ -158,58 +131,6 @@ export type RawSquadPlayer = z.infer<typeof rawSquadPlayerSchema>;
 export const rawSquadResponseSchema = z.looseObject({
   it: z.array(rawSquadPlayerSchema).default([]),
 });
-
-/**
- * Ein Spieler im Kader eines fremden Managers
- * (`GET /v4/leagues/{id}/managers/{userId}/squad`). Achtung: Die Doku nennt
- * hier `pi`/`pn`, der eigene Kader (rawSquadPlayerSchema) dagegen `i`/`n` —
- * beide Varianten werden akzeptiert und in toManagerSquadPlayer() aufgelöst,
- * weil unverifiziert ist, welche die API real schickt.
- */
-export const rawManagerSquadPlayerSchema = z.looseObject({
-  pi: z.string().optional(),
-  i: z.string().optional(),
-  pn: z.string().optional(),
-  n: z.string().optional(),
-  pos: z.number().optional(),
-  mv: z.number().optional(),
-  mvt: z.number().optional(),
-  sdmvt: z.number().optional(),
-  p: z.number().optional(),
-  ap: z.number().optional(),
-  st: z.number().optional(),
-  /** Aufstellungsposition — 0/fehlend = Bank. Nur Fallback, siehe getManagerSquad(). */
-  lo: z.number().optional(),
-  lst: z.number().optional(),
-  tid: z.string().optional(),
-  pim: z.string().optional(),
-});
-export type RawManagerSquadPlayer = z.infer<typeof rawManagerSquadPlayerSchema>;
-
-export const rawManagerSquadSchema = z.looseObject({
-  /** User-ID des Managers, `unm` sein Name — beides laut Doku Teil der Antwort. */
-  u: z.string().optional(),
-  unm: z.string().optional(),
-  it: z.array(rawManagerSquadPlayerSchema).default([]),
-});
-export type RawManagerSquad = z.infer<typeof rawManagerSquadSchema>;
-
-/**
- * `GET /v4/leagues/{id}/users/{userId}/teamcenter` — die Startelf eines
- * Managers. Ausgewertet wird ausschließlich `lp[].i` (die Spieler-IDs der
- * Elf); die restlichen Felder (Punkte, Spielinfos) bleiben ungeparst, weil
- * der Kader-Endpoint dieselben Daten verlässlicher liefert. `nlp` (Bank) ist
- * bewusst nicht im Schema: die Bank ergibt sich als Kader minus Elf, und die
- * Doku zeigt für `nlp` nur ein leeres Beispielobjekt.
- */
-export const rawTeamcenterPlayerSchema = z.looseObject({
-  i: z.string(),
-});
-
-export const rawTeamcenterSchema = z.looseObject({
-  lp: z.array(rawTeamcenterPlayerSchema).default([]),
-});
-export type RawTeamcenter = z.infer<typeof rawTeamcenterSchema>;
 
 /**
  * Ein Gebot aus `ofs[]` — bei fremden Listings enthält das laut

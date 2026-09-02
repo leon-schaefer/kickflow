@@ -2,10 +2,8 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { useCallback, useMemo } from 'react';
 import {
   getCompetitionTeams,
-  getLeagueRanking,
   getLeagues,
   getLineup,
-  getManagerSquad,
   getMarket,
   getMatchdays,
   getPlayer,
@@ -46,32 +44,6 @@ export function useLineup(leagueId: string) {
     queryKey: queryKeys.lineup(leagueId),
     queryFn: () => (USE_MOCK_LINEUP ? Promise.resolve(mockLineupData) : getLineup(token!, leagueId)),
     enabled: USE_MOCK_LINEUP || (!!token && !!leagueId),
-    staleTime: 60_000,
-  });
-}
-
-/**
- * Die Liga-Tabelle (alle Manager). `staleTime` wie beim Markt: Punkte und
- * Teamwerte ändern sich höchstens im Minutentakt, ein Tab-Wechsel muss dafür
- * keinen Request auslösen.
- */
-export function useLeagueRanking(leagueId: string) {
-  const { token } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.leagueRanking(leagueId),
-    queryFn: () => getLeagueRanking(token!, leagueId),
-    enabled: !!token && !!leagueId,
-    staleTime: 60_000,
-  });
-}
-
-/** Kader + Startelf eines Managers — die Rivalen-Ansicht. */
-export function useManagerSquad(leagueId: string, managerId: string) {
-  const { token } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.managerSquad(leagueId, managerId),
-    queryFn: () => getManagerSquad(token!, leagueId, managerId),
-    enabled: !!token && !!leagueId && !!managerId,
     staleTime: 60_000,
   });
 }

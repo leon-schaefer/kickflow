@@ -3,7 +3,6 @@ export const leagueTabTitles = {
   lineup: 'Aufstellung',
   squad: 'Kader',
   value: 'Wert',
-  league: 'Liga',
   more: 'Mehr',
 } as const;
 
@@ -15,31 +14,13 @@ export type TabsAwareRoute = { name: string; state?: TabsAwareState };
 export type TabsAwareState = { index?: number; routes: readonly TabsAwareRoute[] };
 
 /**
- * Titel der Screens, die im `[leagueId]`-Stack ÜBER den Tabs liegen und
- * selbst weiterpushen können — nur von dort aus ist ihr Titel das
- * Zurück-Label des obersten Screens.
- */
-const leagueStackTitles: Record<string, string> = {
-  'manager/[managerId]': 'Manager',
-};
-
-/**
- * Zurück-Label des obersten Screens im `[leagueId]`-Stack: der Titel des
- * Screens DARUNTER. Das ist meistens die Tab-Gruppe (`'(tabs)'`), dann
- * gewinnt der Titel des fokussierten Tabs; liegt darunter dagegen ein
- * eigener Stack-Screen (z.B. die Manager-Ansicht, aus der heraus ein
- * Spielerdetail gepusht wird), ist dessen Titel gemeint.
+ * Titel des fokussierten Liga-Tabs, gelesen aus dem State des
+ * `[leagueId]`-Stacks. `'(tabs)'` ist dort der Routenname der Tab-Gruppe.
  * Fallback „Aufstellung“: ohne Tab-State (Deep Link direkt aufs Detail) landet
  * ein Zurück auf dem ersten Tab, und das ist `lineup`.
  */
 export function focusedLeagueTabTitle(state: TabsAwareState | undefined): string {
-  const routes = state?.routes ?? [];
-  const below = routes[(state?.index ?? routes.length - 1) - 1];
-  if (below && below.name !== '(tabs)') {
-    return leagueStackTitles[below.name] ?? leagueTabTitles.lineup;
-  }
-
-  const tabs = routes.find((route) => route.name === '(tabs)')?.state;
+  const tabs = state?.routes.find((route) => route.name === '(tabs)')?.state;
   const focused = tabs?.routes[tabs.index ?? tabs.routes.length - 1]?.name;
   return leagueTabTitles[focused as LeagueTabName] ?? leagueTabTitles.lineup;
 }

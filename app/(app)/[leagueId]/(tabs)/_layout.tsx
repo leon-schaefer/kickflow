@@ -3,7 +3,6 @@ import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MoreIcon } from '@/components/icons/MoreIcon';
 import { PitchIcon } from '@/components/icons/PitchIcon';
 import { SquadIcon } from '@/components/icons/SquadIcon';
-import { TableIcon } from '@/components/icons/TableIcon';
 import { TrendIcon } from '@/components/icons/TrendIcon';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { colors } from '@/theme/tokens';
@@ -42,13 +41,6 @@ export default function LeagueTabsLayout() {
         options={{
           title: leagueTabTitles.value,
           tabBarIcon: ({ color, size }) => <TrendIcon color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="league"
-        options={{
-          title: leagueTabTitles.league,
-          tabBarIcon: ({ color, size }) => <TableIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen

@@ -259,65 +259,6 @@ async function main() {
     await dump('player-performance', performance);
   }
 
-  // --- Rivalen-Ansicht: Tabelle + Kader/Startelf eines fremden Managers ---
-  // Verifiziert die Feldnamen, mit denen schemas.ts arbeitet: `us[]` auf
-  // /ranking (n/sp/mdp/spl/tv), `it[]` auf /managers/{id}/squad (pi ODER i,
-  // pn ODER n, lo) und `lp[]` auf /users/{id}/teamcenter (Spieler-IDs der Elf).
-  console.log('→ Liga-Tabelle (Rivalen) …');
-  try {
-    const ranking = await getJson(`/v4/leagues/${leagueId}/ranking`, token);
-    await dump('ranking-detail', ranking);
-    const users: any[] = ranking.us ?? [];
-    console.log(
-      '  Manager (spl/n/sp/mdp/tv):',
-      users.map((u) => `${u.spl}=${u.n} sp=${u.sp} mdp=${u.mdp} tv=${u.tv}`).join(' | '),
-    );
-
-    // Ein fremder Manager, falls es einen gibt — sonst das eigene Team, das
-    // liefert für die Feldnamen dieselbe Auskunft.
-    const rival = users[users.length - 1];
-    if (rival?.i) {
-      console.log(`→ Kader von Manager ${rival.n ?? rival.i} …`);
-      const managerSquad = await getJson(`/v4/leagues/${leagueId}/managers/${rival.i}/squad`, token);
-      await dump(`manager-squad-${rival.i}`, managerSquad);
-      const items: any[] = managerSquad.it ?? [];
-      console.log('  Top-Level-Keys:', Object.keys(managerSquad));
-      console.log('  Erster Eintrag:', items[0]);
-      console.log(
-        '  ID-Feld:',
-        items[0]?.pi !== undefined ? 'pi' : items[0]?.i !== undefined ? 'i' : 'KEINES',
-        '| Name-Feld:',
-        items[0]?.pn !== undefined ? 'pn' : items[0]?.n !== undefined ? 'n' : 'KEINES',
-      );
-      console.log(
-        '  lo-Werte im fremden Kader (0 = Bank?):',
-        items.map((entry) => entry.lo).join(', '),
-      );
-
-      try {
-        const teamcenter = await getJson(`/v4/leagues/${leagueId}/users/${rival.i}/teamcenter`, token);
-        await dump(`teamcenter-${rival.i}`, teamcenter);
-        const lineup: any[] = teamcenter.lp ?? [];
-        console.log('  Teamcenter-Top-Level-Keys:', Object.keys(teamcenter));
-        console.log(`  ${lineup.length} Spieler in lp, erster Eintrag:`, lineup[0]);
-        // Der eigentliche Test: passen die Elf-IDs zu `lo > 0` des Kaders?
-        const fromTeamcenter = new Set(lineup.map((entry) => entry.i));
-        const fromLo = items
-          .filter((entry) => (entry.lo ?? 0) > 0)
-          .map((entry) => entry.pi ?? entry.i);
-        console.log(
-          '  Startelf laut Teamcenter == Startelf laut lo>0?',
-          fromLo.length === fromTeamcenter.size && fromLo.every((id) => fromTeamcenter.has(id)),
-          `(teamcenter=${fromTeamcenter.size}, lo>0=${fromLo.length})`,
-        );
-      } catch (err) {
-        console.warn('  /users/{id}/teamcenter fehlgeschlagen:', err);
-      }
-    }
-  } catch (err) {
-    console.warn('  /leagues/{id}/ranking fehlgeschlagen:', err);
-  }
-
   console.log('→ Transfermarkt …');
   const market = await getJson(`/v4/leagues/${leagueId}/market`, token);
   await dump('market', market);
