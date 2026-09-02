@@ -1,3 +1,10 @@
+// Achtung beim Editieren: @expo/fingerprint hasht eas.json komplett mit
+// (sourcer/Expo.js, reason "easBuild"), und dafür gibt es keinen sourceSkip.
+// Jede Änderung hier — auch an diesen Kommentaren — ändert damit die
+// runtimeVersion *aller* Profile: bereits installierte Builds bekommen danach
+// keine OTA-Updates mehr, weil ihr Fingerprint nicht mehr passt. Nach einer
+// Änderung an dieser Datei gehört also ein neuer Build raus.
+// (eas-cli liest eas.json als JSON5, Kommentare sind erlaubt.)
 {
   "cli": {
     "version": ">= 23.2.0",
@@ -16,6 +23,32 @@
       "environment": "preview",
       "autoIncrement": true
     },
+    // Tester-Lane für TestFlight: erbt alles von production (store-
+    // Distribution, Environment, autoIncrement) und tauscht nur den
+    // Update-Kanal.
+    //
+    // Warum das ein eigenes Profil braucht: der Kanal wird beim Build in die
+    // Expo.plist eingebacken, `eas build` hat kein --channel-Flag. Ein
+    // production-Build in TestFlight ist dasselbe Binary wie der im App
+    // Store — beide hängen am Kanal "production". Ein `eas update --channel
+    // production`, nur um ein Update mal auf dem eigenen Gerät zu sehen,
+    // würde deshalb auch echte App-Store-Nutzer treffen. Updates auf
+    // "testflight" erreichen ausschließlich Builds aus diesem Profil.
+    //
+    // Der runtimeVersion-Fingerprint ist identisch mit dem von production:
+    // gehasht wird eas.json als ganze Datei, nicht das einzelne Profil. Ein
+    // hier verifiziertes Update lässt sich deshalb mit
+    // `npm run update:promote:testflight` unverändert nach production
+    // weiterschieben, statt es neu zu bauen.
+    //
+    // Achtung: Beide Profile landen im selben App-Store-Connect-Record. Einen
+    // testflight-Build niemals zur App-Store-Review einreichen, sonst sitzen
+    // alle App-Store-Nutzer am Tester-Kanal. Zum Ausliefern ist
+    // `npm run release:ios` (Profil production) da.
+    "testflight": {
+      "extends": "production",
+      "channel": "testflight"
+    },
     "production": {
       "channel": "production",
       "environment": "production",
@@ -23,6 +56,12 @@
     }
   },
   "submit": {
+    // Derselbe App-Store-Connect-Record wie production — `--auto-submit`
+    // erwartet ein Submit-Profil mit dem Namen des Build-Profils, sonst
+    // bricht es mit MissingProfileError ab.
+    "testflight": {
+      "extends": "production"
+    },
     "production": {}
   }
 }
