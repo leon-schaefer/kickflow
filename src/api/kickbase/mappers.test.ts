@@ -6,9 +6,12 @@ import {
   mapStatus,
   parseFormation,
   parseMatchdayLabel,
+  formationFromLineup,
   toAuthSession,
+  toLeagueManagers,
   toLeagueSummary,
   toLineupData,
+  toManagerSquad,
   toMarketPlayer,
   toMarketValueHistory,
   toMatchdaySchedule,
@@ -18,8 +21,10 @@ import {
 } from './mappers';
 import type {
   RawLeague,
+  RawLeagueRanking,
   RawLineupOverview,
   RawLineupPlayer,
+  RawManagerSquad,
   RawMarketPlayer,
   RawSquadPlayer,
 } from './schemas';
@@ -586,5 +591,147 @@ describe('toMarketPlayer', () => {
     expect(mapped.ownOfferPrice).toBeNull();
     expect(mapped.ownOfferId).toBeNull();
     expect(mapped.offers).toEqual([]);
+  });
+});
+
+describe('toLeagueManagers (Liga-Tabelle)', () => {
+  const ranking: RawLeagueRanking = {
+    day: 3,
+    us: [
+      { i: 'u2', n: 'Bea', spl: 2, sp: 812, mdp: 41, tv: 121_000_000, adm: false },
+      { i: 'u1', n: 'Anna', spl: 1, sp: 903, mdp: 55, tv: 134_500_000, adm: true, uim: 'content/anna.png' },
+      // Ohne `spl`: darf die Reihenfolge der übrigen nicht durcheinanderbringen.
+      { i: 'u3' },
+    ],
+  };
+
+  it('sortiert nach Platzierung und schiebt Einträge ohne Platz nach hinten', () => {
+    expect(toLeagueManagers(ranking).map((m) => m.id)).toEqual(['u1', 'u2', 'u3']);
+  });
+
+  it('mappt Name, Platz, Punkte, Teamwert und Bild', () => {
+    const [first] = toLeagueManagers(ranking);
+    expect(first).toMatchObject({
+      id: 'u1',
+      name: 'Anna',
+      placement: 1,
+      seasonPoints: 903,
+      matchdayPoints: 55,
+      teamValue: 134_500_000,
+      isAdmin: true,
+      imageUrl: 'https://kickbase.b-cdn.net/content/anna.png',
+    });
+  });
+
+  it('liefert null statt 0, wenn die API Punkte/Platz/Teamwert nicht mitschickt', () => {
+    const unranked = toLeagueManagers(ranking).find((m) => m.id === 'u3')!;
+    expect(unranked).toMatchObject({
+      name: 'Unbekannt',
+      placement: null,
+      seasonPoints: null,
+      matchdayPoints: null,
+      teamValue: null,
+      imageUrl: null,
+    });
+  });
+});
+
+describe('formationFromLineup', () => {
+  it('bildet den Formationsstring ohne Torwart', () => {
+    // pos-Codes: 1 = TW, 2 = ABW, 3 = MF, 4 = ANG (siehe mapPosition).
+    const positions = [1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4];
+    const { players } = toManagerSquad(
+      { it: positions.map((pos, index) => ({ pi: `p${index}`, pos })) },
+      { managerId: 'u1' },
+    );
+    expect(formationFromLineup(players)).toBe('4-4-2');
+  });
+
+  it('liefert einen leeren String ohne Startelf', () => {
+    expect(formationFromLineup([])).toBe('');
+  });
+});
+
+describe('toManagerSquad (Kader eines Rivalen)', () => {
+  const squad: RawManagerSquad = {
+    u: 'u7',
+    unm: 'Bea',
+    it: [
+      {
+        pi: 'p1',
+        pn: 'Torwart',
+        pos: 1,
+        mv: 10_000_000,
+        mvt: 1,
+        sdmvt: 25_000,
+        p: 300,
+        ap: 100,
+        st: 0,
+        lo: 1,
+        tid: '2',
+        pim: 'content/p1.png',
+      },
+      { pi: 'p2', pn: 'Bankspieler', pos: 4, mv: 5_000_000, ap: 40, lo: 0 },
+      // `i`/`n` statt `pi`/`pn`: beide Varianten der Antwort müssen greifen.
+      { i: 'p3', n: 'Abwehr', pos: 2, mv: 7_000_000, ap: 60, lo: 2 },
+      // Ohne ID unbrauchbar (nicht antippbar) — wird verworfen.
+      { pn: 'Namenlos', pos: 3 },
+    ],
+  };
+
+  it('nimmt die Startelf aus den übergebenen Teamcenter-IDs', () => {
+    const result = toManagerSquad(squad, {
+      managerId: 'u7',
+      lineupPlayerIds: new Set(['p2']),
+    });
+    expect(result.players.filter((p) => p.inLineup).map((p) => p.id)).toEqual(['p2']);
+    expect(result.formation).toBe('0-0-1');
+  });
+
+  it('fällt ohne Teamcenter-IDs auf `lo` > 0 zurück', () => {
+    const result = toManagerSquad(squad, { managerId: 'u7' });
+    expect(result.players.filter((p) => p.inLineup).map((p) => p.id)).toEqual(['p1', 'p3']);
+    expect(result.formation).toBe('1-0-0');
+  });
+
+  it('verwirft Spieler ohne ID und summiert den Teamwert aus den Marktwerten', () => {
+    const result = toManagerSquad(squad, { managerId: 'u7' });
+    expect(result.players.map((p) => p.id)).toEqual(['p1', 'p2', 'p3']);
+    expect(result.teamValue).toBe(22_000_000);
+  });
+
+  it('mappt Managername und -ID aus der Antwort, nicht aus dem Parameter', () => {
+    const result = toManagerSquad(squad, { managerId: 'egal' });
+    expect(result).toMatchObject({ managerId: 'u7', managerName: 'Bea' });
+  });
+
+  it('fällt auf die übergebene ID zurück, wenn die Antwort keine liefert', () => {
+    const result = toManagerSquad({ it: [] }, { managerId: 'u9' });
+    expect(result).toMatchObject({ managerId: 'u9', managerName: '', teamValue: 0, formation: '' });
+  });
+
+  it('mappt einen Spieler vollständig (inkl. Value-Scores und Bild-URL)', () => {
+    const [keeper] = toManagerSquad(squad, { managerId: 'u7', lineupPlayerIds: new Set(['p1']) }).players;
+    expect(keeper).toMatchObject({
+      id: 'p1',
+      name: 'Torwart',
+      position: 'GK',
+      teamId: '2',
+      marketValue: 10_000_000,
+      marketValueTrend: 'up',
+      marketValueChangeToday: 25_000,
+      totalPoints: 300,
+      averagePoints: 100,
+      valueScoreAvg: 10,
+      valueScoreTotal: 30,
+      status: 'fit',
+      imageUrl: 'https://kickbase.b-cdn.net/content/p1.png',
+      inLineup: true,
+      lineupSlot: 1,
+      // Kommt beim eigenen Kader aus lineup/overview — für fremde Kader
+      // liefert die API dafür kein Feld.
+      isCaptain: false,
+      nextMatch: null,
+    });
   });
 });

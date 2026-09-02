@@ -45,6 +45,51 @@ describe('focusedLeagueTabTitle', () => {
     expect(focusedLeagueTabTitle(undefined)).toBe('Aufstellung');
   });
 
+  it('nimmt den Titel des Screens unter dem obersten (Manager-Ansicht statt Tab)', () => {
+    const state = {
+      routes: [
+        {
+          name: '(tabs)',
+          state: {
+            index: 3,
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }, { name: 'league' }],
+          },
+        },
+        { name: 'manager/[managerId]' },
+        { name: 'player/[playerId]' },
+      ],
+    };
+    expect(focusedLeagueTabTitle(state)).toBe('Manager');
+  });
+
+  it('liefert für die Manager-Ansicht selbst den Titel des Liga-Tabs', () => {
+    const state = {
+      routes: [
+        {
+          name: '(tabs)',
+          state: {
+            index: 3,
+            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'value' }, { name: 'league' }],
+          },
+        },
+        { name: 'manager/[managerId]' },
+      ],
+    };
+    expect(focusedLeagueTabTitle(state)).toBe('Liga');
+  });
+
+  it('respektiert einen expliziten `index` des Stacks (oberster Screen ist nicht der letzte)', () => {
+    const state = {
+      index: 1,
+      routes: [
+        { name: '(tabs)', state: { index: 1, routes: [{ name: 'lineup' }, { name: 'squad' }] } },
+        { name: 'manager/[managerId]' },
+        { name: 'player/[playerId]' },
+      ],
+    };
+    expect(focusedLeagueTabTitle(state)).toBe('Kader');
+  });
+
   it('nimmt bei fehlendem `index` (PartialState) den letzten Eintrag aus `routes`', () => {
     const state = {
       routes: [
