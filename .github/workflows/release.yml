@@ -1,0 +1,144 @@
+# Release-Pipeline: entscheidet pro Push selbst, ob ein OTA-Update reicht oder
+# ein neuer Build nötig ist.
+#
+#   develop -> Kanal "testflight" (TestFlight-Tester)
+#   main    -> Kanal "production" (App Store)
+#
+# Die Entscheidung fällt über den runtimeVersion-Fingerprint: passt der Code
+# noch zum letzten Binary auf dem Kanal, geht ein OTA raus. Hat sich etwas
+# Natives geändert (Dependency, Config-Plugin, app.json, eas.json), kann kein
+# installiertes Binary das Update anfragen — dann wird gebaut und direkt nach
+# App Store Connect hochgeladen.
+#
+# Warum das in CI besser aufgehoben ist als lokal: `eas update` hasht die
+# runtimeVersion aus dem Baum, in dem es läuft. Lokal weicht der gern von dem
+# des Build-Servers ab — ein vergessenes `npm install` reicht (siehe
+# scripts/check-fingerprint.ts). Hier läuft `npm ci` gegen dasselbe Lockfile
+# wie auf dem Build-Server, damit fällt diese Fehlerklasse weg.
+#
+# Voraussetzung: Repository-Secret EXPO_TOKEN (Expo Personal Access Token,
+# https://expo.dev/settings/access-tokens).
+#
+# Hinweis zum main-Lauf: --auto-submit lädt den Build nach App Store Connect
+# hoch, es reicht ihn *nicht* zur Review ein. Das bleibt ein manueller Schritt.
+
+name: Release
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      force-build:
+        description: 'Build erzwingen, auch wenn ein OTA reichen würde'
+        type: boolean
+        default: false
+
+# Zwei parallele Releases auf derselben Branch würden sich um autoIncrement und
+# Kanal streiten. Laufende Releases nicht abbrechen — ein halb submitteter Build
+# ist schlimmer als ein wartender Job.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: OTA oder Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Expo und EAS einrichten
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # npm ci, nicht npm install: der Fingerprint hängt am exakten
+      # Dependency-Baum, und nur ci reproduziert den aus dem Lockfile.
+      - name: Dependencies installieren
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Ziel bestimmen
+        id: target
+        run: |
+          case "${{ github.ref_name }}" in
+            develop) channel=testflight; profile=testflight ;;
+            main)    channel=production; profile=production ;;
+            *)       echo "::error::Kein Release-Ziel für Branch ${{ github.ref_name }}"; exit 1 ;;
+          esac
+          {
+            echo "channel=$channel"
+            echo "profile=$profile"
+          } >> "$GITHUB_OUTPUT"
+
+      # Commit-Subject über git lesen statt über github.event: funktioniert auch
+      # bei workflow_dispatch (dort gibt es kein head_commit) und kann nicht
+      # über eine Commit-Message in die Shell injizieren.
+      - name: Commit-Subject lesen
+        id: commit
+        run: echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+
+      - name: OTA möglich?
+        id: check
+        run: npx tsx scripts/check-fingerprint.ts --channel "${{ steps.target.outputs.channel }}" --report-only
+
+      - name: OTA-Update publizieren
+        if: steps.check.outputs.ota-possible == 'true' && inputs.force-build != true
+        env:
+          CHANNEL: ${{ steps.target.outputs.channel }}
+          SUBJECT: ${{ steps.commit.outputs.subject }}
+        # --channel/--message explizit statt --auto: actions/checkout landet auf
+        # einem detached HEAD, aus dem --auto keinen Branchnamen ableiten kann.
+        # Der Fingerprint-Check ist gerade gelaufen, der pre-Hook der
+        # npm-Scripts wäre nur eine zweite Runde derselben API-Calls.
+        run: |
+          SKIP_FINGERPRINT_CHECK=1 npm run "update:$CHANNEL" -- \
+            --message "$SUBJECT" \
+            --non-interactive
+
+      - name: Build starten
+        if: steps.check.outputs.ota-possible != 'true' || inputs.force-build == true
+        env:
+          PROFILE: ${{ steps.target.outputs.profile }}
+          SUBJECT: ${{ steps.commit.outputs.subject }}
+        # --no-wait: der Job endet, sobald der Build in der Queue liegt. EAS
+        # baut und submittet danach eigenständig, CI-Minuten laufen nicht mit.
+        run: |
+          eas build \
+            --platform ios \
+            --profile "$PROFILE" \
+            --message "$SUBJECT" \
+            --what-to-test "$SUBJECT" \
+            --auto-submit \
+            --non-interactive \
+            --no-wait
+
+      - name: Zusammenfassung
+        if: always()
+        env:
+          CHANNEL: ${{ steps.target.outputs.channel }}
+          PROFILE: ${{ steps.target.outputs.profile }}
+          OTA: ${{ steps.check.outputs.ota-possible }}
+        run: |
+          if [ "$OTA" = "true" ]; then
+            echo "OTA-Update auf Kanal \`$CHANNEL\` publiziert." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Fingerprint geändert — Build mit Profil \`$PROFILE\` gestartet und zur App-Store-Connect-Übertragung eingereiht." >> "$GITHUB_STEP_SUMMARY"
+          fi

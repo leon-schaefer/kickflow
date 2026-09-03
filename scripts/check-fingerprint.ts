@@ -1,13 +1,20 @@
 /**
- * Preflight vor jedem `eas update`: prüft, ob der lokal berechnete
- * runtimeVersion-Fingerprint zu dem des letzten Builds auf dem Zielkanal passt.
+ * Beantwortet die Frage "passt der lokale Code noch zum installierten Binary?"
+ * — also: reicht ein OTA-Update, oder braucht es einen neuen Build?
  *
- * Warum das nötig ist: `eas update` hasht den Fingerprint aus dem *lokalen*
- * Projektbaum, `eas build` dagegen aus dem, was der Build-Server nach `npm ci`
- * vorfindet. Weichen die auseinander, wird das Update mit einer runtimeVersion
- * veröffentlicht, die kein installiertes Binary anfragt — expo-updates liefert
- * dann einfach nichts aus. Kein Fehler, keine Warnung, das Update existiert nur
- * für ein Binary, das es nicht gibt.
+ * Zwei Aufrufmodi:
+ *   - blockierend (Default): läuft über die npm-pre-Hooks vor `eas update` und
+ *     bricht bei Abweichung ab.
+ *   - `--report-only`: bricht nie ab, schreibt stattdessen
+ *     `ota-possible=true|false` nach $GITHUB_OUTPUT. Damit entscheidet
+ *     .github/workflows/release.yml zwischen OTA und neuem Build.
+ *
+ * Warum das nötig ist: `eas update` hasht die runtimeVersion aus dem
+ * Projektbaum, in dem es läuft, `eas build` aus dem, was der Build-Server nach
+ * `npm ci` vorfindet. Weichen die auseinander, wird das Update mit einer
+ * runtimeVersion veröffentlicht, die kein installiertes Binary anfragt —
+ * expo-updates liefert dann einfach nichts aus. Kein Fehler, keine Warnung,
+ * das Update existiert nur für ein Binary, das es nicht gibt.
  *
  * Genau das ist am 03.09.2026 passiert: expo-observe (plus die transitive
  * expo-app-metrics) standen in package.json und package-lock.json, waren aber
@@ -17,17 +24,20 @@
  * runtimeVersion eines zwei Tage alten Builds. Ein vergessenes `npm install`
  * reicht also — deshalb der Check.
  *
- * Läuft automatisch über die npm-pre-Hooks (preupdate:preview,
- * preupdate:testflight, preupdate:production); der Kanal kommt aus
- * npm_lifecycle_event, `--channel <name>` überschreibt das.
+ * Der Kanal kommt aus npm_lifecycle_event (preupdate:testflight -> testflight),
+ * `--channel <name>` überschreibt das.
  *
  * Bewusst für eine ältere runtimeVersion publishen (etwa einen Fix für ein noch
- * verbreitetes Binary nachschieben): SKIP_FINGERPRINT_CHECK=1 setzen.
+ * verbreitetes Binary nachschieben): SKIP_FINGERPRINT_CHECK=1 setzen. Im
+ * report-only-Modus wirkt das nicht — dort gibt es nichts zu überspringen.
  *
- * Geprüft werden nur Plattformen, für die es überhaupt einen fertigen Build auf
- * dem Kanal gibt — für Android existiert derzeit keiner, das ist kein Fehler.
+ * Geprüft werden nur Plattformen, für die es einen fertigen Build auf dem Kanal
+ * gibt; für Android existiert derzeit keiner. Gibt es auf dem Kanal überhaupt
+ * kein Binary, ist ein OTA sinnlos: der report-only-Modus meldet dann
+ * ota-possible=false, damit der Workflow einen ersten Build anstößt.
  */
 import { execFileSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 
 const PLATFORMS = ['ios', 'android'] as const;
 type Platform = (typeof PLATFORMS)[number];
@@ -47,6 +57,11 @@ type Build = {
   updateChannel: { name: string } | null;
   fingerprint: { hash: string } | null;
 };
+
+type Result =
+  | { platform: Platform; state: 'no-build' }
+  | { platform: Platform; state: 'match'; hash: string; label: string }
+  | { platform: Platform; state: 'mismatch'; buildHash: string; local: string; label: string; buildId: string };
 
 /**
  * eas mischt trotz --json Hinweiszeilen ("No environment variables with
@@ -120,13 +135,42 @@ function localFingerprint(buildId: string, buildHash: string, environment: strin
   return hashes.find((hash) => hash !== buildHash) ?? buildHash;
 }
 
+function inspect(channel: string, environment: string): Result[] {
+  return PLATFORMS.map((platform): Result => {
+    const build = latestBuildOnChannel(platform, channel);
+    if (!build?.fingerprint) return { platform, state: 'no-build' };
+
+    const buildHash = build.fingerprint.hash;
+    const local = localFingerprint(build.id, buildHash, environment);
+    const label = `${platform} (Build ${build.appBuildVersion ?? build.id})`;
+
+    return local === buildHash
+      ? { platform, state: 'match', hash: local, label }
+      : { platform, state: 'mismatch', buildHash, local, label, buildId: build.id };
+  });
+}
+
+function report(results: Result[], channel: string) {
+  for (const result of results) {
+    if (result.state === 'no-build') {
+      console.log(`· ${result.platform}: kein fertiger Build auf Kanal "${channel}", übersprungen.`);
+    } else if (result.state === 'match') {
+      console.log(`✓ ${result.label}: runtimeVersion ${result.hash}`);
+    } else {
+      console.log(`✗ ${result.label}: Build erwartet ${result.buildHash}, lokal ${result.local}`);
+    }
+  }
+}
+
 function main() {
-  if (process.env.SKIP_FINGERPRINT_CHECK) {
+  const reportOnly = process.argv.includes('--report-only');
+  const channel = resolveChannel();
+
+  if (!reportOnly && process.env.SKIP_FINGERPRINT_CHECK) {
     console.log('· Fingerprint-Check übersprungen (SKIP_FINGERPRINT_CHECK gesetzt).');
     return;
   }
 
-  const channel = resolveChannel();
   const environment = CHANNEL_ENVIRONMENTS[channel];
   if (!environment) {
     throw new Error(
@@ -134,26 +178,21 @@ function main() {
     );
   }
 
-  const mismatches: string[] = [];
+  const results = inspect(channel, environment);
+  report(results, channel);
 
-  for (const platform of PLATFORMS) {
-    const build = latestBuildOnChannel(platform, channel);
-    if (!build?.fingerprint) {
-      console.log(`· ${platform}: kein fertiger Build auf Kanal "${channel}", übersprungen.`);
-      continue;
+  const mismatches = results.filter((result) => result.state === 'mismatch');
+  const matches = results.filter((result) => result.state === 'match');
+
+  if (reportOnly) {
+    // Ein OTA lohnt nur, wenn jedes Binary auf dem Kanal die lokale
+    // runtimeVersion anfragt — und wenn es überhaupt eines gibt.
+    const possible = mismatches.length === 0 && matches.length > 0;
+    console.log(`\n→ ota-possible=${possible}`);
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT, `ota-possible=${possible}\n`);
     }
-
-    const buildHash = build.fingerprint.hash;
-    const local = localFingerprint(build.id, buildHash, environment);
-    const label = `${platform} (Build ${build.appBuildVersion ?? build.id})`;
-
-    if (local === buildHash) {
-      console.log(`✓ ${label}: runtimeVersion ${local}`);
-      continue;
-    }
-
-    console.error(`✗ ${label}: Build erwartet ${buildHash}, lokal ${local}`);
-    mismatches.push(`eas fingerprint:compare --build-id ${build.id} --environment ${environment}`);
+    return;
   }
 
   if (mismatches.length === 0) return;
@@ -169,7 +208,10 @@ function main() {
       '  npm ci',
       '',
       'Sonst zeigt das hier, welche Quelle abweicht:',
-      ...mismatches.map((command) => `  ${command}`),
+      ...mismatches.map(
+        (result) =>
+          `  eas fingerprint:compare --build-id ${(result as { buildId: string }).buildId} --environment ${environment}`,
+      ),
       '',
       'Ist die Abweichung gewollt (bewusst für ein älteres Binary publishen):',
       `  SKIP_FINGERPRINT_CHECK=1 npm run update:${channel}`,
