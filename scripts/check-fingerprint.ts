@@ -35,6 +35,14 @@
  * gibt; für Android existiert derzeit keiner. Gibt es auf dem Kanal überhaupt
  * kein Binary, ist ein OTA sinnlos: der report-only-Modus meldet dann
  * ota-possible=false, damit der Workflow einen ersten Build anstößt.
+ *
+ * Dritter Zustand, den der report-only-Modus zusätzlich meldet: build-pending.
+ * Läuft für den aktuellen Fingerprint schon ein Build in der Queue, wäre ein
+ * zweiter reine Verschwendung — Buildminuten plus eine verbrannte Buildnummer,
+ * denn appVersionSource "remote" zählt bei jedem Start hoch. Genau das
+ * passierte beim Einrichten: Build 13 und 14 gingen für dieselbe Änderung
+ * raus, weil ein Push während eines laufenden Builds nur die *fertigen* Builds
+ * betrachtete und den laufenden übersah.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -53,13 +61,19 @@ const CHANNEL_ENVIRONMENTS: Record<string, string> = {
 
 type Build = {
   id: string;
+  status: string;
   appBuildVersion: string | null;
   updateChannel: { name: string } | null;
   fingerprint: { hash: string } | null;
 };
 
+// Ein Build in einem dieser Zustände ist noch unterwegs und wird für den Kanal
+// ein Binary hinterlassen; ein weiterer für denselben Code wäre redundant.
+const PENDING_STATES = ['NEW', 'IN_QUEUE', 'IN_PROGRESS'];
+
 type Result =
   | { platform: Platform; state: 'no-build' }
+  | { platform: Platform; state: 'pending'; hash: string; label: string }
   | { platform: Platform; state: 'match'; hash: string; label: string }
   | { platform: Platform; state: 'mismatch'; buildHash: string; local: string; label: string; buildId: string };
 
@@ -97,21 +111,24 @@ function resolveChannel(): string {
   );
 }
 
-function latestBuildOnChannel(platform: Platform, channel: string): Build | null {
+/**
+ * Ohne --status, weil auch laufende Builds interessieren: der letzte fertige
+ * beantwortet "reicht ein OTA?", ein noch laufender "ist der Build schon
+ * unterwegs?". build:list liefert absteigend nach Erstellzeit, der erste
+ * Treffer ist also jeweils der neueste.
+ */
+function buildsOnChannel(platform: Platform, channel: string): Build[] {
   const builds = easJson<Build[]>([
     'build:list',
     '--platform',
     platform,
-    '--status',
-    'finished',
     '--limit',
     '50',
     '--json',
     '--non-interactive',
   ]);
 
-  // build:list liefert absteigend nach Erstellzeit, der erste Treffer ist der neueste.
-  return builds.find((build) => build.updateChannel?.name === channel) ?? null;
+  return builds.filter((build) => build.updateChannel?.name === channel);
 }
 
 /**
@@ -137,16 +154,32 @@ function localFingerprint(buildId: string, buildHash: string, environment: strin
 
 function inspect(channel: string, environment: string): Result[] {
   return PLATFORMS.map((platform): Result => {
-    const build = latestBuildOnChannel(platform, channel);
-    if (!build?.fingerprint) return { platform, state: 'no-build' };
+    const builds = buildsOnChannel(platform, channel);
+    const finished = builds.find((build) => build.status === 'FINISHED' && build.fingerprint);
+    if (!finished?.fingerprint) return { platform, state: 'no-build' };
 
-    const buildHash = build.fingerprint.hash;
-    const local = localFingerprint(build.id, buildHash, environment);
-    const label = `${platform} (Build ${build.appBuildVersion ?? build.id})`;
+    const buildHash = finished.fingerprint.hash;
+    const local = localFingerprint(finished.id, buildHash, environment);
+    const label = `${platform} (Build ${finished.appBuildVersion ?? finished.id})`;
 
-    return local === buildHash
-      ? { platform, state: 'match', hash: local, label }
-      : { platform, state: 'mismatch', buildHash, local, label, buildId: build.id };
+    if (local === buildHash) return { platform, state: 'match', hash: local, label };
+
+    // Der lokale Stand passt nicht zum letzten fertigen Build — aber vielleicht
+    // baut genau dieser Stand bereits. Der Fingerprint des laufenden Builds
+    // kommt aus build:list und braucht keinen zweiten Vergleichsaufruf.
+    const pending = builds.find(
+      (build) => PENDING_STATES.includes(build.status) && build.fingerprint?.hash === local,
+    );
+    if (pending) {
+      return {
+        platform,
+        state: 'pending',
+        hash: local,
+        label: `${platform} (Build ${pending.appBuildVersion ?? pending.id})`,
+      };
+    }
+
+    return { platform, state: 'mismatch', buildHash, local, label, buildId: finished.id };
   });
 }
 
@@ -156,6 +189,8 @@ function report(results: Result[], channel: string) {
       console.log(`· ${result.platform}: kein fertiger Build auf Kanal "${channel}", übersprungen.`);
     } else if (result.state === 'match') {
       console.log(`✓ ${result.label}: runtimeVersion ${result.hash}`);
+    } else if (result.state === 'pending') {
+      console.log(`⏳ ${result.label}: baut bereits für runtimeVersion ${result.hash}`);
     } else {
       console.log(`✗ ${result.label}: Build erwartet ${result.buildHash}, lokal ${result.local}`);
     }
@@ -188,9 +223,18 @@ function main() {
     // Ein OTA lohnt nur, wenn jedes Binary auf dem Kanal die lokale
     // runtimeVersion anfragt — und wenn es überhaupt eines gibt.
     const possible = mismatches.length === 0 && matches.length > 0;
+    // Läuft für den aktuellen Stand schon ein Build, ist ein zweiter unnötig.
+    // Nur relevant, solange kein OTA möglich ist — der Workflow entscheidet
+    // ohnehin erst OTA, dann Build.
+    const pending = results.some((result) => result.state === 'pending');
+
     console.log(`\n→ ota-possible=${possible}`);
+    console.log(`→ build-pending=${pending}`);
     if (process.env.GITHUB_OUTPUT) {
-      appendFileSync(process.env.GITHUB_OUTPUT, `ota-possible=${possible}\n`);
+      appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        `ota-possible=${possible}\nbuild-pending=${pending}\n`,
+      );
     }
     return;
   }
