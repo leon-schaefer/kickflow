@@ -1,14 +1,19 @@
 # Release-Pipeline: entscheidet pro Push selbst, ob ein OTA-Update reicht oder
 # ein neuer Build nötig ist.
 #
-#   develop -> Kanal "testflight" (TestFlight-Tester)
-#   main    -> Kanal "production" (App Store)
+#   develop -> Kanal "testflight" (TestFlight + Play-Track "internal")
+#   main    -> Kanal "production" (App Store + Play-Track "production")
 #
 # Die Entscheidung fällt über den runtimeVersion-Fingerprint: passt der Code
 # noch zum letzten Binary auf dem Kanal, geht ein OTA raus. Hat sich etwas
 # Natives geändert (Dependency, Config-Plugin, app.json, eas.json), kann kein
-# installiertes Binary das Update anfragen — dann wird gebaut und direkt nach
-# App Store Connect hochgeladen.
+# installiertes Binary das Update anfragen — dann wird gebaut und direkt an
+# App Store Connect bzw. die Play Console übertragen.
+#
+# Das entscheidet sich pro Plattform, denn iOS und Android haben je einen
+# eigenen Fingerprint und einen eigenen Build-Stand. Ein Lauf kann deshalb
+# gleichzeitig ein OTA publizieren (für die Plattform, deren Binary passt) und
+# einen Build starten (für die andere) — siehe scripts/check-fingerprint.ts.
 #
 # Warum das in CI besser aufgehoben ist als lokal: `eas update` hasht die
 # runtimeVersion aus dem Baum, in dem es läuft. Lokal weicht der gern von dem
@@ -19,8 +24,17 @@
 # Voraussetzung: Repository-Secret EXPO_TOKEN (Expo Personal Access Token,
 # https://expo.dev/settings/access-tokens).
 #
-# Hinweis zum main-Lauf: --auto-submit lädt den Build nach App Store Connect
-# hoch, es reicht ihn *nicht* zur Review ein. Das bleibt ein manueller Schritt.
+# Hinweis zum main-Lauf: --auto-submit lädt den Build hoch, veröffentlicht ihn
+# aber nicht. Auf iOS landet er in App Store Connect ohne Review-Einreichung,
+# auf Android als Draft-Release im Play-Track "production" (eas.json,
+# releaseStatus). Beides bleibt ein manueller Schritt.
+#
+# Hinweis zum ersten Android-Build: die Google Play Console nimmt das allererste
+# App Bundle einer App nur über die Weboberfläche an, `eas submit` scheitert
+# davor mit "You need to upload the first APK/AAB manually". Der Build selbst
+# läuft trotzdem durch (--no-wait, die Submission passiert danach EAS-seitig);
+# das Artefakt aus der EAS-Buildseite laden und einmal von Hand hochladen,
+# danach greift --auto-submit. Details in der README.
 
 name: Release
 
@@ -125,16 +139,27 @@ jobs:
             --message "$SUBJECT" \
             --non-interactive
 
-      # build-pending: für diesen Stand liegt schon ein Build in der Queue. Ein
-      # zweiter kostet Buildminuten und eine Buildnummer (appVersionSource
-      # "remote" zählt bei jedem Start hoch), ohne etwas zu ändern.
-      # force-build übergeht das absichtlich.
-      - name: Build starten
-        if: >-
-          (steps.check.outputs.ota-possible != 'true'
-           && steps.check.outputs.build-pending != 'true')
-          || inputs.force-build == true
+      # Welche Plattform gebaut wird, hat der Check schon entschieden: "ios",
+      # "android", "all" oder leer. Leer heißt, für beide reicht der letzte
+      # Build — entweder passt der Fingerprint (dann ging oben ein OTA raus)
+      # oder für diesen Stand liegt schon ein Build in der Queue. Ein zweiter
+      # kostete Buildminuten und eine Buildnummer (appVersionSource "remote"
+      # zählt bei jedem Start hoch), ohne etwas zu ändern.
+      #
+      # force-build übergeht beides und baut absichtlich beide Plattformen.
+      - name: Build-Ziel bestimmen
+        id: build-target
         env:
+          FORCE: ${{ inputs.force-build }}
+          PLATFORM: ${{ steps.check.outputs.build-platform }}
+        run: |
+          if [ "$FORCE" = "true" ]; then PLATFORM=all; fi
+          echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
+
+      - name: Build starten
+        if: steps.build-target.outputs.platform != ''
+        env:
+          PLATFORM: ${{ steps.build-target.outputs.platform }}
           PROFILE: ${{ steps.target.outputs.profile }}
           SUBJECT: ${{ steps.commit.outputs.subject }}
         # --no-wait: der Job endet, sobald der Build in der Queue liegt. EAS
@@ -148,13 +173,17 @@ jobs:
         # steckt weiterhin über --message am Build.
         run: |
           eas build \
-            --platform ios \
+            --platform "$PLATFORM" \
             --profile "$PROFILE" \
             --message "$SUBJECT" \
             --auto-submit \
             --non-interactive \
             --no-wait
 
+      # OTA und Build schließen sich nicht mehr aus: passt der Fingerprint auf
+      # iOS, während Android erst noch sein erstes Binary braucht, passiert
+      # beides im selben Lauf. Die Zusammenfassung berichtet deshalb beide
+      # Zweige einzeln statt einen davon auszuwählen.
       - name: Zusammenfassung
         if: always()
         env:
@@ -162,15 +191,22 @@ jobs:
           PROFILE: ${{ steps.target.outputs.profile }}
           OTA: ${{ steps.check.outputs.ota-possible }}
           PENDING: ${{ steps.check.outputs.build-pending }}
+          PLATFORM: ${{ steps.build-target.outputs.platform }}
+          FORCE: ${{ inputs.force-build }}
         run: |
           # OTA ist leer, wenn der Check-Step selbst abgebrochen ist — dann ist
           # weder ein Update noch ein Build rausgegangen.
           if [ -z "$OTA" ]; then
             echo "Abgebrochen, bevor über OTA oder Build entschieden werden konnte. Nichts veröffentlicht." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "$OTA" = "true" ]; then
-            echo "OTA-Update auf Kanal \`$CHANNEL\` publiziert." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$OTA" = "true" ] && [ "$FORCE" != "true" ]; then
+            echo "- OTA-Update auf Kanal \`$CHANNEL\` publiziert." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -n "$PLATFORM" ]; then
+            echo "- Build gestartet: Plattform \`$PLATFORM\`, Profil \`$PROFILE\` — eingereiht zur Übertragung an den jeweiligen Store." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$PENDING" = "true" ]; then
-            echo "Für diesen Stand läuft bereits ein Build — kein zweiter gestartet." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Fingerprint geändert — Build mit Profil \`$PROFILE\` gestartet und zur App-Store-Connect-Übertragung eingereiht." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Für diesen Stand läuft bereits ein Build — kein zweiter gestartet." >> "$GITHUB_STEP_SUMMARY"
           fi

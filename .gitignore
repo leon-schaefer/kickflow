@@ -18,6 +18,12 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Google-Service-Account-Key für EAS Submit (Play Store). Gehört in die
+# EAS-Credentials, nicht ins Repo — hier nur als Netz, falls die Datei beim
+# Einrichten kurz im Projektordner landet.
+google-service-account*.json
+play-service-account*.json
+
 # Metro
 .metro-health-check*
 

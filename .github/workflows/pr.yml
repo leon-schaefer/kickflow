@@ -10,11 +10,14 @@
 # vor den Merge sichtbar.
 #
 # Grenze des Reports: verglichen wird gegen den letzten fertigen Build auf dem
-# Kanal, also gegen EAS — nicht gegen das, was bei Apple liegt. Beides kann
-# auseinanderlaufen, wenn ein Build fertig wird und seine Submission scheitert
-# (so passiert mit Build 14). "OTA möglich" heißt dann zwar korrekt, dass die
-# runtimeVersion zum letzten Build passt, aber nicht, dass jemand sie anfragt.
-# Der Kommentar sagt das mit.
+# Kanal, also gegen EAS — nicht gegen das, was bei Apple oder Google liegt.
+# Beides kann auseinanderlaufen, wenn ein Build fertig wird und seine
+# Submission scheitert (so passiert mit Build 14). "OTA möglich" heißt dann
+# zwar korrekt, dass die runtimeVersion zum letzten Build passt, aber nicht,
+# dass jemand sie anfragt. Der Kommentar sagt das mit.
+#
+# iOS und Android werden getrennt bewertet, der Kommentar kann deshalb beides
+# zugleich melden: OTA für die eine, Build für die andere Plattform.
 #
 # actions/checkout prüft bei pull_request den Merge-Commit aus, der Report gilt
 # also für das, was tatsächlich landen würde — nicht für den Branch-Kopf.
@@ -98,23 +101,41 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           CHANNEL: ${{ steps.target.outputs.channel }}
           OTA: ${{ steps.check.outputs.ota-possible }}
+          PLATFORM: ${{ steps.check.outputs.build-platform }}
         run: |
+          # Beide Zeilen können zugleich zutreffen: passt der Fingerprint auf
+          # einer Plattform und fehlt auf der anderen das Binary, publiziert
+          # release.yml ein OTA *und* startet einen Build.
+          : > body.md
           if [ "$OTA" = "true" ]; then
-            cat > body.md <<EOF
-          **Merge geht als OTA-Update raus** — Kanal \`$CHANNEL\`, kein Build.
+            cat >> body.md <<EOF
+          **Merge geht als OTA-Update raus** — Kanal \`$CHANNEL\`.
 
           Der Fingerprint entspricht dem letzten fertigen Build auf dem Kanal.
           Verglichen wird gegen EAS, nicht gegen den Store: liegt dieser Build
-          nicht in TestFlight bzw. im App Store, erreicht das Update niemanden.
-          EOF
-          else
-            cat > body.md <<EOF
-          **Merge löst einen Build aus** — Kanal \`$CHANNEL\`, kein OTA.
+          nicht in TestFlight bzw. im Play-Track oder App Store, erreicht das
+          Update niemanden.
 
-          Der Fingerprint weicht vom letzten Build auf dem Kanal ab (native
-          Dependency, Config-Plugin, app.json oder eas.json geändert). Ein OTA
-          könnte kein installiertes Binary erreichen, deshalb baut release.yml
-          nach dem Merge neu und lädt nach App Store Connect hoch.
+          EOF
+          fi
+          if [ -n "$PLATFORM" ]; then
+            cat >> body.md <<EOF
+          **Merge löst einen Build aus** — Plattform \`$PLATFORM\`, Kanal \`$CHANNEL\`.
+
+          Für diese Plattform weicht der Fingerprint vom letzten Build auf dem
+          Kanal ab (native Dependency, Config-Plugin, app.json oder eas.json
+          geändert) oder es gibt dort noch gar kein Binary. Ein OTA könnte
+          nichts Installiertes erreichen, deshalb baut release.yml nach dem
+          Merge neu und lädt an App Store Connect bzw. die Play Console hoch.
+
+          EOF
+          fi
+          if [ ! -s body.md ]; then
+            cat >> body.md <<EOF
+          **Merge veröffentlicht nichts** — Kanal \`$CHANNEL\`.
+
+          Für jede Plattform läuft für diesen Stand bereits ein Build. Ein
+          zweiter kostete nur eine Buildnummer.
           EOF
           fi
           {

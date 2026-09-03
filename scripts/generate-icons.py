@@ -119,5 +119,16 @@ print(f"{'assets/android-icon-background.png':44s} 512x512")
 monochrome(432, 0.60, "mono").save(os.path.join(ROOT, "assets/android-icon-monochrome.png"), optimize=True)
 print(f"{'assets/android-icon-monochrome.png':44s} 432x432")
 
+# Android-Benachrichtigungsicon: die Statusleiste wertet nur den Alphakanal aus
+# und färbt die Silhouette selbst ein. Genau das liefert monochrome() schon —
+# nur enger gerahmt als die adaptive Variante, die 40% Rand für die
+# Maskierung freilässt. 96px ist die größte Dichte (xxxhdpi), die das
+# expo-notifications-Plugin daraus erzeugt.
+# Ohne dieses File nimmt Android das App-Icon, plättet es auf seinen
+# Alphakanal — und weil icon.png flächendeckend deckend ist, bleibt ein
+# weisses Quadrat übrig.
+monochrome(96, 0.88, "notif").save(os.path.join(ROOT, "assets/notification-icon.png"), optimize=True)
+print(f"{'assets/notification-icon.png':44s} 96x96")
+
 open(os.path.join(ROOT, "assets/icon.svg"), "w").write(canvas(1024, 0.76, uid="src"))
 print(f"{'assets/icon.svg':44s} (Vektorquelle)")

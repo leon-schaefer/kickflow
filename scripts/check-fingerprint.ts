@@ -5,8 +5,8 @@
  * Zwei Aufrufmodi:
  *   - blockierend (Default): läuft über die npm-pre-Hooks vor `eas update` und
  *     bricht bei Abweichung ab.
- *   - `--report-only`: bricht nie ab, schreibt stattdessen
- *     `ota-possible=true|false` nach $GITHUB_OUTPUT. Damit entscheidet
+ *   - `--report-only`: bricht nie ab, schreibt stattdessen `ota-possible` und
+ *     `build-platform` nach $GITHUB_OUTPUT (siehe unten). Damit entscheidet
  *     .github/workflows/release.yml zwischen OTA und neuem Build.
  *
  * Warum das nötig ist: `eas update` hasht die runtimeVersion aus dem
@@ -31,18 +31,33 @@
  * verbreitetes Binary nachschieben): SKIP_FINGERPRINT_CHECK=1 setzen. Im
  * report-only-Modus wirkt das nicht — dort gibt es nichts zu überspringen.
  *
- * Geprüft werden nur Plattformen, für die es einen fertigen Build auf dem Kanal
- * gibt; für Android existiert derzeit keiner. Gibt es auf dem Kanal überhaupt
- * kein Binary, ist ein OTA sinnlos: der report-only-Modus meldet dann
- * ota-possible=false, damit der Workflow einen ersten Build anstößt.
+ * iOS und Android werden getrennt bewertet, denn beide haben ihren eigenen
+ * Fingerprint und ihren eigenen Build-Stand. Der report-only-Modus meldet
+ * deshalb zwei unabhängige Dinge:
  *
- * Dritter Zustand, den der report-only-Modus zusätzlich meldet: build-pending.
- * Läuft für den aktuellen Fingerprint schon ein Build in der Queue, wäre ein
- * zweiter reine Verschwendung — Buildminuten plus eine verbrannte Buildnummer,
- * denn appVersionSource "remote" zählt bei jedem Start hoch. Genau das
- * passierte beim Einrichten: Build 13 und 14 gingen für dieselbe Änderung
- * raus, weil ein Push während eines laufenden Builds nur die *fertigen* Builds
- * betrachtete und den laufenden übersah.
+ *   ota-possible   – mindestens eine Plattform hat auf dem Kanal ein fertiges
+ *                    Binary mit passendem Fingerprint. Ein `eas update`
+ *                    publiziert ohnehin eine Update-Gruppe für alle
+ *                    Plattformen, jede mit ihrer eigenen runtimeVersion;
+ *                    es lohnt sich, sobald irgendwer es anfragt.
+ *   build-platform  – "ios", "android", "all" oder leer: die Plattformen, die
+ *                    ein neues Binary brauchen, weil ihr Fingerprint vom
+ *                    letzten fertigen Build abweicht oder es dort noch gar
+ *                    keinen gibt.
+ *
+ * Beides kann gleichzeitig zutreffen, und genau dafür ist die Trennung da: vor
+ * dem ersten Android-Release passt iOS längst zum letzten Build (OTA reicht),
+ * während Android überhaupt erst gebaut werden muss. Eine gemeinsame
+ * Ja/Nein-Antwort für beide Plattformen würde hier entweder das iOS-OTA
+ * blockieren oder den Android-Build nie starten.
+ *
+ * Nicht gebaut wird, was schon baut: läuft für den aktuellen Fingerprint
+ * bereits ein Build in der Queue, wäre ein zweiter reine Verschwendung —
+ * Buildminuten plus eine verbrannte Buildnummer, denn appVersionSource
+ * "remote" zählt bei jedem Start hoch. Genau das passierte beim Einrichten:
+ * Build 13 und 14 gingen für dieselbe Änderung raus, weil ein Push während
+ * eines laufenden Builds nur die *fertigen* Builds betrachtete und den
+ * laufenden übersah.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -152,17 +167,34 @@ function localFingerprint(buildId: string, buildHash: string, environment: strin
   return hashes.find((hash) => hash !== buildHash) ?? buildHash;
 }
 
+function labelFor(platform: Platform, build: Build): string {
+  return `${platform} (Build ${build.appBuildVersion ?? build.id})`;
+}
+
+/**
+ * Als Referenz für fingerprint:compare dient der letzte fertige Build; gibt es
+ * keinen, tut es auch ein noch laufender. Das Kommando berechnet den lokalen
+ * Hash unabhängig davon, gegen welche Build-ID es vergleicht — die ID bestimmt
+ * nur den *anderen* der beiden Hashes.
+ *
+ * Genau darauf kommt es beim ersten Build einer Plattform an: solange nichts
+ * fertig ist, gäbe es sonst keine ID, gegen die sich vergleichen ließe — und
+ * ohne lokalen Hash keine Chance zu erkennen, dass der laufende Build bereits
+ * dieser Stand ist. Der erste Android-Push würde dann bei jedem weiteren Push
+ * einen zweiten, dritten, vierten Build starten.
+ */
 function inspect(channel: string, environment: string): Result[] {
   return PLATFORMS.map((platform): Result => {
     const builds = buildsOnChannel(platform, channel);
     const finished = builds.find((build) => build.status === 'FINISHED' && build.fingerprint);
-    if (!finished?.fingerprint) return { platform, state: 'no-build' };
+    const reference = finished ?? builds.find((build) => build.fingerprint);
+    if (!reference?.fingerprint) return { platform, state: 'no-build' };
 
-    const buildHash = finished.fingerprint.hash;
-    const local = localFingerprint(finished.id, buildHash, environment);
-    const label = `${platform} (Build ${finished.appBuildVersion ?? finished.id})`;
+    const local = localFingerprint(reference.id, reference.fingerprint.hash, environment);
 
-    if (local === buildHash) return { platform, state: 'match', hash: local, label };
+    if (finished?.fingerprint?.hash === local) {
+      return { platform, state: 'match', hash: local, label: labelFor(platform, finished) };
+    }
 
     // Der lokale Stand passt nicht zum letzten fertigen Build — aber vielleicht
     // baut genau dieser Stand bereits. Der Fingerprint des laufenden Builds
@@ -171,22 +203,28 @@ function inspect(channel: string, environment: string): Result[] {
       (build) => PENDING_STATES.includes(build.status) && build.fingerprint?.hash === local,
     );
     if (pending) {
-      return {
-        platform,
-        state: 'pending',
-        hash: local,
-        label: `${platform} (Build ${pending.appBuildVersion ?? pending.id})`,
-      };
+      return { platform, state: 'pending', hash: local, label: labelFor(platform, pending) };
     }
 
-    return { platform, state: 'mismatch', buildHash, local, label, buildId: finished.id };
+    // Builds auf dem Kanal, aber keiner davon fertig: für ein OTA gibt es kein
+    // Binary, und der laufende baut etwas anderes. Also wie "noch nie gebaut".
+    if (!finished?.fingerprint) return { platform, state: 'no-build' };
+
+    return {
+      platform,
+      state: 'mismatch',
+      buildHash: finished.fingerprint.hash,
+      local,
+      label: labelFor(platform, finished),
+      buildId: finished.id,
+    };
   });
 }
 
 function report(results: Result[], channel: string) {
   for (const result of results) {
     if (result.state === 'no-build') {
-      console.log(`· ${result.platform}: kein fertiger Build auf Kanal "${channel}", übersprungen.`);
+      console.log(`· ${result.platform}: kein fertiger Build auf Kanal "${channel}", nichts zu vergleichen.`);
     } else if (result.state === 'match') {
       console.log(`✓ ${result.label}: runtimeVersion ${result.hash}`);
     } else if (result.state === 'pending') {
@@ -220,20 +258,34 @@ function main() {
   const matches = results.filter((result) => result.state === 'match');
 
   if (reportOnly) {
-    // Ein OTA lohnt nur, wenn jedes Binary auf dem Kanal die lokale
-    // runtimeVersion anfragt — und wenn es überhaupt eines gibt.
-    const possible = mismatches.length === 0 && matches.length > 0;
-    // Läuft für den aktuellen Stand schon ein Build, ist ein zweiter unnötig.
-    // Nur relevant, solange kein OTA möglich ist — der Workflow entscheidet
-    // ohnehin erst OTA, dann Build.
+    // Ein OTA lohnt, sobald irgendein Binary auf dem Kanal die lokale
+    // runtimeVersion anfragt. Plattformen ohne passenden Build blockieren das
+    // nicht: `eas update` publiziert eine Update-Gruppe mit einer eigenen
+    // runtimeVersion pro Plattform, und für die, die nicht passt, gibt es
+    // stattdessen unten einen Build.
+    const possible = matches.length > 0;
+
+    // Ein neues Binary braucht, wessen Fingerprint abweicht ("mismatch") oder
+    // wer auf dem Kanal noch gar keinen fertigen Build hat ("no-build").
+    // "pending" fällt bewusst heraus — dieser Stand baut schon.
+    const needsBuild = results
+      .filter((result) => result.state === 'mismatch' || result.state === 'no-build')
+      .map((result) => result.platform);
+
+    // Der Wert geht direkt als --platform an `eas build`, das "all" für beide
+    // Plattformen kennt. Leer heißt: nichts zu bauen.
+    const buildPlatform =
+      needsBuild.length === PLATFORMS.length ? 'all' : (needsBuild[0] ?? '');
+
     const pending = results.some((result) => result.state === 'pending');
 
     console.log(`\n→ ota-possible=${possible}`);
+    console.log(`→ build-platform=${buildPlatform || '(nichts)'}`);
     console.log(`→ build-pending=${pending}`);
     if (process.env.GITHUB_OUTPUT) {
       appendFileSync(
         process.env.GITHUB_OUTPUT,
-        `ota-possible=${possible}\nbuild-pending=${pending}\n`,
+        `ota-possible=${possible}\nbuild-platform=${buildPlatform}\nbuild-pending=${pending}\n`,
       );
     }
     return;

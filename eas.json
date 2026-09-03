@@ -11,21 +11,37 @@
     "appVersionSource": "remote"
   },
   "build": {
+    // android.buildType: EAS baut für Android sonst ein App Bundle (.aab) —
+    // ein reines Play-Store-Format, das sich nicht direkt auf ein Gerät
+    // installieren lässt. Beide Profile verteilen "internal", also per Link
+    // auf eigene Geräte, und brauchen dafür ein APK. Auf iOS gibt es dazu
+    // kein Gegenstück, dort entscheidet allein "distribution".
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
-      "environment": "development"
+      "environment": "development",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      }
     },
-    // Tester-Lane für TestFlight: erbt alles von production (store-
-    // Distribution, Environment, autoIncrement) und tauscht nur den
-    // Update-Kanal.
+    // Tester-Lane: erbt alles von production (store-Distribution,
+    // Environment, autoIncrement) und tauscht nur den Update-Kanal. Auf iOS
+    // landet sie in TestFlight, auf Android im Play-Track "internal" (siehe
+    // submit.testflight weiter unten) — ein Profil, zwei Store-Vorstufen.
+    // Der Kanal heißt trotzdem weiter "testflight": er steckt in jedem
+    // bereits ausgelieferten iOS-Binary, ein Umbenennen würde deren
+    // OTA-Kette kappen. Für Android heißt "testflight" also schlicht
+    // "interne Tester".
     //
     // Warum das ein eigenes Profil braucht: der Kanal wird beim Build in die
     // Expo.plist eingebacken, `eas build` hat kein --channel-Flag. Ein
@@ -41,10 +57,12 @@
     // `npm run update:promote:testflight` unverändert nach production
     // weiterschieben, statt es neu zu bauen.
     //
-    // Achtung: Beide Profile landen im selben App-Store-Connect-Record. Einen
-    // testflight-Build niemals zur App-Store-Review einreichen, sonst sitzen
-    // alle App-Store-Nutzer am Tester-Kanal. Zum Ausliefern ist
-    // `npm run release:ios` (Profil production) da.
+    // Achtung: Beide Profile landen im selben App-Store-Connect-Record und im
+    // selben Play-Store-Record. Einen testflight-Build niemals zur
+    // App-Store-Review einreichen und nie in den Play-Track "production"
+    // schieben, sonst sitzen alle Store-Nutzer am Tester-Kanal. Zum
+    // Ausliefern sind `npm run release:ios` und `npm run release:android`
+    // (Profil production) da.
     "testflight": {
       "extends": "production",
       "channel": "testflight"
@@ -59,8 +77,26 @@
     // Derselbe App-Store-Connect-Record wie production — `--auto-submit`
     // erwartet ein Submit-Profil mit dem Namen des Build-Profils, sonst
     // bricht es mit MissingProfileError ab.
+    //
+    // Android muss den geerbten Track aber überschreiben: production erbt
+    // hier `track: "production"`, und ein Tester-Build im Play-Track
+    // "production" wäre genau der Unfall, vor dem der Kommentar beim
+    // Build-Profil warnt. "internal" ist das Play-Gegenstück zu TestFlight —
+    // sofort verfügbar, ohne Review, für die im Play Console hinterlegte
+    // Tester-Liste.
+    //
+    // releaseStatus steht hier ausdrücklich auf dem Default "completed",
+    // obwohl das für sich genommen redundant wäre: production setzt "draft",
+    // und ob `extends` verschachtelte Objekte ersetzt oder tief mischt, ist
+    // nicht dokumentiert. Beim tiefen Mischen käme sonst "draft" mit — ein
+    // Draft-Release wird an keinen Tester ausgeliefert, und der Fehler wäre
+    // stumm.
     "testflight": {
-      "extends": "production"
+      "extends": "production",
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
     },
     // ascAppId ist für CI nicht optional: `eas build --auto-submit` richtet die
     // Submission direkt beim Queuen ein, und ohne diese ID fragt eas
@@ -78,9 +114,28 @@
     // Die Felder gehören unter "ios", nicht direkt ins Profil — dort liegen
     // nur "extends" und die Plattformschlüssel, sonst lehnt das Schema mit
     // "submit.production.ascAppId is not allowed" ab.
+    //
+    // Android braucht kein Gegenstück zu ascAppId: der Play-Store-Record wird
+    // über android.package aus app.json gefunden, und der Service-Account-Key
+    // liegt nicht hier, sondern in den EAS-Credentials des Projekts
+    // (`eas credentials --platform android`). Ein `serviceAccountKeyPath`
+    // würde eine Datei im Repo erwarten, die es in CI nicht gibt — und die
+    // dort auch nicht hingehört.
+    //
+    // releaseStatus "draft": EAS lädt den AAB hoch und legt ein Release im
+    // Track an, veröffentlicht es aber nicht. Das spiegelt die iOS-Seite,
+    // wo `--auto-submit` ebenfalls nur nach App Store Connect hochlädt und
+    // das Einreichen ein manueller Schritt bleibt. Ausgerollt wird in der
+    // Play Console. Für den internal-Track (submit.testflight) gilt das
+    // bewusst nicht: dort ist der Default "completed" richtig, Tester sollen
+    // den Build ohne Zwischenschritt bekommen.
     "production": {
       "ios": {
         "ascAppId": "6807375833"
+      },
+      "android": {
+        "track": "production",
+        "releaseStatus": "draft"
       }
     }
   }

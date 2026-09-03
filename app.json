@@ -27,8 +27,13 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.kickflow.app",
-      "permissions": ["SCHEDULE_EXACT_ALARM"]
+      "package": "dev.codewithleon.kickflow",
+      "permissions": ["SCHEDULE_EXACT_ALARM"],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -41,7 +46,13 @@
       "expo-secure-store",
       "expo-status-bar",
       "expo-system-ui",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#3FBF63"
+        }
+      ],
       [
         "expo-splash-screen",
         {
