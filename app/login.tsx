@@ -87,8 +87,7 @@ export default function LoginScreen() {
 
         <Text style={styles.hint}>
           Kickflow spricht direkt mit der Kickbase-API. Deine Zugangsdaten und dein Zugriffstoken
-          verlassen dieses Gerät ausschließlich in Richtung Kickbase — nie in Richtung eines
-          eigenen Servers.
+          verlassen dieses Gerät ausschließlich in Richtung Kickbase.
         </Text>
       </View>
     </KeyboardAvoidingView>
