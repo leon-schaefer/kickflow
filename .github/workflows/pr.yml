@@ -92,8 +92,11 @@ jobs:
         run: npx tsx scripts/check-fingerprint.ts --channel "${{ steps.target.outputs.channel }}" --report-only
 
       # Ein Kommentar statt nur Step-Summary, damit die Antwort im PR steht und
-      # nicht im Checks-Tab. --edit-last hält es bei einem Kommentar; beim
-      # ersten Lauf gibt es keinen zu bearbeiten, dann greift das Fallback.
+      # nicht im Checks-Tab. Gesucht wird über den Marker, nicht über
+      # --edit-last: das greift den letzten Kommentar von github-actions[bot],
+      # und seit vercel-qr.yml unter demselben Bot kommentiert, war das
+      # reihenweise der fremde — der QR-Kommentar wurde mit diesem Report
+      # überschrieben. Beim ersten Lauf gibt es keinen Marker, dann anlegen.
       - name: Ergebnis in den PR schreiben
         if: env.EXPO_TOKEN != ''
         env:
@@ -142,8 +145,17 @@ jobs:
             echo '<!-- fingerprint-report -->'
             cat body.md
           } > comment.md
-          gh pr comment "$PR" --edit-last --body-file comment.md \
-            || gh pr comment "$PR" --body-file comment.md
+          # Ohne Pipe nach head: die Default-Shell läuft mit pipefail, und ein
+          # früh schließendes head ließe gh mit SIGPIPE den Step killen.
+          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                  --jq '.[] | select(.body | contains("<!-- fingerprint-report -->")) | .id')
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            jq -Rs '{body: .}' comment.md \
+              | gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" --input - >/dev/null
+          else
+            gh pr comment "$PR" --body-file comment.md
+          fi
           cat body.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fingerprint-Report übersprungen
