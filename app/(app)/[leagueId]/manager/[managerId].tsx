@@ -19,6 +19,7 @@ import type { LineupMatchday } from '@/utils/matchday';
 import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
 import { countByPosition, countByTeam } from '@/utils/teamDistribution';
 import { pointsPerMillion } from '@/utils/valueScore';
+import React from 'react';
 
 /**
  * Die Startelf eines Rivalen — Vereins-/Positionsverteilung plus Pitch-Ansicht.
@@ -293,7 +294,7 @@ function describeLineupSource(
 function toRivalSquadPlayer(detail: PlayerDetail, lineupSlot: number): SquadPlayer {
   return {
     id: detail.id,
-    name: detail.name,
+    name: detail.lastName,
     firstName: detail.firstName,
     lastName: detail.lastName,
     position: detail.position,

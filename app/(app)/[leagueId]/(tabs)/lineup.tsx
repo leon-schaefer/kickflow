@@ -44,6 +44,7 @@ import {
 } from '@/utils/formations';
 import { compareByMetric } from '@/utils/lineupOptimizer';
 import { resolveMatchdayState } from '@/utils/matchday';
+import React from 'react';
 
 /** Wie viele kommende Spieltage in die 'expectedPoints'-Metrik einfließen (siehe fixtureDifficulty.ts). */
 const FIXTURE_LOOKAHEAD = 5;
