@@ -125,19 +125,32 @@ jobs:
             --message "$SUBJECT" \
             --non-interactive
 
+      # build-pending: für diesen Stand liegt schon ein Build in der Queue. Ein
+      # zweiter kostet Buildminuten und eine Buildnummer (appVersionSource
+      # "remote" zählt bei jedem Start hoch), ohne etwas zu ändern.
+      # force-build übergeht das absichtlich.
       - name: Build starten
-        if: steps.check.outputs.ota-possible != 'true' || inputs.force-build == true
+        if: >-
+          (steps.check.outputs.ota-possible != 'true'
+           && steps.check.outputs.build-pending != 'true')
+          || inputs.force-build == true
         env:
           PROFILE: ${{ steps.target.outputs.profile }}
           SUBJECT: ${{ steps.commit.outputs.subject }}
         # --no-wait: der Job endet, sobald der Build in der Queue liegt. EAS
         # baut und submittet danach eigenständig, CI-Minuten laufen nicht mit.
+        #
+        # Kein --what-to-test: das Flag füllt das "What to Test"-Feld in
+        # TestFlight, wird EAS-seitig als `changelog` übertragen und dort nur
+        # für Enterprise-Pläne akzeptiert ("Changelog submission is currently
+        # available for Enterprise plan only"). Die Submission scheiterte
+        # daran, obwohl der Build schon in der Queue lag. Das Commit-Subject
+        # steckt weiterhin über --message am Build.
         run: |
           eas build \
             --platform ios \
             --profile "$PROFILE" \
             --message "$SUBJECT" \
-            --what-to-test "$SUBJECT" \
             --auto-submit \
             --non-interactive \
             --no-wait
@@ -148,6 +161,7 @@ jobs:
           CHANNEL: ${{ steps.target.outputs.channel }}
           PROFILE: ${{ steps.target.outputs.profile }}
           OTA: ${{ steps.check.outputs.ota-possible }}
+          PENDING: ${{ steps.check.outputs.build-pending }}
         run: |
           # OTA ist leer, wenn der Check-Step selbst abgebrochen ist — dann ist
           # weder ein Update noch ein Build rausgegangen.
@@ -155,6 +169,8 @@ jobs:
             echo "Abgebrochen, bevor über OTA oder Build entschieden werden konnte. Nichts veröffentlicht." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$OTA" = "true" ]; then
             echo "OTA-Update auf Kanal \`$CHANNEL\` publiziert." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$PENDING" = "true" ]; then
+            echo "Für diesen Stand läuft bereits ein Build — kein zweiter gestartet." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Fingerprint geändert — Build mit Profil \`$PROFILE\` gestartet und zur App-Store-Connect-Übertragung eingereiht." >> "$GITHUB_STEP_SUMMARY"
           fi
