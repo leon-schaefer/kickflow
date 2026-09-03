@@ -9,6 +9,13 @@
 # mit native code macht aus einem Sekunden-OTA einen Store-Build, das gehört
 # vor den Merge sichtbar.
 #
+# Grenze des Reports: verglichen wird gegen den letzten fertigen Build auf dem
+# Kanal, also gegen EAS — nicht gegen das, was bei Apple liegt. Beides kann
+# auseinanderlaufen, wenn ein Build fertig wird und seine Submission scheitert
+# (so passiert mit Build 14). "OTA möglich" heißt dann zwar korrekt, dass die
+# runtimeVersion zum letzten Build passt, aber nicht, dass jemand sie anfragt.
+# Der Kommentar sagt das mit.
+#
 # actions/checkout prüft bei pull_request den Merge-Commit aus, der Report gilt
 # also für das, was tatsächlich landen würde — nicht für den Branch-Kopf.
 #
@@ -96,8 +103,9 @@ jobs:
             cat > body.md <<EOF
           **Merge geht als OTA-Update raus** — Kanal \`$CHANNEL\`, kein Build.
 
-          Der Fingerprint entspricht dem letzten Build auf dem Kanal, installierte
-          Binaries fragen diese runtimeVersion also an.
+          Der Fingerprint entspricht dem letzten fertigen Build auf dem Kanal.
+          Verglichen wird gegen EAS, nicht gegen den Store: liegt dieser Build
+          nicht in TestFlight bzw. im App Store, erreicht das Update niemanden.
           EOF
           else
             cat > body.md <<EOF
