@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FixtureDifficultyStrip } from '@/components/FixtureDifficultyStrip';
@@ -11,7 +11,14 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
-import { useCompetitionTeams, useMatchdays, usePlayer } from '@/queries/hooks';
+import {
+  useCompetitionTeams,
+  useLeagueRanking,
+  useLineup,
+  useMarket,
+  useMatchdays,
+  usePlayer,
+} from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import { buildFixtureIndex, fixtureDifficulty, remainingFixtures, teamGoalRecord, teamStrength } from '@/utils/fixtureDifficulty';
@@ -21,7 +28,8 @@ import {
   formatPoints,
   formatPointsPerMinute,
 } from '@/utils/format';
-import { resolveMatchdayState } from '@/utils/matchday';
+import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
+import { resolvePlayerOwner, type PlayerOwnerInfo } from '@/utils/playerOwnership';
 import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
 
 /** Wie viele kommende Spiele im "Nächste Gegner"-Streifen stehen — passend zur Standard-Ansicht des Restprogramm-Screens. */
@@ -39,9 +47,52 @@ export default function PlayerDetailScreen() {
   const backTitle = useFocusedLeagueTabTitle();
 
   const competitionId = useCompetitionId();
+  const router = useRouter();
   const { data: competitionTeams } = useCompetitionTeams(competitionId);
   const matchdaysQuery = useMatchdays(competitionId);
-  const refresh = useRefresh(playerQuery, matchdaysQuery);
+
+  // Besitzer-Quellen. Alle drei Queries gehören ohnehin zur App (Aufstellung,
+  // Markt, Liga-Tab) und werden über ihren Key geteilt — nur ein Deep Link
+  // direkt auf diesen Screen löst sie tatsächlich aus.
+  const lineupQuery = useLineup(leagueId);
+  const marketQuery = useMarket(leagueId);
+  // Spieltagsbezogen wie in der Manager-Ansicht: die Startelfen der
+  // Saisonwertung sind der Stand des zuletzt abgerechneten Spieltags und
+  // könnten einen längst verkauften Spieler dem alten Besitzer zuschreiben.
+  const lineupDay = matchdaysQuery.data
+    ? (resolveLineupMatchday(
+        resolveMatchdayState(matchdaysQuery.data, Date.now()),
+        matchdaysQuery.data.currentDay,
+      )?.day ?? null)
+    : null;
+  const rankingQuery = useLeagueRanking(leagueId, lineupDay ?? undefined, {
+    enabled: lineupDay !== null,
+  });
+
+  const refresh = useRefresh(playerQuery, matchdaysQuery, lineupQuery, marketQuery, rankingQuery);
+
+  // Solange eine Quelle noch lädt, ist „Besitzer unbekannt“ verfrüht — das ist
+  // eine Aussage über Kickbase, nicht über den Ladezustand.
+  const ownerSourcesPending =
+    !lineupQuery.data || !marketQuery.data || (lineupDay !== null && !rankingQuery.data);
+
+  const owner = useMemo(
+    () =>
+      resolvePlayerOwner(playerId, {
+        squadPlayerIds: (lineupQuery.data?.players ?? []).map((entry) => entry.id),
+        marketListings: (marketQuery.data?.players ?? []).map((entry) => ({
+          playerId: entry.id,
+          sellerName: entry.sellerName,
+          sellerId: entry.sellerId,
+        })),
+        managerLineups: (rankingQuery.data?.entries ?? []).map((entry) => ({
+          userId: entry.userId,
+          userName: entry.userName,
+          lineupPlayerIds: entry.lineupPlayerIds,
+        })),
+      }),
+    [playerId, lineupQuery.data, marketQuery.data, rankingQuery.data],
+  );
   const teamNames = useMemo(
     () => new Map((competitionTeams ?? []).map((team) => [team.id, team.name])),
     [competitionTeams],
@@ -111,6 +162,19 @@ export default function PlayerDetailScreen() {
             {player.statusDetails.length > 0 && (
               <Text style={styles.statusDetails}>{player.statusDetails.join(' · ')}</Text>
             )}
+            <OwnerLine
+              owner={owner}
+              pending={ownerSourcesPending}
+              onOpenManager={
+                owner.userId
+                  ? () =>
+                      router.push({
+                        pathname: '/[leagueId]/manager/[managerId]',
+                        params: { leagueId, managerId: owner.userId! },
+                      })
+                  : undefined
+              }
+            />
           </View>
         </View>
 
@@ -197,7 +261,64 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * Wem der Spieler gehört. „Besitzer unbekannt“ ist hier eine echte Aussage und
+ * kein Fehler: Kickbase legt von fremden Managern nur die Startelf offen, ein
+ * Bankspieler eines Rivalen ist von einem ungekauften Spieler nicht zu
+ * unterscheiden (siehe resolvePlayerOwner). Deshalb steht dort auch nie
+ * „frei“ — nur beim Kickbase-Angebot ist belegt, dass ihn kein Manager hat.
+ */
+function OwnerLine({
+  owner,
+  pending,
+  onOpenManager,
+}: {
+  owner: PlayerOwnerInfo;
+  /** Eine der Besitzer-Quellen lädt noch — dann ist „unbekannt“ noch keine Antwort. */
+  pending: boolean;
+  onOpenManager?: () => void;
+}) {
+  if (owner.kind === 'unknown' && pending) {
+    return <Text style={[styles.owner, styles.ownerUnknown]}>Besitzer …</Text>;
+  }
+
+  const label =
+    owner.kind === 'me'
+      ? 'In deinem Kader'
+      : owner.kind === 'manager'
+        ? `Kader von ${owner.name ?? 'einem Manager'}`
+        : owner.kind === 'free'
+          ? 'Kein Manager · Kickbase-Angebot'
+          : 'Besitzer unbekannt';
+
+  const text = (
+    <Text style={[styles.owner, owner.kind === 'unknown' && styles.ownerUnknown]}>
+      {label}
+      {owner.onMarket && ' · am Markt'}
+      {onOpenManager && ' ›'}
+    </Text>
+  );
+
+  // Nur antippbar, wenn wir eine User-ID haben — ein toter Druckbereich wäre
+  // schlechter als reiner Text.
+  return onOpenManager ? (
+    <Pressable onPress={onOpenManager} accessibilityRole="button">
+      {text}
+    </Pressable>
+  ) : (
+    text
+  );
+}
+
 const styles = StyleSheet.create({
+  owner: {
+    ...typography.caption,
+    color: colors.accent,
+    marginTop: 2,
+  },
+  ownerUnknown: {
+    color: colors.textMuted,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -27,7 +27,7 @@ import { queryKeys } from './keys';
  * Auf true setzen, um lokal mit einem größeren Test-Kader (23 statt z. B. 11
  * Spieler, siehe src/mock/mockLineup.ts) gegen den Aufstellungs-Optimizer zu
  * arbeiten. Login und Liga-Auswahl bleiben live — nur Kader/Aufstellung wird
- * ersetzt (Feld- und Listenansicht hängen an demselben Hook und zeigen den
+ * ersetzt (der Kader-Filter im Spieler-Tab hängt am selben Hook und zeigt den
  * Mock-Kader automatisch mit). Vor dem Commit wieder auf false zurücksetzen.
  */
 const USE_MOCK_LINEUP = false;
@@ -167,12 +167,12 @@ export interface PlaytimeState {
 }
 
 /**
- * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Kennzahl in der
- * Kaderliste und im Markt-Tab.
+ * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Kennzahl im Spieler-
+ * und im Markt-Tab.
  *
  * Ein `/performance`-Request PRO Spieler, weil Kickbase in Kader- und
  * Marktlisten kein Minutenfeld liefert. Eigener Cache-Key je Spieler, damit
- * beim Wechsel Kaderliste↔Transfermarkt und beim Zurückkehren in den Tab keine
+ * beim Wechsel Spieler↔Transfermarkt und beim Zurückkehren in den Tab keine
  * Requests doppelt laufen — Spieler, die in beiden Listen auftauchen, werden
  * nur einmal geholt. Die Parallelität begrenzt das Gate in
  * src/api/kickbase/limiter.ts.

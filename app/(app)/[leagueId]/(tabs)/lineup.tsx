@@ -16,7 +16,6 @@ import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
 import { SellAdviceSection } from '@/components/SellAdviceSection';
 import { SellPlanBar } from '@/components/SellPlanBar';
-import { SquadList } from '@/components/SquadList';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
@@ -24,14 +23,7 @@ import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
-import {
-  useCompetitionTeams,
-  useLeagues,
-  useLineup,
-  useMarket,
-  useMatchdays,
-  useSaveLineup,
-} from '@/queries/hooks';
+import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, layout, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency, formatPoints, formatValueScore, msUntil } from '@/utils/format';
@@ -56,17 +48,6 @@ import { resolveMatchdayState } from '@/utils/matchday';
 /** Wie viele kommende Spieltage in die 'expectedPoints'-Metrik einfließen (siehe fixtureDifficulty.ts). */
 const FIXTURE_LOOKAHEAD = 5;
 
-/**
- * Die zwei Ansichten dieses Screens: das Spielfeld und derselbe Kader als
- * sortierbare Liste (früher der eigene Kader-Tab, siehe SquadList).
- */
-type LineupView = 'pitch' | 'list';
-
-const VIEW_OPTIONS: { key: LineupView; label: string }[] = [
-  { key: 'pitch', label: 'Feld' },
-  { key: 'list', label: 'Liste' },
-];
-
 export default function LineupScreen() {
   const leagueId = useLeagueId();
   const competitionId = useCompetitionId();
@@ -79,9 +60,6 @@ export default function LineupScreen() {
   // Dieselbe Query, die useBudgetLimit unten ohnehin mountet — React Query
   // dedupliziert über den Key, kein zusätzlicher Request beim Pull.
   const marketQuery = useMarket(leagueId);
-  // Nur für die Vereins-Chips im Filter der Listenansicht — 24h frisch, also
-  // bewusst NICHT Teil des Pull-to-Refresh (siehe useCompetitionTeams).
-  const teamsQuery = useCompetitionTeams(competitionId);
   const refresh = useRefresh(lineupQuery, matchdaysQuery, leaguesQuery, marketQuery);
   // Budget lebt in LeagueSummary (`/v4/leagues/selection`), NICHT in
   // LineupData — `lineup/overview.b` ist trotz Namens keine Kontostandsgröße,
@@ -92,7 +70,6 @@ export default function LineupScreen() {
   const { rules } = useLeagueRulesContext();
   const [, forceTick] = useState(0);
 
-  const [view, setView] = useState<LineupView>('pitch');
   const [editing, setEditing] = useState(false);
   const [formation, setFormation] = useState<string>('');
   const [draftIds, setDraftIds] = useState<string[]>([]);
@@ -160,9 +137,6 @@ export default function LineupScreen() {
 
   function startEditing() {
     if (!data) return;
-    // Bearbeiten passiert ausschließlich auf dem Feld — die Listenansicht hat
-    // keine Tausch-Interaktion.
-    setView('pitch');
     setFormation(data.formation);
     setDraftIds(data.players.filter((p) => p.inLineup).map((p) => p.id));
     setSelectedBenchId(null);
@@ -374,270 +348,182 @@ export default function LineupScreen() {
   const canSave = draftIds.length === totalRequired && !saveLineup.isPending;
 
   return (
-    <View style={styles.screen}>
-      {/*
-       * Die Kopfzeile mit den Kader-Kennzahlen liegt ÜBER dem Umschalter und
-       * bleibt damit in beiden Ansichten stehen — Spieltag, Deadline, Teamwert,
-       * Budget und verfügbares Geld gelten für Feld und Liste gleichermaßen.
-       * Vorher steckte sie im ScrollView der Feld-Ansicht und wäre beim
-       * Umschalten verschwunden.
-       */}
-      <View style={styles.headerBar}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerLabel}>
-              {displayMatchday !== null ? `Spieltag ${displayMatchday}` : 'Spieltag —'}
+    <Refreshable {...refresh}>
+      {(p) => (
+        <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerLabel}>
+            {displayMatchday !== null ? `Spieltag ${displayMatchday}` : 'Spieltag —'}
+          </Text>
+          {matchdayState?.running ? (
+            <Text style={styles.headerSub}>läuft · gesperrt</Text>
+          ) : openDeadlineMs !== null ? (
+            <Text style={styles.headerSub}>
+              {openDeadlineMs <= 0 ? 'Aufstellung gesperrt' : `Deadline in ${formatCountdown(openDeadlineMs)}`}
             </Text>
-            {matchdayState?.running ? (
-              <Text style={styles.headerSub}>läuft · gesperrt</Text>
-            ) : openDeadlineMs !== null ? (
-              <Text style={styles.headerSub}>
-                {openDeadlineMs <= 0 ? 'Aufstellung gesperrt' : `Deadline in ${formatCountdown(openDeadlineMs)}`}
-              </Text>
-            ) : (
-              !hasOpenMatchday && <Text style={styles.headerSub}>Aufstellung gesperrt</Text>
-            )}
-            {matchdayState?.running && matchdayState.open && (
-              <Text style={styles.headerSub}>
-                Spieltag {matchdayState.open.day}
-                {openDeadlineMs !== null && ` · Deadline in ${formatCountdown(openDeadlineMs)}`}
-              </Text>
-            )}
-          </View>
-          <View style={styles.headerStats}>
-            <Text style={styles.headerLabel}>{formatCurrency(data.teamValue)}</Text>
-            {league && (
-              <Text style={[styles.headerSub, league.budget < 0 && styles.headerSubNegative]}>
-                Budget {formatCurrency(league.budget)}
-              </Text>
-            )}
-            {budgetLimit && <Text style={styles.headerSub}>Verfügbar {formatCurrency(budgetLimit.available)}</Text>}
-          </View>
+          ) : (
+            !hasOpenMatchday && <Text style={styles.headerSub}>Aufstellung gesperrt</Text>
+          )}
+          {matchdayState?.running && matchdayState.open && (
+            <Text style={styles.headerSub}>
+              Spieltag {matchdayState.open.day}
+              {openDeadlineMs !== null && ` · Deadline in ${formatCountdown(openDeadlineMs)}`}
+            </Text>
+          )}
         </View>
-
-        {/*
-         * Kein Umschalter im Bearbeiten-Modus: die Liste kann keine
-         * Aufstellung bearbeiten, und ein ungespeicherter Entwurf hinter einer
-         * weggeschalteten Ansicht wäre eine Falle.
-         */}
-        {!editing && (
-          <View style={styles.viewToggle}>
-            {VIEW_OPTIONS.map((option) => (
-              <Pressable
-                key={option.key}
-                style={[styles.viewToggleChip, view === option.key && styles.viewToggleChipActive]}
-                onPress={() => setView(option.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: view === option.key }}
-              >
-                <Text style={[styles.viewToggleText, view === option.key && styles.viewToggleTextActive]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <View style={styles.headerStats}>
+          <Text style={styles.headerLabel}>{formatCurrency(data.teamValue)}</Text>
+          {league && (
+            <Text style={[styles.headerSub, league.budget < 0 && styles.headerSubNegative]}>
+              Budget {formatCurrency(league.budget)}
+            </Text>
+          )}
+          {budgetLimit && <Text style={styles.headerSub}>Verfügbar {formatCurrency(budgetLimit.available)}</Text>}
+        </View>
       </View>
 
-      {view === 'list' ? (
-        <SquadList
-          leagueId={leagueId}
-          players={data.players}
-          teams={teamsQuery.data}
-          onSelectPlayer={openPlayer}
-          refreshTargets={[lineupQuery, matchdaysQuery, leaguesQuery, marketQuery]}
-        />
-      ) : (
-        <Refreshable {...refresh}>
-          {(p) => (
-            <ScrollView {...p} style={styles.container} contentContainerStyle={styles.content}>
-              <Pressable style={styles.fixturesLink} onPress={openFixtures}>
-                <Text style={styles.fixturesLinkText}>Restprogramm</Text>
-                <Text style={styles.fixturesLinkChevron}>›</Text>
-              </Pressable>
+      <Pressable style={styles.fixturesLink} onPress={openFixtures}>
+        <Text style={styles.fixturesLinkText}>Restprogramm</Text>
+        <Text style={styles.fixturesLinkChevron}>›</Text>
+      </Pressable>
 
-              {hasOpenMatchday && (
-                <Pressable
-                  style={styles.editToggle}
-                  onPress={editing ? cancelEditing : startEditing}
-                >
-                  <Text style={styles.editToggleText}>
-                    {editing ? 'Abbrechen' : 'Aufstellung bearbeiten'}
-                  </Text>
-                </Pressable>
-              )}
-
-              {editing && (
-                <OptimizerBar
-                  metric={optimizer.metric}
-                  onChangeMetric={optimizer.setMetric}
-                  result={optimizer.result}
-                  appliedDiff={appliedDiff}
-                  onApply={applyOptimization}
-                  onReset={resetOptimization}
-                  balanceBudget={optimizer.balanceBudget}
-                  onChangeBalanceBudget={optimizer.setBalanceBudget}
-                  deficit={budgetLimit?.deficit ?? 0}
-                  rules={optimizer.rules}
-                  onOpenRules={openRules}
-                  onIgnoreRule={optimizer.ignoreRule}
-                  draftViolations={optimizer.draftViolations}
-                />
-              )}
-
-              {editing && <SellPlanBar players={data.players} plan={optimizer.sellPlan} metric={optimizer.metric} />}
-
-              {editing && (
-                <View style={styles.formationRow}>
-                  {AVAILABLE_FORMATIONS.map((f) => {
-                    const score = optimizer.scoreByFormation.get(f) ?? null;
-                    const isBest = optimizer.result.best?.formation === f;
-                    const isFeasible = optimizer.result.ranking.find((r) => r.formation === f)?.feasible ?? true;
-                    return (
-                      <Pressable
-                        key={f}
-                        style={[
-                          styles.formationChip,
-                          formation === f && styles.formationChipActive,
-                          !isFeasible && styles.formationChipInfeasible,
-                        ]}
-                        onPress={() => changeFormation(f)}
-                      >
-                        <Text style={[styles.formationChipText, formation === f && styles.formationChipTextActive]}>
-                          {isBest ? `★ ${f}` : f}
-                        </Text>
-                        <Text style={[styles.formationChipScore, isBest && styles.formationChipScoreBest]}>
-                          {score === null
-                            ? '—'
-                            : optimizer.metric === 'valuePerMillion'
-                              ? formatValueScore(score)
-                              : formatPoints(Math.round(score))}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {!editing && <Text style={styles.formation}>{data.formation || '—'}</Text>}
-
-              <Pitch players={lineupPlayers} onSelectPlayer={tapPitchPlayer} changedIds={editing ? appliedDiff?.addedIds : undefined} />
-
-              {editing && (
-                <Text style={styles.hint}>
-                  {autoNote
-                    ? autoNote
-                    : selectedBenchId
-                      ? 'Spieler auf dem Feld antippen, um zu tauschen — die Formation passt sich an.'
-                      : 'Startelf-Spieler antippen entfernt ihn auf die Bank. Bankspieler antippen füllt eine freie Position oder passt die Formation an.'}
-                </Text>
-              )}
-
-              <Text style={styles.sectionTitle}>Bank ({bench.length})</Text>
-              <View style={styles.bench}>
-                {bench.map((player) => (
-                  <PlayerCard
-                    key={player.id}
-                    player={player}
-                    onPress={tapBenchPlayer}
-                    highlighted={editing && selectedBenchId === player.id}
-                    changed={editing && appliedDiff?.removedIds.has(player.id)}
-                  />
-                ))}
-              </View>
-
-              <SellAdviceSection
-                players={data.players}
-                advice={optimizer.sellAdvice}
-                plan={optimizer.budgetPlan}
-                budget={league?.budget ?? null}
-                onSelectPlayer={openPlayer}
-              />
-
-              {editing && (
-                <View style={styles.saveBar}>
-                  {saveError && <Text style={styles.errorText}>{saveError}</Text>}
-                  {draftIds.length !== totalRequired && (
-                    <Text style={styles.hint}>
-                      {draftIds.length} von {totalRequired} Positionen besetzt.
-                    </Text>
-                  )}
-                  <Pressable
-                    style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-                    onPress={handleSave}
-                    disabled={!canSave}
-                  >
-                    {saveLineup.isPending ? (
-                      <ActivityIndicator color={colors.background} />
-                    ) : (
-                      <Text style={styles.saveButtonText}>Speichern</Text>
-                    )}
-                  </Pressable>
-                </View>
-              )}
-            </ScrollView>
-          )}
-        </Refreshable>
+      {hasOpenMatchday && (
+        <Pressable
+          style={styles.editToggle}
+          onPress={editing ? cancelEditing : startEditing}
+        >
+          <Text style={styles.editToggleText}>
+            {editing ? 'Abbrechen' : 'Aufstellung bearbeiten'}
+          </Text>
+        </Pressable>
       )}
-    </View>
+
+      {editing && (
+        <OptimizerBar
+          metric={optimizer.metric}
+          onChangeMetric={optimizer.setMetric}
+          result={optimizer.result}
+          appliedDiff={appliedDiff}
+          onApply={applyOptimization}
+          onReset={resetOptimization}
+          balanceBudget={optimizer.balanceBudget}
+          onChangeBalanceBudget={optimizer.setBalanceBudget}
+          deficit={budgetLimit?.deficit ?? 0}
+          rules={optimizer.rules}
+          onOpenRules={openRules}
+          onIgnoreRule={optimizer.ignoreRule}
+          draftViolations={optimizer.draftViolations}
+        />
+      )}
+
+      {editing && <SellPlanBar players={data.players} plan={optimizer.sellPlan} metric={optimizer.metric} />}
+
+      {editing && (
+        <View style={styles.formationRow}>
+          {AVAILABLE_FORMATIONS.map((f) => {
+            const score = optimizer.scoreByFormation.get(f) ?? null;
+            const isBest = optimizer.result.best?.formation === f;
+            const isFeasible = optimizer.result.ranking.find((r) => r.formation === f)?.feasible ?? true;
+            return (
+              <Pressable
+                key={f}
+                style={[
+                  styles.formationChip,
+                  formation === f && styles.formationChipActive,
+                  !isFeasible && styles.formationChipInfeasible,
+                ]}
+                onPress={() => changeFormation(f)}
+              >
+                <Text style={[styles.formationChipText, formation === f && styles.formationChipTextActive]}>
+                  {isBest ? `★ ${f}` : f}
+                </Text>
+                <Text style={[styles.formationChipScore, isBest && styles.formationChipScoreBest]}>
+                  {score === null
+                    ? '—'
+                    : optimizer.metric === 'valuePerMillion'
+                      ? formatValueScore(score)
+                      : formatPoints(Math.round(score))}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {!editing && <Text style={styles.formation}>{data.formation || '—'}</Text>}
+
+      <Pitch players={lineupPlayers} onSelectPlayer={tapPitchPlayer} changedIds={editing ? appliedDiff?.addedIds : undefined} />
+
+      {editing && (
+        <Text style={styles.hint}>
+          {autoNote
+            ? autoNote
+            : selectedBenchId
+              ? 'Spieler auf dem Feld antippen, um zu tauschen — die Formation passt sich an.'
+              : 'Startelf-Spieler antippen entfernt ihn auf die Bank. Bankspieler antippen füllt eine freie Position oder passt die Formation an.'}
+        </Text>
+      )}
+
+      <Text style={styles.sectionTitle}>Bank ({bench.length})</Text>
+      <View style={styles.bench}>
+        {bench.map((player) => (
+          <PlayerCard
+            key={player.id}
+            player={player}
+            onPress={tapBenchPlayer}
+            highlighted={editing && selectedBenchId === player.id}
+            changed={editing && appliedDiff?.removedIds.has(player.id)}
+          />
+        ))}
+      </View>
+
+      <SellAdviceSection
+        players={data.players}
+        advice={optimizer.sellAdvice}
+        plan={optimizer.budgetPlan}
+        budget={league?.budget ?? null}
+        onSelectPlayer={openPlayer}
+      />
+
+      {editing && (
+        <View style={styles.saveBar}>
+          {saveError && <Text style={styles.errorText}>{saveError}</Text>}
+          {draftIds.length !== totalRequired && (
+            <Text style={styles.hint}>
+              {draftIds.length} von {totalRequired} Positionen besetzt.
+            </Text>
+          )}
+          <Pressable
+            style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={!canSave}
+          >
+            {saveLineup.isPending ? (
+              <ActivityIndicator color={colors.background} />
+            ) : (
+              <Text style={styles.saveButtonText}>Speichern</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
+        </ScrollView>
+      )}
+    </Refreshable>
   );
 }
 
 const styles = StyleSheet.create({
-  // Klammer um Kopfzeile und die beiden Ansichten — die Kopfzeile scrollt
-  // nicht mit, deshalb kein ScrollView auf dieser Ebene.
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerBar: {
-    width: '100%',
-    maxWidth: layout.maxContentWidth,
-    alignSelf: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    gap: spacing.md,
-  },
   content: {
-    // Oben schmaler als der Rest: die Kopfzeile darüber bringt ihr eigenes
-    // paddingBottom mit, sonst klaffte hier eine doppelte Lücke.
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    padding: spacing.lg,
     gap: spacing.md,
     width: '100%',
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-  },
-  viewToggleChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  viewToggleChipActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  viewToggleText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  viewToggleTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
   },
   errorText: {
     ...typography.body,

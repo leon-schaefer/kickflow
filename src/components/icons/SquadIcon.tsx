@@ -3,7 +3,7 @@ import type { TabIconProps } from './types';
 
 /**
  * Drei Listenzeilen mit Avatar-Punkt — unterscheidet sich dadurch von einem
- * generischen Listen-Icon und passt zur Spielerliste im Kader-Tab.
+ * generischen Listen-Icon und passt zur Spielerliste im Spieler-Tab.
  */
 export function SquadIcon({ color, size = 24 }: TabIconProps) {
   return (

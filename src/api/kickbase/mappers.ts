@@ -304,6 +304,7 @@ export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
     price: raw.prc ?? marketValue,
     isBotListing: raw.u === undefined,
     sellerName: raw.u?.n ?? null,
+    sellerId: raw.u?.i ?? null,
     offerCount: raw.ofc ?? 0,
     listedAt: raw.dt ?? null,
 
