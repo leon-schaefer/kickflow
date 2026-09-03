@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -92,7 +90,7 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.avoider} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.avoider}>
         <Pressable style={styles.backdrop} onPress={onClose}>
           <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.title}>
@@ -195,7 +193,7 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
             )}
           </Pressable>
         </Pressable>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
