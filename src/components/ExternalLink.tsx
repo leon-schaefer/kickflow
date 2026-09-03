@@ -13,13 +13,11 @@ interface ExternalLinkProps {
 /**
  * Textlink auf eine Seite außerhalb der App (Homepage, Datenschutz).
  *
- * Kein `<a href>`: derselbe Code läuft auf iOS/Android, wo es kein Anchor-
- * Element gibt. `openExternalUrl` löst das plattformweise auf — neuer Tab im
- * Web (die PWA läuft standalone und hätte sonst keinen Zurück-Weg), System-
- * Browser auf nativ (siehe src/support/openExternalUrl.web.ts / .native.ts).
+ * Kein `<a href>`, sondern `openExternalUrl` (src/support/openExternalUrl.ts):
+ * das öffnet einen neuen Tab, weil die installierte PWA standalone läuft und
+ * bei einer Navigation im aktuellen Tab keinen Zurück-Weg hätte.
  *
- * Der Fehlerzustand hängt am Link und nicht am Screen: auf nativ wirft
- * `Linking.openURL`, wenn kein Handler existiert, und dann soll die Meldung
+ * Der Fehlerzustand hängt am Link und nicht am Screen — die Meldung soll
  * unter dem angetippten Link stehen und nicht irgendwo auf der Karte.
  */
 export function ExternalLink({ url, label, compact = false }: ExternalLinkProps) {
