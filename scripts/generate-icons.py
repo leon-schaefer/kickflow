@@ -42,15 +42,7 @@ def ball_marks(color):
         out.append(f'<polygon points="{poly(rx, ry, 0.36*r, th + 180)}" fill="{color}"/>')
     return "".join(out)
 
-def mark(uid, layer="color"):
-    """layer: color | solid (weisse Silhouette) | marks (nur Ballmuster, weiss)."""
-    if layer == "marks":
-        return (f'<clipPath id="cb{uid}"><circle cx="{BX}" cy="{BY}" r="{BR}"/></clipPath>'
-                f'<g clip-path="url(#cb{uid})">{ball_marks("#FFFFFF")}</g>')
-    if layer == "solid":
-        return (f'<path d="{LINE}" fill="none" stroke="#FFFFFF" stroke-width="58" '
-                f'stroke-linecap="round" stroke-linejoin="round"/>'
-                f'<circle cx="{BX}" cy="{BY}" r="{BR}" fill="#FFFFFF"/>')
+def mark(uid):
     return f'''
   <linearGradient id="g{uid}" x1="{BOX_X}" y1="828" x2="866" y2="{BOX_Y}" gradientUnits="userSpaceOnUse">
     <stop offset="0%" stop-color="{GREEN_LO}"/><stop offset="55%" stop-color="{GREEN}"/>
@@ -62,7 +54,7 @@ def mark(uid, layer="color"):
   <circle cx="{BX}" cy="{BY}" r="{BR}" fill="{WHITE}"/>
   <g clip-path="url(#cb{uid})">{ball_marks(BG_DARK)}</g>'''
 
-def canvas(size, fill_ratio, bg=True, layer="color", uid="x"):
+def canvas(size, fill_ratio, bg=True, uid="x"):
     s = size * fill_ratio
     k = s / BOX_S
     tx, ty = (size - s) / 2 - BOX_X * k, (size - s) / 2 - BOX_Y * k
@@ -72,29 +64,15 @@ def canvas(size, fill_ratio, bg=True, layer="color", uid="x"):
             f'<rect width="{size}" height="{size}" fill="url(#bg{uid})"/>') if bg else ''
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
             f'viewBox="0 0 {size} {size}">{back}'
-            f'<g transform="translate({tx:.3f},{ty:.3f}) scale({k:.6f})">{mark(uid, layer)}</g></svg>')
+            f'<g transform="translate({tx:.3f},{ty:.3f}) scale({k:.6f})">{mark(uid)}</g></svg>')
 
 def render(svg, size):
     import io
     return Image.open(io.BytesIO(cairosvg.svg2png(
         bytestring=svg.encode(), output_width=size, output_height=size))).convert("RGBA")
 
-def monochrome(size, ratio, uid):
-    """Weisse Silhouette; das Ballmuster wird aus dem Alphakanal ausgestanzt."""
-    solid = render(canvas(size, ratio, bg=False, layer="solid", uid=uid+"s"), size)
-    marks = render(canvas(size, ratio, bg=False, layer="marks", uid=uid+"m"), size)
-    a, m = solid.getchannel("A"), marks.getchannel("A")
-    cut = Image.eval(m, lambda v: 255 - v)
-    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    out.putalpha(Image.composite(a, Image.new("L", (size, size), 0), cut))
-    out.paste((255, 255, 255), (0, 0), out.getchannel("A"))
-    return out
-
 # (Pfad, Kantenlänge, Anteil der Marke, deckender Hintergrund)
 TARGETS = [
-    ("assets/icon.png",                     1024, 0.76, True),
-    ("assets/android-icon-foreground.png",   512, 0.62, False),
-    ("assets/splash-icon.png",              1024, 0.94, False),
     ("assets/favicon.png",                   196, 0.80, True),
     ("public/icons/icon-192.png",            192, 0.76, True),
     ("public/icons/icon-512.png",            512, 0.76, True),
@@ -104,20 +82,12 @@ TARGETS = [
 
 for i, (path, size, ratio, bg) in enumerate(TARGETS):
     im = render(canvas(size, ratio, bg=bg, uid=f"u{i}"), size)
-    if bg:                                     # iOS/Store dulden keinen Alphakanal
+    if bg:                                     # Favicon und PWA-Icons ohne Alphakanal
         flat = Image.new("RGB", (size, size), (11, 15, 12))
         flat.paste(im, (0, 0), im)
         im = flat
     im.save(os.path.join(ROOT, path), optimize=True)
     print(f"{path:44s} {size}x{size}")
-
-# Adaptiver Android-Hintergrund: flache Markenfarbe, damit der Vordergrund frei verschiebbar bleibt.
-Image.new("RGB", (512, 512), (11, 15, 12)).save(
-    os.path.join(ROOT, "assets/android-icon-background.png"), optimize=True)
-print(f"{'assets/android-icon-background.png':44s} 512x512")
-
-monochrome(432, 0.60, "mono").save(os.path.join(ROOT, "assets/android-icon-monochrome.png"), optimize=True)
-print(f"{'assets/android-icon-monochrome.png':44s} 432x432")
 
 open(os.path.join(ROOT, "assets/icon.svg"), "w").write(canvas(1024, 0.76, uid="src"))
 print(f"{'assets/icon.svg':44s} (Vektorquelle)")

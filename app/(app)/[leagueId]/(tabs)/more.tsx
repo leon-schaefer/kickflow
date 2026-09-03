@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/auth/LogoutButton';
+import { ExternalLink } from '@/components/ExternalLink';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
+import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
 import { SUPPORT_URL } from '@/support/supportUrl';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -46,8 +48,8 @@ export default function MoreScreen() {
           <Text style={styles.cardTitle}>kickflow unterstützen</Text>
           <Text style={styles.cardBody}>
             kickflow ist kostenlos und bleibt es — Optimizer, Pflichtverkauf und Kaufempfehlungen
-            inklusive. Wenn dir die App den Spieltag erleichtert, kannst du die laufenden Kosten
-            mittragen. Freiwillig, einmalig, jederzeit.
+            inklusive. Wenn dir die App den Spieltag erleichtert, freue ich mich über
+            Unterstützung bei der Weiterentwicklung. Freiwillig, einmalig, jederzeit.
           </Text>
           <Pressable style={styles.supportButton} onPress={handleSupport} accessibilityRole="button">
             <Text style={styles.supportButtonText}>Unterstützen</Text>
@@ -75,6 +77,13 @@ export default function MoreScreen() {
         <Text style={styles.cardBody}>
           Inoffizieller Begleiter für Kickbase. Nicht mit der Kickbase GmbH verbunden.
         </Text>
+        {/*
+         * Datenschutz muss aus der App heraus erreichbar sein (App-Store-
+         * Review, DSGVO). Beide Seiten liegen auf codewithleon.dev — siehe
+         * src/support/links.ts.
+         */}
+        <ExternalLink url={HOMEPAGE_URL} label="Homepage" />
+        <ExternalLink url={PRIVACY_URL} label="Datenschutz" />
         {appVersion && (
           <Text style={styles.version}>
             Version {appVersion}
