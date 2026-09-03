@@ -156,21 +156,20 @@ export async function getCompetitionTeams(token: string, competitionId: string):
 /**
  * Kandidatenpfade für den Kader EINES Vereins innerhalb einer Competition.
  *
- * ACHTUNG, das ist die einzige unverifizierte Stelle in dieser Datei: keine
- * der inoffiziellen Doku-Quellen führt einen v4-Pfad für den kompletten
- * Spielerbestand — teamprofile/players/teamcenter erscheinen dort teils nur in
- * v3-Form. Statt einen davon zu unterstellen, probiert fetchTeamPlayers() sie
- * EINMAL pro Prozess durch und merkt sich den ersten, der Spieler liefert.
+ * Stand 03.09.2026 gegen einen echten Account: `teamprofile` und `teamcenter`
+ * antworten beide mit 200, `/teams/{id}/players` mit 404 (deshalb nicht mehr
+ * in der Liste). Welche der beiden 200er-Antworten den Kader trägt, ist noch
+ * offen — die Pfadsuche unten entscheidet das am Inhalt, indem sie den ersten
+ * Pfad nimmt, in dem pickCompetitionPlayers() eine Spielerliste findet.
  *
- * Nach `npm run probe -- --players` (siehe scripts/probe.ts) ist der richtige
- * Pfad bekannt — dann hier die übrigen Kandidaten löschen, damit kein
- * fehlschlagender Request mehr im Normalbetrieb steht.
+ * Nach `npm run probe -- --players` (siehe scripts/probe.ts) steht der Pfad
+ * fest — dann hier den anderen Kandidaten löschen, damit im Normalbetrieb kein
+ * vergeblicher Request mehr steht.
  */
 type TeamPlayerPath = (competitionId: string, teamId: string) => string;
 
 const TEAM_PLAYER_PATHS: TeamPlayerPath[] = [
   (competitionId, teamId) => `/v4/competitions/${competitionId}/teams/${teamId}/teamprofile`,
-  (competitionId, teamId) => `/v4/competitions/${competitionId}/teams/${teamId}/players`,
   (competitionId, teamId) => `/v4/competitions/${competitionId}/teams/${teamId}/teamcenter`,
 ];
 
@@ -182,30 +181,45 @@ const TEAM_PLAYER_PATHS: TeamPlayerPath[] = [
  */
 let resolvedTeamPlayerPath: TeamPlayerPath | null = null;
 
+/**
+ * `{tid: string, pl: number, it: array[24]}` — die Feldnamen samt Typ einer
+ * Antwort, in der keine Spielerliste gefunden wurde. Steht so in der
+ * Fehlermeldung: ein 200 ohne erkennbare Liste ist sonst nicht von einem
+ * kaputten Pfad zu unterscheiden, und genau diese Information fehlte beim
+ * ersten Anlauf (siehe rawCompetitionPlayersSchema).
+ */
+function describeShape(raw: unknown): string {
+  if (typeof raw !== 'object' || raw === null) return typeof raw;
+  const fields = Object.entries(raw).map(
+    ([key, value]) => `${key}: ${Array.isArray(value) ? `array[${value.length}]` : typeof value}`,
+  );
+  return fields.length > 0 ? fields.join(', ') : '(leer)';
+}
+
 async function fetchTeamPlayers(
   token: string,
   competitionId: string,
   teamId: string,
 ): Promise<CompetitionPlayer[]> {
-  async function load(buildPath: TeamPlayerPath): Promise<CompetitionPlayer[]> {
+  async function load(buildPath: TeamPlayerPath) {
     const raw = await withCompetitionPlayersLimit(() =>
       kbFetch(buildPath(competitionId, teamId), { token }),
     );
-    return toCompetitionPlayers(rawCompetitionPlayersSchema.parse(raw), teamId);
+    return { raw, players: toCompetitionPlayers(rawCompetitionPlayersSchema.parse(raw), teamId) };
   }
 
-  if (resolvedTeamPlayerPath) return load(resolvedTeamPlayerPath);
+  if (resolvedTeamPlayerPath) return (await load(resolvedTeamPlayerPath)).players;
 
   const failures: string[] = [];
   for (const buildPath of TEAM_PLAYER_PATHS) {
     const path = buildPath(competitionId, teamId);
     try {
-      const players = await load(buildPath);
-      // 200 mit leerer Liste heißt: Pfad existiert, trägt aber nicht die
-      // gesuchten Daten (z.B. eine Tabellen- statt Kaderantwort) — nächster
-      // Kandidat, statt ihn für alle weiteren Vereine festzuschreiben.
+      const { raw, players } = await load(buildPath);
+      // 200 ohne erkennbare Spielerliste heißt: Pfad existiert, trägt aber
+      // nicht die gesuchten Daten — nächster Kandidat, statt ihn für alle
+      // weiteren Vereine festzuschreiben.
       if (players.length === 0) {
-        failures.push(`${path} → 200, aber keine Spieler in der Antwort`);
+        failures.push(`${path} → 200, aber keine Spielerliste erkannt. Felder: ${describeShape(raw)}`);
         continue;
       }
       resolvedTeamPlayerPath = buildPath;
