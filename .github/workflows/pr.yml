@@ -1,0 +1,142 @@
+# Checks für Pull Requests. Bewusst getrennt von release.yml: dort hängt alles
+# am push-Trigger und darf veröffentlichen, hier wird nur geprüft und berichtet.
+# Kein eas update, kein eas build, keine Submission.
+#
+# Der Fingerprint-Report ist der eigentliche Grund für diesen Workflow. Ob ein
+# Merge als OTA rausgeht oder einen Build nach sich zieht, entscheidet der
+# runtimeVersion-Fingerprint — und das sah man bisher erst, wenn release.yml
+# nach dem Merge schon lief. Eine Zeile in eas.json oder eine neue Dependency
+# mit native code macht aus einem Sekunden-OTA einen Store-Build, das gehört
+# vor den Merge sichtbar.
+#
+# Grenze des Reports: verglichen wird gegen den letzten fertigen Build auf dem
+# Kanal, also gegen EAS — nicht gegen das, was bei Apple liegt. Beides kann
+# auseinanderlaufen, wenn ein Build fertig wird und seine Submission scheitert
+# (so passiert mit Build 14). "OTA möglich" heißt dann zwar korrekt, dass die
+# runtimeVersion zum letzten Build passt, aber nicht, dass jemand sie anfragt.
+# Der Kommentar sagt das mit.
+#
+# actions/checkout prüft bei pull_request den Merge-Commit aus, der Report gilt
+# also für das, was tatsächlich landen würde — nicht für den Branch-Kopf.
+#
+# Ohne EXPO_TOKEN (Forks bekommen keine Secrets) laufen Typecheck und Tests
+# weiter, nur der Report entfällt. Kein Fehlschlag: ein Fork kann daran nichts
+# ändern.
+
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+# Bei PRs ist Abbrechen richtig — ein überholter Lauf prüft alten Code.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    name: Typecheck, Tests, Fingerprint
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      # npm ci, nicht npm install: der Fingerprint hängt am exakten
+      # Dependency-Baum, und nur ci reproduziert den aus dem Lockfile.
+      - name: Dependencies installieren
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Expo und EAS einrichten
+        if: env.EXPO_TOKEN != ''
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Ziel bestimmen
+        if: env.EXPO_TOKEN != ''
+        id: target
+        run: |
+          case "${{ github.base_ref }}" in
+            develop) channel=testflight ;;
+            main)    channel=production ;;
+            *)       echo "::error::Kein Release-Ziel für Base-Branch ${{ github.base_ref }}"; exit 1 ;;
+          esac
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: OTA möglich?
+        if: env.EXPO_TOKEN != ''
+        id: check
+        run: npx tsx scripts/check-fingerprint.ts --channel "${{ steps.target.outputs.channel }}" --report-only
+
+      # Ein Kommentar statt nur Step-Summary, damit die Antwort im PR steht und
+      # nicht im Checks-Tab. Gesucht wird über den Marker, nicht über
+      # --edit-last: das greift den letzten Kommentar von github-actions[bot],
+      # und seit vercel-qr.yml unter demselben Bot kommentiert, war das
+      # reihenweise der fremde — der QR-Kommentar wurde mit diesem Report
+      # überschrieben. Beim ersten Lauf gibt es keinen Marker, dann anlegen.
+      - name: Ergebnis in den PR schreiben
+        if: env.EXPO_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          CHANNEL: ${{ steps.target.outputs.channel }}
+          OTA: ${{ steps.check.outputs.ota-possible }}
+        run: |
+          if [ "$OTA" = "true" ]; then
+            cat > body.md <<EOF
+          **Merge geht als OTA-Update raus** — Kanal \`$CHANNEL\`, kein Build.
+
+          Der Fingerprint entspricht dem letzten fertigen Build auf dem Kanal.
+          Verglichen wird gegen EAS, nicht gegen den Store: liegt dieser Build
+          nicht in TestFlight bzw. im App Store, erreicht das Update niemanden.
+          EOF
+          else
+            cat > body.md <<EOF
+          **Merge löst einen Build aus** — Kanal \`$CHANNEL\`, kein OTA.
+
+          Der Fingerprint weicht vom letzten Build auf dem Kanal ab (native
+          Dependency, Config-Plugin, app.json oder eas.json geändert). Ein OTA
+          könnte kein installiertes Binary erreichen, deshalb baut release.yml
+          nach dem Merge neu und lädt nach App Store Connect hoch.
+          EOF
+          fi
+          {
+            echo '<!-- fingerprint-report -->'
+            cat body.md
+          } > comment.md
+          # Ohne Pipe nach head: die Default-Shell läuft mit pipefail, und ein
+          # früh schließendes head ließe gh mit SIGPIPE den Step killen.
+          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                  --jq '.[] | select(.body | contains("<!-- fingerprint-report -->")) | .id')
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            jq -Rs '{body: .}' comment.md \
+              | gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" --input - >/dev/null
+          else
+            gh pr comment "$PR" --body-file comment.md
+          fi
+          cat body.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fingerprint-Report übersprungen
+        if: env.EXPO_TOKEN == ''
+        run: echo "Kein EXPO_TOKEN verfügbar (Fork?) — Typecheck und Tests sind gelaufen, der Fingerprint-Report entfällt." >> "$GITHUB_STEP_SUMMARY"
