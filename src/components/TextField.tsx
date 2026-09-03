@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
-import type { StyleProp, TextInputProps, ViewStyle } from 'react-native';
+import { useRef, useState } from 'react';
+import type { BlurEvent, FocusEvent, StyleProp, TextInputProps, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { ClearIcon } from './icons/ClearIcon';
@@ -30,25 +30,43 @@ export function TextField({
   suffix,
   clearAccessibilityLabel = 'Eingabe löschen',
   style,
+  onFocus,
+  onBlur,
   ...inputProps
 }: TextFieldProps) {
   const inputRef = useRef<TextInput>(null);
+  const [focused, setFocused] = useState(false);
   const editable = inputProps.editable ?? true;
 
   function clear() {
     onChangeText('');
-    // Tippen auf das X nimmt dem Feld den Fokus. Zurückholen nur, wenn es ihn
-    // vorher hatte: sonst fährt beim Aufräumen ungefragt die Tastatur hoch.
-    if (inputRef.current?.isFocused()) inputRef.current.focus();
+    // Der Klick aufs X nimmt dem Feld den Fokus (auf Web schon beim mousedown,
+    // also bevor dieser Handler läuft). Ohne das Zurückholen müsste man erst
+    // wieder hineinklicken, um nach dem Leeren weiterzutippen.
+    inputRef.current?.focus();
+  }
+
+  function handleFocus(event: FocusEvent) {
+    setFocused(true);
+    onFocus?.(event);
+  }
+
+  function handleBlur(event: BlurEvent) {
+    setFocused(false);
+    onBlur?.(event);
   }
 
   return (
-    <View style={[styles.field, containerStyle]}>
+    // Der Fokusrahmen steht bewusst hinter containerStyle: er soll sich nicht
+    // von einem Aufrufer wegkonfigurieren lassen.
+    <View style={[styles.field, containerStyle, focused && styles.fieldFocused]}>
       <TextInput
         ref={inputRef}
         style={[styles.input, style]}
         value={value}
         onChangeText={onChangeText}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholderTextColor={colors.textMuted}
         // Sonst liegt auf iOS zusätzlich das systemeigene X im Feld.
         clearButtonMode="never"
@@ -80,11 +98,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
   },
+  fieldFocused: {
+    borderColor: colors.accent,
+  },
   input: {
     flex: 1,
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.md,
+    // Der Rahmen sitzt am Container, nicht am <input> — den Fokusring würde
+    // der Browser deshalb als eckigen Kasten INS Feld zeichnen. Statt seinem
+    // `outline: auto` hier eine eigene Breite von 0: das nimmt den Ring weg,
+    // den Fokus zeigt stattdessen `fieldFocused` am ganzen Feldrahmen.
+    outlineStyle: 'solid',
+    outlineWidth: 0,
   },
   clearButton: {
     paddingHorizontal: spacing.xs,
