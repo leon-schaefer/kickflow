@@ -7,6 +7,7 @@ import {
   parseFormation,
   parseMatchdayLabel,
   toAuthSession,
+  toCompetitionPlayers,
   toLeagueOverview,
   toLeagueRanking,
   toLeagueSummary,
@@ -795,5 +796,99 @@ describe('toMarketPlayer', () => {
     expect(mapped.ownOfferPrice).toBeNull();
     expect(mapped.ownOfferId).toBeNull();
     expect(mapped.offers).toEqual([]);
+  });
+});
+
+describe('toCompetitionPlayers', () => {
+  it('liest die Liste aus `it` und ergänzt die Vereins-ID aus dem Aufrufer', () => {
+    const mapped = toCompetitionPlayers(
+      { it: [{ i: '7', n: 'Vincenzo Grifo', pos: 3, mv: 10_000_000, p: 400, ap: 40 }] },
+      '5',
+    );
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]).toMatchObject({
+      id: '7',
+      name: 'Vincenzo Grifo',
+      position: 'MID',
+      teamId: '5',
+      marketValue: 10_000_000,
+      totalPoints: 400,
+      averagePoints: 40,
+      valueScoreAvg: 4,
+      valueScoreTotal: 40,
+      status: 'fit',
+    });
+  });
+
+  /**
+   * Der Fehlerfall, an dem der erste Anlauf scheiterte: `teamprofile`
+   * antwortet mit 200 und hat ein `pl`, das eine ZAHL ist (Kadergröße).
+   * Solange `pl` als Spieler-Array deklariert war, verwarf zod die ganze
+   * Antwort — inklusive der Spieler, die daneben standen.
+   */
+  it('lässt sich von einem `pl` als Zahl nicht beirren', () => {
+    const mapped = toCompetitionPlayers(
+      { tid: '2', pl: 24, it: [{ i: '1', n: 'Harry Kane', pos: 4, mv: 30_000_000 }] },
+      '2',
+    );
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0].name).toBe('Harry Kane');
+  });
+
+  it('findet die Liste auch unter einem unbekannten Schlüssel', () => {
+    const mapped = toCompetitionPlayers({ squad: [{ i: '1', n: 'Manuel Neuer', pos: 1, mv: 5_000_000 }] }, '2');
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0].position).toBe('GK');
+  });
+
+  it('findet die Liste auch eine Ebene tiefer in einem Unterobjekt', () => {
+    const mapped = toCompetitionPlayers({ tm: { pl: [{ i: '1', n: 'Jamal Musiala', pos: 3, mv: 40_000_000 }] } }, '2');
+    expect(mapped.map((player) => player.name)).toEqual(['Jamal Musiala']);
+  });
+
+  it('ignoriert Arrays, die keine Spieler sind (Spielplan statt Kader)', () => {
+    expect(toCompetitionPlayers({ nm: [{ mi: '9', dt: '2026-09-05T18:30:00Z', t1: '2', t2: '5' }] }, '2')).toEqual([]);
+  });
+
+  it('bevorzugt `it`, wenn mehrere Spieler-Arrays in der Antwort stehen', () => {
+    const mapped = toCompetitionPlayers(
+      {
+        other: [{ i: '99', n: 'Falsch', pos: 2, mv: 1_000_000 }],
+        it: [{ i: '1', n: 'Richtig', pos: 2, mv: 1_000_000 }],
+      },
+      '2',
+    );
+    expect(mapped.map((player) => player.name)).toEqual(['Richtig']);
+  });
+
+  it('setzt den Namen aus fn/ln zusammen, wenn `n` fehlt', () => {
+    const mapped = toCompetitionPlayers({ it: [{ i: '1', fn: 'Manuel', ln: 'Neuer', pos: 1 }] }, '2');
+    expect(mapped[0].name).toBe('Manuel Neuer');
+    expect(mapped[0].position).toBe('GK');
+  });
+
+  it('fällt ohne jeden Namen auf „Unbekannt“ zurück', () => {
+    expect(toCompetitionPlayers({ it: [{ i: '1', pos: 2 }] }, '2')[0].name).toBe('Unbekannt');
+  });
+
+  it('nimmt `tp` als Gesamtpunkte, wenn `p` fehlt', () => {
+    expect(toCompetitionPlayers({ it: [{ i: '1', tp: 250, mv: 5_000_000 }] }, '2')[0].totalPoints).toBe(250);
+  });
+
+  it('normalisiert eine numerische Spieler-ID auf einen String', () => {
+    expect(toCompetitionPlayers({ it: [{ i: 4711, pos: 2, mv: 1_000_000 }] }, '2')[0].id).toBe('4711');
+  });
+
+  it('zieht die Vereins-ID des Spielers der des Aufrufers vor', () => {
+    expect(toCompetitionPlayers({ it: [{ i: '1', tid: '9', mv: 1_000_000 }] }, '2')[0].teamId).toBe('9');
+  });
+
+  it('nimmt die Vereins-ID aus der Antworthülle, wenn die Spieler keine tragen', () => {
+    expect(toCompetitionPlayers({ tid: '9', it: [{ i: '1', mv: 1_000_000 }] }, '2')[0].teamId).toBe('9');
+  });
+
+  it('liefert für eine Antwort ohne erkennbare Liste ein leeres Array (Signal der Pfadsuche)', () => {
+    expect(toCompetitionPlayers({}, '2')).toEqual([]);
+    expect(toCompetitionPlayers({ it: [] }, '2')).toEqual([]);
   });
 });

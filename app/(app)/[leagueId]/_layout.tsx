@@ -4,7 +4,7 @@ import { LeagueRulesProvider } from '@/lineup/LeagueRulesContext';
 import { stackScreenOptions } from '@/theme/navigationTheme';
 
 /**
- * Verschachtelt bewusst: (tabs) für Aufstellung/Kader als Bottom-Tabs,
+ * Verschachtelt bewusst: (tabs) für Aufstellung/Spieler/Markt/Liga als Bottom-Tabs,
  * player/[playerId] als normaler Stack-Screen darüber (mit Zurück-Button).
  * Ein Tab-Navigator allein kann keinen Detail-Screen mit Push-Transition
  * und automatischem Zurück-Pfeil anzeigen.

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
-interface Refetchable {
+/** Alles mit `refetch()` — Query, useQueries-Bündel (usePlaytimes) oder Mutation. */
+export interface Refetchable {
   refetch: () => Promise<unknown>;
 }
 

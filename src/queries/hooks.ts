@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import {
+  getCompetitionPlayers,
   getCompetitionTeams,
   getLeagueOverview,
   getLeagueRanking,
@@ -26,7 +27,7 @@ import { queryKeys } from './keys';
  * Auf true setzen, um lokal mit einem größeren Test-Kader (23 statt z. B. 11
  * Spieler, siehe src/mock/mockLineup.ts) gegen den Aufstellungs-Optimizer zu
  * arbeiten. Login und Liga-Auswahl bleiben live — nur Kader/Aufstellung wird
- * ersetzt (Squad- und Value-Tab hängen an demselben Hook und zeigen den
+ * ersetzt (der Kader-Filter im Spieler-Tab hängt am selben Hook und zeigt den
  * Mock-Kader automatisch mit). Vor dem Commit wieder auf false zurücksetzen.
  */
 const USE_MOCK_LINEUP = false;
@@ -166,12 +167,12 @@ export interface PlaytimeState {
 }
 
 /**
- * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Kennzahl im Kader- und
- * im Markt-Tab.
+ * Spielzeit-Aggregat je Spieler, Basis der Punkte/Min-Kennzahl im Spieler-
+ * und im Markt-Tab.
  *
  * Ein `/performance`-Request PRO Spieler, weil Kickbase in Kader- und
  * Marktlisten kein Minutenfeld liefert. Eigener Cache-Key je Spieler, damit
- * beim Wechsel Kader↔Transfermarkt und beim Zurückkehren in den Tab keine
+ * beim Wechsel Spieler↔Transfermarkt und beim Zurückkehren in den Tab keine
  * Requests doppelt laufen — Spieler, die in beiden Listen auftauchen, werden
  * nur einmal geholt. Die Parallelität begrenzt das Gate in
  * src/api/kickbase/limiter.ts.
@@ -217,6 +218,27 @@ export function useCompetitionTeams(competitionId: string | null) {
     queryFn: () => getCompetitionTeams(token!, competitionId!),
     enabled: !!token && !!competitionId,
     staleTime: 24 * 60 * 60_000,
+  });
+}
+
+/**
+ * Der competition-weite Spielerbestand des Spieler-Tabs — alle Spieler der
+ * Bundesliga, nicht nur eigene und gelistete.
+ *
+ * Kostet einen Request PRO VEREIN (siehe getCompetitionPlayers), deshalb
+ * bewusst lange frisch: Punkte ändern sich nur spieltags, Marktwerte nur beim
+ * nächtlichen Update. `teamIds` steht absichtlich NICHT im Query-Key — die
+ * Liste kommt aus `useCompetitionTeams` und ist pro Competition konstant; im
+ * Key würde jede neu geladene Vereinsliste den Cache wegwerfen.
+ */
+export function useCompetitionPlayers(competitionId: string | null, teamIds: readonly string[] | undefined) {
+  const { token } = useAuth();
+  const ids = teamIds ?? [];
+  return useQuery({
+    queryKey: queryKeys.competitionPlayers(competitionId ?? ''),
+    queryFn: () => getCompetitionPlayers(token!, competitionId!, ids),
+    enabled: !!token && !!competitionId && ids.length > 0,
+    staleTime: 30 * 60_000,
   });
 }
 

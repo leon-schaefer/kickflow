@@ -7,6 +7,8 @@ export const queryKeys = {
   playerPerformance: (leagueId: string, playerId: string) =>
     ['playerPerformance', leagueId, playerId] as const,
   competitionTeams: (competitionId: string) => ['competitionTeams', competitionId] as const,
+  /** Competition-weiter Spielerbestand (Spieler-Tab) — die Vereinsliste steckt bewusst nicht im Key, siehe useCompetitionPlayers. */
+  competitionPlayers: (competitionId: string) => ['competitionPlayers', competitionId] as const,
   matchdays: (competitionId: string) => ['matchdays', competitionId] as const,
   leagueRanking: (leagueId: string, dayNumber?: number) =>
     ['leagueRanking', leagueId, dayNumber ?? 'season'] as const,

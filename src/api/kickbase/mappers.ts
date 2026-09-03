@@ -8,6 +8,8 @@
  */
 import type {
   RawCompetitionMatchdays,
+  RawCompetitionPlayer,
+  RawCompetitionPlayers,
   RawCompetitionTeam,
   RawFixture,
   RawLeagueOverview,
@@ -26,6 +28,7 @@ import type {
 } from './schemas';
 import type {
   AuthSession,
+  CompetitionPlayer,
   LeagueOverview,
   LeagueRanking,
   LeagueRankingEntry,
@@ -47,6 +50,7 @@ import type {
   Team,
 } from './types';
 import type { RawLeague } from './schemas';
+import { pickCompetitionPlayers } from './schemas';
 import { pointsPerMillion } from '@/utils/valueScore';
 
 const IMAGE_CDN_BASE = 'https://kickbase.b-cdn.net/';
@@ -220,6 +224,53 @@ export function toSquadPlayer(
   };
 }
 
+/**
+ * Ein Spieler aus einem Competition-Team-Kader. Zwei Eigenheiten gegenüber
+ * `toSquadPlayer`/`toMarketPlayer`:
+ *
+ * - Der Name kommt je nach Endpoint als ganzer String (`n`) oder in zwei
+ *   Feldern (`fn`/`ln`) — beide Formen werden bedient, weil der Pfad noch
+ *   nicht verifiziert ist (siehe rawCompetitionPlayerSchema).
+ * - `fallbackTeamId`: die Antwort ist nach Verein gruppiert, die einzelnen
+ *   Spieler-Einträge tragen `tid` deshalb nicht zwingend. Ohne die Vereins-ID
+ *   griffen die Vereins-Chips im Filter nicht.
+ */
+export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: string): CompetitionPlayer {
+  const marketValue = raw.mv ?? 0;
+  const totalPoints = raw.p ?? raw.tp ?? 0;
+  const averagePoints = raw.ap ?? 0;
+  const fullName = [raw.fn, raw.ln].filter(Boolean).join(' ');
+  return {
+    id: String(raw.i),
+    name: raw.n ?? (fullName || 'Unbekannt'),
+    position: mapPosition(raw.pos),
+    teamId: raw.tid ?? fallbackTeamId,
+
+    marketValue,
+    marketValueTrend: mapMarketValueTrend(raw.mvt),
+
+    totalPoints,
+    averagePoints,
+    valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
+    valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
+
+    status: mapStatus(raw.st),
+    imageUrl: imageUrl(raw.pim),
+  };
+}
+
+/**
+ * Spielerliste aus einer Team-Kader-Antwort. Welcher Schlüssel sie trägt, wird
+ * nicht geraten, sondern an der Form der Einträge erkannt — siehe
+ * pickCompetitionPlayers(). Ein leeres Array ist ein legitimes Ergebnis und
+ * KEIN Fehler; die Pfadsuche in getCompetitionPlayers() wertet es als "dieser
+ * Pfad trägt die Daten nicht" und probiert den nächsten Kandidaten.
+ */
+export function toCompetitionPlayers(raw: RawCompetitionPlayers, fallbackTeamId: string): CompetitionPlayer[] {
+  const teamId = raw.tid ?? fallbackTeamId;
+  return pickCompetitionPlayers(raw).map((item) => toCompetitionPlayer(item, teamId));
+}
+
 export function toMarketOffer(raw: RawMarketOffer): MarketOffer {
   return {
     userId: raw.u ?? null,
@@ -253,6 +304,7 @@ export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
     price: raw.prc ?? marketValue,
     isBotListing: raw.u === undefined,
     sellerName: raw.u?.n ?? null,
+    sellerId: raw.u?.i ?? null,
     offerCount: raw.ofc ?? 0,
     listedAt: raw.dt ?? null,
 

@@ -2,20 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { focusedLeagueTabTitle } from './leagueTabs';
 
 describe('focusedLeagueTabTitle', () => {
-  it('liefert den Titel des fokussierten Tabs (squad)', () => {
+  it('liefert den Titel des fokussierten Tabs (players)', () => {
     const state = {
       routes: [
         {
           name: '(tabs)',
           state: {
             index: 1,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }],
+            routes: [{ name: 'lineup' }, { name: 'players' }, { name: 'market' }],
           },
         },
         { name: 'player/[playerId]' },
       ],
     };
-    expect(focusedLeagueTabTitle(state)).toBe('Kader');
+    expect(focusedLeagueTabTitle(state)).toBe('Spieler');
   });
 
   it('liefert den Titel des fokussierten Tabs (market)', () => {
@@ -25,7 +25,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 2,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }],
+            routes: [{ name: 'lineup' }, { name: 'players' }, { name: 'market' }],
           },
         },
         { name: 'player/[playerId]' },
@@ -52,7 +52,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 3,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }, { name: 'league' }],
+            routes: [{ name: 'lineup' }, { name: 'players' }, { name: 'market' }, { name: 'league' }],
           },
         },
         { name: 'manager/[managerId]' },
@@ -69,7 +69,7 @@ describe('focusedLeagueTabTitle', () => {
           name: '(tabs)',
           state: {
             index: 3,
-            routes: [{ name: 'lineup' }, { name: 'squad' }, { name: 'market' }, { name: 'league' }],
+            routes: [{ name: 'lineup' }, { name: 'players' }, { name: 'market' }, { name: 'league' }],
           },
         },
         { name: 'manager/[managerId]' },
@@ -82,12 +82,12 @@ describe('focusedLeagueTabTitle', () => {
     const state = {
       index: 1,
       routes: [
-        { name: '(tabs)', state: { index: 1, routes: [{ name: 'lineup' }, { name: 'squad' }] } },
+        { name: '(tabs)', state: { index: 1, routes: [{ name: 'lineup' }, { name: 'players' }] } },
         { name: 'manager/[managerId]' },
         { name: 'player/[playerId]' },
       ],
     };
-    expect(focusedLeagueTabTitle(state)).toBe('Kader');
+    expect(focusedLeagueTabTitle(state)).toBe('Spieler');
   });
 
   it('nimmt bei fehlendem `index` (PartialState) den letzten Eintrag aus `routes`', () => {
@@ -96,12 +96,12 @@ describe('focusedLeagueTabTitle', () => {
         {
           name: '(tabs)',
           state: {
-            routes: [{ name: 'lineup' }, { name: 'squad' }],
+            routes: [{ name: 'lineup' }, { name: 'players' }],
           },
         },
         { name: 'player/[playerId]' },
       ],
     };
-    expect(focusedLeagueTabTitle(state)).toBe('Kader');
+    expect(focusedLeagueTabTitle(state)).toBe('Spieler');
   });
 });
