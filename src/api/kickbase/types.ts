@@ -125,6 +125,35 @@ export interface MarketData {
   marketValueUpdateAt: string | null;
 }
 
+/**
+ * Ein Spieler aus dem competition-weiten Bestand — Datengrundlage des
+ * Spieler-Tabs, in dem ALLE Spieler der Competition durchsuchbar sind, nicht
+ * nur eigene (`SquadPlayer`) und gelistete (`MarketPlayer`).
+ *
+ * Bewusst schmal: genau die Felder, die `MetricPlayer`
+ * (src/utils/playerMetric.ts) und `filterPlayers` (src/utils/playerFilter.ts)
+ * verlangen. Alles Weitere — Marktwertverlauf, Saisonpunkte je Spieltag,
+ * aktueller Besitzer — holt der Spieler-Detail-Screen ohnehin selbst über
+ * `getPlayer()`, und das für JEDE Spieler-ID, nicht nur für eigene.
+ */
+export interface CompetitionPlayer {
+  id: string;
+  name: string;
+  position: Position;
+  teamId: string;
+
+  marketValue: number;
+  marketValueTrend: MarketValueTrend;
+
+  totalPoints: number;
+  averagePoints: number;
+  valueScoreAvg: number;
+  valueScoreTotal: number;
+
+  status: PlayerStatus;
+  imageUrl: string | null;
+}
+
 export interface LineupData {
   /** Aus `mdln` geparst — nur Fallback, siehe `MatchdaySchedule`/`resolveMatchdayState`. */
   matchday: number | null;

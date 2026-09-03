@@ -11,14 +11,14 @@ import { TeamLogo } from './TeamLogo';
 
 interface PlayerRowProps {
   player: SquadPlayer;
-  /** Kennzahl unter dem Marktwert — folgt der aktiven Sortierung im Kader-Tab. */
+  /** Kennzahl unter dem Marktwert — folgt der aktiven Sortierung der Kaderliste. */
   metric: PlayerMetric;
   /** Nur gesetzt, wenn `metric === 'pointsPerMinute'` und der Request durch ist. */
   playtime?: PlaytimeTotals;
   onPress?: (player: SquadPlayer) => void;
 }
 
-/** Eine Zeile im Kader-Tab: Position, Bild, Name, Marktwert, aktive Kennzahl, Status. */
+/** Eine Zeile der Kaderliste (siehe SquadList): Position, Bild, Name, Marktwert, aktive Kennzahl, Status. */
 export function PlayerRow({ player, metric, playtime, onPress }: PlayerRowProps) {
   // Der Marktwert steht schon als Anker in Zeile 1 — eine zweite identische
   // Zahl wäre Rauschen, deshalb fällt diese Kennzahl auf Ø Punkte zurück.

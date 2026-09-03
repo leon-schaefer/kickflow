@@ -9,7 +9,8 @@ import { SUPPORT_URL } from '@/support/supportUrl';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 /**
- * Vierter Tab neben Aufstellung/Kader/Wert: alles, was nicht zur Liga gehört.
+ * Letzter Tab neben Aufstellung/Spieler/Markt/Liga: alles, was nicht zur
+ * Liga gehört.
  * Kartenaufbau folgt rules.tsx (surface + 1px border + radius.lg).
  *
  * Kein Refreshable/QueryState wie in den anderen Tabs — dieser Screen stellt

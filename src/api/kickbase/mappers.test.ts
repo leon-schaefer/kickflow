@@ -7,6 +7,7 @@ import {
   parseFormation,
   parseMatchdayLabel,
   toAuthSession,
+  toCompetitionPlayers,
   toLeagueOverview,
   toLeagueRanking,
   toLeagueSummary,
@@ -795,5 +796,54 @@ describe('toMarketPlayer', () => {
     expect(mapped.ownOfferPrice).toBeNull();
     expect(mapped.ownOfferId).toBeNull();
     expect(mapped.offers).toEqual([]);
+  });
+});
+
+describe('toCompetitionPlayers', () => {
+  it('liest die Liste aus `it` und ergänzt die Vereins-ID aus dem Aufrufer', () => {
+    const mapped = toCompetitionPlayers(
+      { it: [{ i: '7', n: 'Vincenzo Grifo', pos: 3, mv: 10_000_000, p: 400, ap: 40 }] },
+      '5',
+    );
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]).toMatchObject({
+      id: '7',
+      name: 'Vincenzo Grifo',
+      position: 'MID',
+      teamId: '5',
+      marketValue: 10_000_000,
+      totalPoints: 400,
+      averagePoints: 40,
+      valueScoreAvg: 4,
+      valueScoreTotal: 40,
+      status: 'fit',
+    });
+  });
+
+  it('akzeptiert die Alternativschlüssel `pl`/`players` für die Liste', () => {
+    expect(toCompetitionPlayers({ pl: [{ i: '1' }] }, '2')).toHaveLength(1);
+    expect(toCompetitionPlayers({ players: [{ i: '1' }] }, '2')).toHaveLength(1);
+  });
+
+  it('setzt den Namen aus fn/ln zusammen, wenn `n` fehlt', () => {
+    const mapped = toCompetitionPlayers({ it: [{ i: '1', fn: 'Manuel', ln: 'Neuer', pos: 1 }] }, '2');
+    expect(mapped[0].name).toBe('Manuel Neuer');
+    expect(mapped[0].position).toBe('GK');
+  });
+
+  it('nimmt `tp` als Gesamtpunkte, wenn `p` fehlt', () => {
+    expect(toCompetitionPlayers({ it: [{ i: '1', tp: 250, mv: 5_000_000 }] }, '2')[0].totalPoints).toBe(250);
+  });
+
+  it('zieht die Vereins-ID des Spielers der des Aufrufers vor', () => {
+    expect(toCompetitionPlayers({ it: [{ i: '1', tid: '9' }] }, '2')[0].teamId).toBe('9');
+  });
+
+  it('nimmt die Vereins-ID aus der Antworthülle, wenn die Spieler keine tragen', () => {
+    expect(toCompetitionPlayers({ tid: '9', it: [{ i: '1' }] }, '2')[0].teamId).toBe('9');
+  });
+
+  it('liefert für eine Antwort ohne erkennbare Liste ein leeres Array (Signal der Pfadsuche)', () => {
+    expect(toCompetitionPlayers({}, '2')).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 /** Tab-Titel einmalig: benennen die Tabs und liefern das Zurück-Label im Detail. */
 export const leagueTabTitles = {
   lineup: 'Aufstellung',
-  squad: 'Kader',
+  players: 'Spieler',
   market: 'Markt',
   league: 'Liga',
   more: 'Mehr',
