@@ -9,8 +9,8 @@
  * Nicht gesetzt = die Unterstützen-Karte rendert gar nicht. Das ist Absicht:
  * ein Spenden-Button, der ins Leere zeigt, ist schlechter als keiner. Neben-
  * effekt: der Anbieter lässt sich pro Umgebung wechseln (lokal `.env.local`,
- * Web über die Vercel-Projekt-Env-Vars, nativ über die EAS-Environments aus
- * eas.json), ohne dass ein Handle im Repo steht.
+ * im Deploy über die Vercel-Projekt-Env-Vars), ohne dass ein Handle im Repo
+ * steht.
  */
 
 /**

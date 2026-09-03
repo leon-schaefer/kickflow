@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Position, Team } from '@/api/kickbase';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import type { PlayerFilterCriteria } from '@/utils/playerFilter';
 import { isPlayerFilterActive } from '@/utils/playerFilter';
 import { TeamLogo } from './TeamLogo';
+import { TextField } from './TextField';
 
 const POSITIONS: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
 
@@ -49,15 +50,15 @@ export function PlayerFilterBar({ criteria, onChange, teams }: PlayerFilterBarPr
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
-        <TextInput
-          style={styles.input}
+        <TextField
+          containerStyle={styles.search}
+          style={styles.searchInput}
           placeholder="Spieler suchen…"
-          placeholderTextColor={colors.textMuted}
           value={criteria.query}
           onChangeText={(query) => onChange({ ...criteria, query })}
           autoCorrect={false}
           autoCapitalize="none"
-          clearButtonMode="while-editing"
+          clearAccessibilityLabel="Suche löschen"
         />
         <Pressable
           onPress={() => setExpanded((v) => !v)}
@@ -148,15 +149,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  input: {
+  search: {
     flex: 1,
-    ...typography.body,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
     paddingVertical: spacing.sm,
   },
   filterToggle: {

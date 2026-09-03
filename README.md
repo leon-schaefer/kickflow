@@ -1,160 +1,166 @@
 # kickflow
 
-Kickbase-Companion als Expo-App. Diese README beschreibt den iOS-Release- und
-OTA-Workflow.
+Kickbase-Companion als Expo-App, ausgeliefert **ausschließlich als Web-App/PWA**
+über Vercel. Diese README beschreibt Entwicklung und Deployment.
+
+Warum keine Store-App: kickflow zeigt Inhalte von Kickbase an (Marktwerte,
+Kader, Vereinslogos) und meldet sich mit dem Kickbase-Konto des Nutzers an.
+Apple verlangt bei der Einreichung die Rechte an genau diesen Inhalten, und
+eine Genehmigung von Kickbase gibt es nicht. Die native Auslieferung — EAS,
+TestFlight, OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
 
 ## Entwicklung
 
 ```bash
-npm start            # Metro / Expo Dev Server
-npm run ios          # nativer Debug-Build auf Simulator oder Gerät
-npm run web          # Web-Variante im Browser
+npm start            # Metro / Expo Dev Server (Web über `w`)
+npm run web          # direkt im Browser
 npm test             # Vitest
 npm run typecheck    # tsc --noEmit
+npm run probe        # Kickbase-API-Explorer, braucht .env.local
 ```
 
-OTA-Updates lassen sich hier **nicht** testen: `expo-updates` wirft unter
-`__DEV__` bei `checkForUpdateAsync()` und `reloadAsync()` hart
-`ERR_UPDATES_DISABLED`. Dafür braucht es einen Release-Build, siehe unten.
+`npm run probe` spricht mit einem echten Konto und dumpt Rohantworten nach
+`scripts/.probe-output/` (git-ignoriert). Zugangsdaten dafür in `.env.local`,
+Vorlage in `.env.local.example`.
 
-## Release- und OTA-Workflow (iOS)
+## Branches
 
-Einmalig: `eas login` (`eas whoami` zeigt, ob du eingeloggt bist).
+`main` ist der Default-Branch und damit das, was Vercel nach Production
+deployt; `develop` ist der Integrationsbranch, aus dem heraus nach `main`
+gemerged wird. Beide Workflows filtern genau auf diese zwei Namen
+(`pull_request` gegen `develop` und `main`), Vercel leitet Production vs.
+Preview aus dem Default-Branch ab. Feature-Branches hängen darunter und sind
+Wegwerfware.
 
-### Die Lanes
+Deshalb dürfen `main` und `develop` nicht gelöscht werden — und genau das ist
+schon passiert. GitHubs "Automatically delete head branches" löscht nach einem
+Merge den Head-Branch des Pull Requests. Bei einem Feature-Branch ist das der
+Sinn der Einstellung, bei PR #22 (`develop` -> `main`) war der Head aber
+`develop`. Der Branch war danach weg, während beide Workflows weiter auf ihn
+filterten.
 
-| Kanal | Build-Profil | Verteilung | Zielgruppe |
-| --- | --- | --- | --- |
-| `preview` | `preview` | internal (Ad-hoc) | eigene Geräte, ohne App Store Connect |
-| `testflight` | `testflight` | store | TestFlight-Tester |
-| `production` | `production` | store | App Store |
+Der Schutz dagegen ist ein Ruleset mit der Regel `deletion` auf
+`refs/heads/main` und `refs/heads/develop`. Ein Branch, den ein Ruleset gegen
+Löschen schützt, wird von der Automatik übersprungen — das Aufräumen der
+Feature-Branches bleibt also an, nur diese zwei sind ausgenommen. Der
+Repo-Schalter wäre das gröbere Werkzeug: er würde alles stehen lassen. Und das
+Ruleset deckt zusätzlich das Löschen von Hand ab, in der UI wie über die API.
 
-Der Kanal wird beim Build in die `Expo.plist` eingebacken — `eas build` hat
-kein `--channel`-Flag. Ein Build hängt also für immer an dem Kanal seines
-Profils, und ein Wechsel der Zielgruppe bedeutet immer einen neuen Build.
-
-### 1. TestFlight-Build bauen
+Erzwingen lässt sich das nur GitHub-seitig, im Repository liegt nur die
+Vorlage. `.github/rulesets/protected-branches.json` ist die Quelle,
+`scripts/protect-branches.sh` schreibt sie über die API:
 
 ```bash
-npm run release:ios:testflight
+scripts/protect-branches.sh            # Ruleset anlegen oder aktualisieren
+scripts/protect-branches.sh --check    # nur berichten, nichts ändern
 ```
 
-Baut mit Profil `testflight` (store-Distribution, Environment `production`,
-Kanal `testflight`) und reicht direkt an App Store Connect weiter. Die
-Build-Nummer zieht EAS hoch (`appVersionSource: "remote"`), `version` in
-`app.json` bleibt deine Sache.
+Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
+JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
+dabei, was dort von Hand verstellt wurde.
 
-Optional die Tester-Notiz gleich mitgeben:
+Ein Haken bleibt: Rulesets werden auf einem **privaten** Repo erst ab GitHub
+Pro durchgesetzt. Auf Free lässt sich das Ruleset anlegen, es greift aber
+nicht — `--check` zeigt es dann als `active`, ohne dass es etwas verhindert.
+Ohne Pro bleibt nur der Repo-Schalter:
 
 ```bash
-eas build --platform ios --profile testflight --auto-submit \
-  --what-to-test "Kader- und Wert-Tab zusammengelegt"
+scripts/protect-branches.sh --disable-auto-delete
 ```
 
-Danach in TestFlight installieren und die App einmal starten — erst damit
-kennt das Gerät seinen Kanal.
+Danach bleiben auch die Feature-Branches nach dem Merge stehen und müssen von
+Hand weg. Der Tausch ist trotzdem richtig: ein verlorener `develop` kostet
+mehr als ein bisschen Aufräumen.
 
-### 2. OTA-Update auf TestFlight schicken
-
-JS-/Asset-Änderung committen, dann:
+Wenn doch mal einer der beiden fehlt, ist er nicht verloren, solange der
+Commit noch über `main` erreichbar ist:
 
 ```bash
-npm run update:testflight
+git push origin <sha>:refs/heads/develop
 ```
 
-Beim allerersten Mal legt EAS dabei den Kanal `testflight` und einen
-gleichnamigen Branch an und verknüpft beide.
+## Deployment
 
-Auf dem Gerät: App in den Hintergrund und zurück. `src/components/UpdateBanner.tsx`
-prüft bei jedem Wechsel in den Vordergrund, lädt im Hintergrund und zeigt
-danach den Banner; Reload passiert erst auf Tap. Wegen
-`fallbackToCacheTimeout: 0` erscheint der Banner **nicht** sofort beim ersten
-Vordergrund-Wechsel nach dem Publish, sondern erst wenn der Download fertig
-ist — ein paar Sekunden warten oder nochmal backgrounden.
+Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
+`vercel.json`:
 
-Kommt gar nichts an, ist es fast immer der Fingerprint (siehe unten).
+| Schlüssel | Wert |
+| --- | --- |
+| `buildCommand` | `npm run build:web` |
+| `outputDirectory` | `dist` |
+| `rewrites` | `/:path*` → `/` |
 
-### 3. Auf Production wechseln
+`npm run build:web` macht zwei Dinge: `scripts/write-build-id.ts` schreibt
+`public/build-id.txt`, dann exportiert `expo export -p web` nach `dist/`.
+Alles unter `public/` (Manifest, Service Worker, Icons, Build-ID) kopiert Expo
+unverändert mit, `public/index.html` dient als HTML-Template.
 
-Zwei Schritte, die unabhängig voneinander sind.
+Der Catch-All-Rewrite ist zwingend: `app.json` setzt `web.output: "single"`,
+es gibt also nur eine `index.html` und keine Datei pro Route. Nebenwirkung, auf
+die der Update-Check unten Rücksicht nimmt: eine fehlende Datei liefert nicht
+404, sondern `index.html` mit Status 200.
 
-**Das getestete Update nach production schieben** — republished exakt dasselbe
-Update-Group, ohne neuen Bundle-Build:
+`vercel.json` setzt außerdem CSP und Security-Header. Die CSP erlaubt
+ausdrücklich `api.kickbase.com` (die App spricht die Kickbase-API direkt aus
+dem Browser, ohne Proxy) und `kickbase.b-cdn.net` für Logos und Spielerbilder.
+`script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
+warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
+
+`EXPO_PUBLIC_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
+Environment, Production und Preview getrennt. Ohne den Wert erscheint die
+Unterstützen-Karte im Mehr-Tab gar nicht (`src/support/supportUrl.ts`), eine
+Preview ohne die Variable zeigt sie also auch dann nicht, wenn Production sie
+hat.
+
+Lokal ist dabei eine Falle zu beachten: Metro backt `EXPO_PUBLIC_*` beim
+Bundling textuell ein, sein Transform-Cache schlüsselt aber nicht auf den
+Wert. Nach dem Setzen oder Ändern der Variable liefert ein Build aus dem Cache
+weiter den alten Stand — dann `rm -rf node_modules/.cache` und neu bauen.
+Vercel baut immer kalt und ist davon nicht betroffen.
+
+CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
+Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
+Vercels `deployment_status` eintrifft.
+
+## Updates im Browser
+
+Der reguläre Service-Worker-Update-Lifecycle taugt hier nicht: `public/sw.js`
+ändert sich zwischen Deploys nicht, also feuert `waiting`/`controllerchange`
+praktisch nie. Stattdessen läuft es über eine Build-ID:
+
+1. `scripts/write-build-id.ts` schreibt vor jedem Export
+   `public/build-id.txt` — Format `YYYYMMDDTHHMMSSZ-<sha7>`.
+2. `public/register-sw.js` merkt sich die ID beim ersten erfolgreichen Abruf
+   und holt sie danach neu: bei jedem Wechsel des Tabs in den Vordergrund
+   (`visibilitychange`) und zusätzlich alle 30 Minuten. Der Abruf läuft mit
+   `cache: 'no-store'` und prüft das Format — sonst würde der SPA-Rewrite eine
+   HTML-Seite als Build-ID durchgehen lassen.
+3. Weicht die ID ab, feuert `kickflow:update-available` auf `window`.
+4. `src/components/UpdateBanner.tsx` lauscht darauf und zeigt den Banner.
+   Reload passiert **nur auf Tap** — ein Auto-Reload könnte mitten in einer
+   ungespeicherten Aufstellungsbearbeitung zuschlagen.
+
+Caching in `public/sw.js`: `/_expo/*` cache-first (die Dateinamen tragen einen
+Hash, der Inhalt unter einer URL ändert sich nie), alles andere
+network-first mit Cache als Offline-Fallback.
+
+Zum Testen reicht `npm run build:web` plus ein statischer Server auf `dist/`;
+im Dev-Server ist `build-id.txt` nicht Teil des Bildes.
+
+## PWA
+
+`public/manifest.webmanifest` deklariert `display: standalone`, `lang: de`,
+Portrait und die Icons (192, 512, 512 maskable). Installiert wird über die
+Browser-eigene UI („Zum Home-Bildschirm hinzufügen"); die App zeigt dafür
+keinen eigenen Hinweis.
+
+Den Icon-Satz erzeugt `scripts/generate-icons.py` aus einer gemeinsamen
+Vektor-Marke:
 
 ```bash
-npm run update:promote:testflight
+pip install pillow cairosvg && python3 scripts/generate-icons.py
 ```
 
-Das erreicht alle bereits installierten Production-Builds mit passender
-runtimeVersion. Weil `testflight` und `production` dieselbe runtimeVersion
-haben (eas.json wird als ganze Datei gehasht, nicht pro Profil), passt ein auf
-TestFlight verifiziertes Update hier unverändert.
-
-**Einen Store-Build ausliefern** — wenn native Änderungen dabei sind oder eine
-neue Version in den App Store soll:
-
-```bash
-npm run release:ios          # Build mit Profil production + Auto-Submit
-npm run submit:ios           # nur einreichen, letzter Build
-```
-
-Den `testflight`-Build dafür **nicht** wiederverwenden: beide Profile landen
-im selben App-Store-Connect-Record, und ein zur Review eingereichter
-testflight-Build würde alle App-Store-Nutzer an den Tester-Kanal hängen.
-
-### 4. OTA-Update auf Production
-
-```bash
-npm run update:production
-```
-
-Geht direkt an alle App-Store-Nutzer mit passender runtimeVersion — ohne den
-Umweg über TestFlight also mit voller Reichweite. Für alles außer trivialen
-Fixes lieber Schritt 2 und dann Schritt 3.
-
-### Fingerprint: wann ein OTA-Update nicht reicht
-
-`runtimeVersion` steht in `app.json` auf `policy: "fingerprint"`. Ein Update
-wird nur ausgeliefert, wenn sein Fingerprint exakt dem des installierten
-Builds entspricht. Vor dem Publish prüfen:
-
-```bash
-eas build:list --platform ios --build-profile testflight --limit 5
-eas fingerprint:compare --build-id <BUILD-ID> --environment production
-```
-
-`--environment` muss zum Profil passen, sonst vergleichst du gegen andere
-Env-Variablen. Ohne Build-ID zur Hand:
-
-```bash
-npx expo-updates runtimeversion:resolve --platform ios
-npx expo-updates fingerprint:generate --platform ios   # inkl. Quellenliste
-```
-
-Den Fingerprint ändern unter anderem: `app.json`, `package.json` (inklusive
-`scripts`), `.gitignore`, native Dependencies — **und `eas.json`**, das
-`@expo/fingerprint` als ganze Datei mithasht und für das es keinen
-`sourceSkip` gibt. Nach einer Änderung an einer dieser Dateien erreichen
-OTA-Updates die bereits installierten Builds nicht mehr; es braucht einen
-neuen Build.
-
-Bewusst *nicht* im Fingerprint: `version` aus `app.json` — dafür sorgt
-`fingerprint.config.js`, sonst würde jeder Versions-Bump alle laufenden
-Installationen von OTA abschneiden.
-
-### Notfall: Update zurückziehen
-
-```bash
-eas update:roll-back-to-embedded --channel production
-```
-
-Setzt die Clients auf das im Binary eingebackene Bundle zurück. Alternativ ein
-älteres Update-Group per `eas update:republish` wieder nach vorn holen.
-
-### Nachschlagen
-
-```bash
-eas channel:view testflight              # welcher Branch hängt am Kanal
-eas update:list --branch testflight      # zuletzt publizierte Updates
-eas build:list --platform ios --limit 5  # Builds inkl. IDs und Status
-```
+Benachrichtigungen gibt es nicht. Aufstellungs-Deadline und ablaufende Gebote
+liefen früher über `expo-notifications` und damit nur nativ; Web Push bräuchte
+einen eigenen Server.

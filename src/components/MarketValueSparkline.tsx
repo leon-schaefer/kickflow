@@ -1,5 +1,4 @@
-import * as Haptics from 'expo-haptics';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
@@ -21,7 +20,6 @@ const PAD_Y = 8;
 export function MarketValueSparkline({ points, height = 120 }: MarketValueSparklineProps) {
   const [width, setWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const lastHapticIndex = useRef<number | null>(null);
 
   const values = points.map((p) => p.value);
   const trendUp = values.length > 0 && values[values.length - 1]! >= values[0]!;
@@ -34,12 +32,7 @@ export function MarketValueSparkline({ points, height = 120 }: MarketValueSparkl
   );
 
   const updateIndex = (x: number) => {
-    const index = nearestIndex(x, width, points.length);
-    if (lastHapticIndex.current !== index) {
-      lastHapticIndex.current = index;
-      void Haptics.selectionAsync();
-    }
-    setActiveIndex(index);
+    setActiveIndex(nearestIndex(x, width, points.length));
   };
 
   const pan = useMemo(
@@ -50,10 +43,7 @@ export function MarketValueSparkline({ points, height = 120 }: MarketValueSparkl
         .failOffsetY([-12, 12])
         .onStart((e) => updateIndex(e.x))
         .onUpdate((e) => updateIndex(e.x))
-        .onFinalize(() => {
-          setActiveIndex(null);
-          lastHapticIndex.current = null;
-        }),
+        .onFinalize(() => setActiveIndex(null)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [width, points.length],
   );
