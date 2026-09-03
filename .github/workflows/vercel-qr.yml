@@ -176,15 +176,33 @@ jobs:
               );
               const existing = comments.find((c) => c.body && c.body.includes(MARKER));
 
+              let written;
               if (existing) {
-                await github.rest.issues.updateComment({
+                written = await github.rest.issues.updateComment({
                   owner, repo, comment_id: existing.id, body,
                 });
                 core.info(`PR #${issue_number}: Kommentar aktualisiert → ${url}`);
               } else {
-                await github.rest.issues.createComment({
+                written = await github.rest.issues.createComment({
                   owner, repo, issue_number, body,
                 });
                 core.info(`PR #${issue_number}: Kommentar erstellt → ${url}`);
               }
+
+              // DIAGNOSE (temporär): die API quittiert den Kommentar mit 201,
+              // danach ist er nicht mehr auffindbar. Hier nachsehen, ob er
+              // unter seiner eigenen ID noch existiert.
+              core.info(`DIAG id=${written.data.id} url=${written.data.html_url}`);
+              try {
+                const back = await github.rest.issues.getComment({
+                  owner, repo, comment_id: written.data.id,
+                });
+                core.info(`DIAG re-read ok, body ${back.data.body.length} Zeichen`);
+              } catch (error) {
+                core.info(`DIAG re-read fehlgeschlagen: ${error.status} ${error.message}`);
+              }
+              const after = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100,
+              });
+              core.info(`DIAG Liste danach: ${after.length} Kommentare, Marker ${after.some((c) => c.body && c.body.includes(MARKER)) ? 'gefunden' : 'FEHLT'}`);
             }
