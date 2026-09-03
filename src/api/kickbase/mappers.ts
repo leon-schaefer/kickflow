@@ -8,6 +8,8 @@
  */
 import type {
   RawCompetitionMatchdays,
+  RawCompetitionPlayer,
+  RawCompetitionPlayers,
   RawCompetitionTeam,
   RawFixture,
   RawLeagueOverview,
@@ -26,6 +28,7 @@ import type {
 } from './schemas';
 import type {
   AuthSession,
+  CompetitionPlayer,
   LeagueOverview,
   LeagueRanking,
   LeagueRankingEntry,
@@ -218,6 +221,55 @@ export function toSquadPlayer(
           }
         : null,
   };
+}
+
+/**
+ * Ein Spieler aus einem Competition-Team-Kader. Zwei Eigenheiten gegenüber
+ * `toSquadPlayer`/`toMarketPlayer`:
+ *
+ * - Der Name kommt je nach Endpoint als ganzer String (`n`) oder in zwei
+ *   Feldern (`fn`/`ln`) — beide Formen werden bedient, weil der Pfad noch
+ *   nicht verifiziert ist (siehe rawCompetitionPlayerSchema).
+ * - `fallbackTeamId`: die Antwort ist nach Verein gruppiert, die einzelnen
+ *   Spieler-Einträge tragen `tid` deshalb nicht zwingend. Ohne die Vereins-ID
+ *   griffen die Vereins-Chips im Filter nicht.
+ */
+export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: string): CompetitionPlayer {
+  const marketValue = raw.mv ?? 0;
+  const totalPoints = raw.p ?? raw.tp ?? 0;
+  const averagePoints = raw.ap ?? 0;
+  const fullName = [raw.fn, raw.ln].filter(Boolean).join(' ');
+  return {
+    id: raw.i,
+    name: raw.n ?? (fullName || 'Unbekannt'),
+    position: mapPosition(raw.pos),
+    teamId: raw.tid ?? fallbackTeamId,
+
+    marketValue,
+    marketValueTrend: mapMarketValueTrend(raw.mvt),
+
+    totalPoints,
+    averagePoints,
+    valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
+    valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
+
+    status: mapStatus(raw.st),
+    imageUrl: imageUrl(raw.pim),
+  };
+}
+
+/**
+ * Spielerliste aus einer Team-Kader-Antwort. Unter welchem Schlüssel sie
+ * steckt, ist pfadabhängig (`it`/`pl`/`players`, siehe
+ * rawCompetitionPlayersSchema) — der erste vorhandene gewinnt. Ein leeres
+ * Array ist ein legitimes Ergebnis und KEIN Fehler; die Pfadsuche in
+ * getCompetitionPlayers() wertet es allerdings als "dieser Pfad liefert
+ * nichts" und probiert den nächsten Kandidaten.
+ */
+export function toCompetitionPlayers(raw: RawCompetitionPlayers, fallbackTeamId: string): CompetitionPlayer[] {
+  const items = raw.it ?? raw.pl ?? raw.players ?? [];
+  const teamId = raw.tid ?? fallbackTeamId;
+  return items.map((item) => toCompetitionPlayer(item, teamId));
 }
 
 export function toMarketOffer(raw: RawMarketOffer): MarketOffer {

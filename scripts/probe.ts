@@ -7,6 +7,8 @@
  * Nutzung:
  *   1. .env.local.example nach .env.local kopieren, KICKBASE_EMAIL/-PASSWORD eintragen
  *   2. npm run probe
+ *   3. npm run probe -- --players  (klärt die Quelle für den competition-weiten
+ *      Spielerbestand, siehe probeCompetitionPlayers() unten)
  *
  * Schreibt Rohantworten nach scripts/.probe-output/ (git-ignored) und eine
  * Zusammenfassung der auffälligen Felder auf die Konsole.
@@ -22,6 +24,7 @@ const BASE_URL = 'https://api.kickbase.com';
 const OUTPUT_DIR = path.join(__dirname, '.probe-output');
 const SAVE_LINEUP = process.argv.includes('--save-lineup');
 const PROBE_OFFERS = process.argv.includes('--offers');
+const PROBE_PLAYERS = process.argv.includes('--players');
 
 async function main() {
   const email = process.env.KICKBASE_EMAIL;
@@ -135,8 +138,11 @@ async function main() {
 
   console.log('→ Competition-Tabelle (Teamnamen) …');
   const competitionId = leagueList[0].cpi ?? '1';
+  // Außerhalb des try, damit --players unten die Team-IDs weiterverwenden kann.
+  let competitionTable: any = null;
   try {
     const table = await getJson(`/v4/competitions/${competitionId}/table`, token);
+    competitionTable = table;
     await dump('competition-table', table);
     console.log(
       '  tid → tn:',
@@ -294,7 +300,121 @@ async function main() {
     await probeOffers(token, leagueId, marketItems);
   }
 
+  if (PROBE_PLAYERS) {
+    await probeCompetitionPlayers(token, competitionId, competitionTable, squad.it?.[0]?.n);
+  }
+
   console.log(`\nAlle Rohantworten liegen in ${OUTPUT_DIR}`);
+}
+
+/**
+ * `--players`: klärt, über welchen Pfad der KOMPLETTE Spielerbestand einer
+ * Competition (also alle Bundesliga-Spieler, nicht nur eigene und gelistete)
+ * erreichbar ist. Alle Kandidaten hier sind UNVERIFIZIERT — die inoffiziellen
+ * Doku-Quellen (kevinskyba/kickbase-api-doc, simonsagstetter/kickbase-api-v4-docs)
+ * führen sie teils nur in v3-Pfadform. Der Probe probiert sie deshalb
+ * nacheinander durch und dumpt jede Antwort, statt eine davon zu unterstellen.
+ *
+ * Für die Team-Kader reicht EIN Verein zur Identifikation des Pfads — der
+ * Spieler-Tab läuft danach über alle 18 (siehe getCompetitionPlayers in
+ * src/api/kickbase/endpoints.ts).
+ */
+async function probeCompetitionPlayers(
+  token: string,
+  competitionId: string,
+  table: any,
+  squadPlayerName: string | undefined,
+) {
+  console.log('\n=== --players: Quellen für den competition-weiten Spielerbestand ===');
+
+  const teamIds: string[] = (table?.it ?? []).map((t: any) => t.tid).filter(Boolean);
+  const sampleTeamId = teamIds[0];
+  if (!sampleTeamId) {
+    console.warn(
+      '  Keine Team-IDs aus /competitions/{id}/table — die Team-Kader-Kandidaten werden übersprungen.',
+    );
+  }
+
+  // Suchbegriff aus dem eigenen Kader: ein real existierender Nachname trifft
+  // mit höherer Wahrscheinlichkeit als ein geratener, und ein leeres Ergebnis
+  // wäre von "Endpoint liefert nie etwas" nicht zu unterscheiden.
+  const searchTerm = (squadPlayerName ?? 'mueller').trim().split(/\s+/).pop() ?? 'mueller';
+  console.log(`  Suchbegriff für die Such-Kandidaten: "${searchTerm}"`);
+
+  const candidates: { label: string; path: string }[] = [
+    ...(sampleTeamId
+      ? [
+          {
+            label: 'Team-Kader (teamprofile)',
+            path: `/v4/competitions/${competitionId}/teams/${sampleTeamId}/teamprofile`,
+          },
+          {
+            label: 'Team-Kader (players)',
+            path: `/v4/competitions/${competitionId}/teams/${sampleTeamId}/players`,
+          },
+          {
+            label: 'Team-Kader (teamcenter)',
+            path: `/v4/competitions/${competitionId}/teams/${sampleTeamId}/teamcenter`,
+          },
+        ]
+      : []),
+    {
+      label: 'Suche (competition-scoped)',
+      path: `/v4/competitions/${competitionId}/search?t=${encodeURIComponent(searchTerm)}`,
+    },
+    { label: 'Suche (global)', path: `/v4/competitions/search?t=${encodeURIComponent(searchTerm)}` },
+    { label: 'Top-Spieler (best)', path: `/v4/competitions/${competitionId}/best?position=0` },
+    { label: 'Spielerliste (players)', path: `/v4/competitions/${competitionId}/players` },
+  ];
+
+  const working: string[] = [];
+  for (const candidate of candidates) {
+    try {
+      const body = await getJson(candidate.path, token);
+      await dump(`competition-players-${dumpName(candidate.path)}`, body);
+      const list = firstPlayerArray(body);
+      console.log(`✓ ${candidate.label}  ${candidate.path}`);
+      console.log(`    Top-Level-Keys: ${Object.keys(body).join(', ')}`);
+      if (list) {
+        working.push(candidate.path);
+        console.log(`    ${list.items.length} Spieler unter "${list.key}". Erster Eintrag:`, list.items[0]);
+      } else {
+        console.log('    Kein Spieler-Array im Body erkannt (siehe Dump).');
+      }
+    } catch (err) {
+      console.warn(`✗ ${candidate.label}  ${candidate.path}`);
+      console.warn(`    ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  console.log('\nErgebnis:');
+  if (working.length === 0) {
+    console.log('  KEIN Kandidat liefert Spieler. Der Spieler-Tab bleibt ohne competition-weite Quelle.');
+  } else {
+    console.log(`  Nutzbar: ${working.join(', ')}`);
+    console.log(
+      '  Den obersten davon in TEAM_PLAYER_PATHS (src/api/kickbase/endpoints.ts) als einzigen\n' +
+        '  Pfad stehen lassen und die übrigen Kandidaten dort löschen. Weichen die Feldnamen im\n' +
+        '  Dump von rawCompetitionPlayerSchema (src/api/kickbase/schemas.ts) ab, dort nachziehen.',
+    );
+  }
+}
+
+/** Sucht im Body das erste Array, dessen Einträge nach Spielern aussehen (`i` plus `pos`/`mv`). */
+function firstPlayerArray(body: any): { key: string; items: any[] } | null {
+  for (const [key, value] of Object.entries(body ?? {})) {
+    if (!Array.isArray(value) || value.length === 0) continue;
+    const first: any = value[0];
+    if (first && typeof first === 'object' && 'i' in first && ('pos' in first || 'mv' in first)) {
+      return { key, items: value };
+    }
+  }
+  return null;
+}
+
+/** Pfad → dateisystemtauglicher Dump-Name. */
+function dumpName(urlPath: string): string {
+  return urlPath.replace(/^\/v4\//, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/-+$/, '');
 }
 
 async function getJson(path: string, token: string): Promise<any> {

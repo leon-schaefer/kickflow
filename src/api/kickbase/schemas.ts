@@ -239,6 +239,52 @@ export const rawCompetitionTableSchema = z.looseObject({
 });
 export type RawCompetitionTable = z.infer<typeof rawCompetitionTableSchema>;
 
+/**
+ * Ein Spieler aus dem competition-weiten Bestand (Team-Kader einer
+ * Competition, siehe getCompetitionPlayers in endpoints.ts). Die Feldnamen
+ * sind die Schnittmenge dessen, was Kader- (`rawSquadPlayerSchema`) und
+ * Marktantworten (`rawMarketPlayerSchema`) liefern — beide Namensvarianten
+ * werden akzeptiert, weil der Pfad selbst noch unverifiziert ist:
+ * der Name kommt entweder als `n` (Kader/Markt) oder als `fn`/`ln`
+ * (Spieler-Detail), die Punkte als `p` oder `tp`.
+ *
+ * TODO nach `npm run probe -- --players`: die real gelieferten Felder gegen
+ * scripts/.probe-output/competition-players-*.json abgleichen und die hier
+ * nicht vorkommenden Varianten entfernen.
+ */
+export const rawCompetitionPlayerSchema = z.looseObject({
+  i: z.string(),
+  n: z.string().optional(),
+  fn: z.string().optional(),
+  ln: z.string().optional(),
+  pos: z.number().optional(),
+  tid: z.string().optional(),
+  st: z.number().optional(),
+  mv: z.number().optional(),
+  mvt: z.number().optional(),
+  /** Gesamtpunkte — `p` in Kader-/Marktlisten, `tp` im Spieler-Detail. */
+  p: z.number().optional(),
+  tp: z.number().optional(),
+  ap: z.number().optional(),
+  pim: z.string().optional(),
+});
+export type RawCompetitionPlayer = z.infer<typeof rawCompetitionPlayerSchema>;
+
+/**
+ * Antworthülle der Team-Kader-Endpoints. Welcher Schlüssel die Spieler trägt,
+ * ist pfadabhängig und unverifiziert (`it` in allen bisher bekannten
+ * v4-Listen, `pl` bzw. `players` in den v3-Doku-Beispielen) — deshalb alle
+ * drei optional und die Auswahl in `toCompetitionPlayers()`.
+ */
+export const rawCompetitionPlayersSchema = z.looseObject({
+  it: z.array(rawCompetitionPlayerSchema).optional(),
+  pl: z.array(rawCompetitionPlayerSchema).optional(),
+  players: z.array(rawCompetitionPlayerSchema).optional(),
+  /** Team-ID, falls die Antwort sie mitschickt — Spieler-Einträge tragen `tid` nicht zwingend. */
+  tid: z.string().optional(),
+});
+export type RawCompetitionPlayers = z.infer<typeof rawCompetitionPlayersSchema>;
+
 export const rawPlayerDetailSchema = z.looseObject({
   i: z.string(),
   fn: z.string().optional(),
