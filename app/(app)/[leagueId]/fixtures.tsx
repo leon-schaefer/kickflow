@@ -122,9 +122,7 @@ export default function FixturesScreen() {
                       {team.name || `Team ${team.id}`}
                     </Text>
                   </View>
-                  <View style={styles.fixtureCells}>
-                    <FixtureDifficultyStrip ratings={ratings} lens={lens} />
-                  </View>
+                  <FixtureDifficultyStrip ratings={ratings} lens={lens} fitWidth />
                   <Text style={styles.avgText}>{formatAverage(average[lens])}</Text>
                 </View>
               ))}
@@ -208,11 +206,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textPrimary,
     flexShrink: 1,
-  },
-  fixtureCells: {
-    flexDirection: 'row',
-    gap: 4,
-    flex: 1,
   },
   avgText: {
     ...typography.caption,
