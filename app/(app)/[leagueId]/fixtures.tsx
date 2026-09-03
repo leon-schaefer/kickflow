@@ -122,7 +122,14 @@ export default function FixturesScreen() {
                       {team.name || `Team ${team.id}`}
                     </Text>
                   </View>
-                  <FixtureDifficultyStrip ratings={ratings} lens={lens} fitWidth />
+                  <ScrollView
+                    horizontal
+                    style={styles.fixtureCells}
+                    contentContainerStyle={styles.fixtureCellsContent}
+                    showsHorizontalScrollIndicator={false}
+                  >
+                    <FixtureDifficultyStrip ratings={ratings} lens={lens} />
+                  </ScrollView>
                   <Text style={styles.avgText}>{formatAverage(average[lens])}</Text>
                 </View>
               ))}
@@ -195,6 +202,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  /**
+   * Nur der Spielstreifen scrollt: Vereinsname links und Durchschnitt rechts
+   * bleiben stehen. Mit 10 Spielen ist der Streifen breiter als die Spalte —
+   * ohne den eigenen ScrollView (Yoga kennt kein `min-width: auto`) liefen die
+   * Rechtecke über den Wert rechts.
+   */
+  fixtureCells: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fixtureCellsContent: {
+    alignItems: 'center',
   },
   teamCell: {
     flexDirection: 'row',
