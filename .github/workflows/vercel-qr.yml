@@ -48,8 +48,12 @@ concurrency:
   group: vercel-qr-${{ github.event.deployment.ref || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# deployments: read braucht der pull_request-Pfad, um das letzte
+# erfolgreiche Deployment zum Head-Commit nachzuschlagen — ohne das
+# antwortet /repos/.../deployments mit 403.
 permissions:
   contents: read
+  deployments: read
   pull-requests: write
 
 jobs:
@@ -74,9 +78,18 @@ jobs:
             // pull_request-Pfad — beim deployment_status-Event steht alles
             // schon im Payload.
             async function lookupDeployment(sha) {
-              const deployments = await github.rest.repos.listDeployments({
-                owner, repo, sha, per_page: 20,
-              });
+              let deployments;
+              try {
+                deployments = await github.rest.repos.listDeployments({
+                  owner, repo, sha, per_page: 20,
+                });
+              } catch (error) {
+                // Fork-PRs bekommen ein read-only Token ohne deployments-Scope.
+                // Kein Grund, den Lauf rot zu machen — das deployment_status-
+                // Event läuft im Kontext des Base-Repos und kommt trotzdem.
+                core.info(`Deployments zu ${sha.slice(0, 7)} nicht lesbar (${error.status || error.message}).`);
+                return null;
+              }
               for (const deployment of deployments.data) {
                 const statuses = await github.rest.repos.listDeploymentStatuses({
                   owner, repo, deployment_id: deployment.id, per_page: 100,
