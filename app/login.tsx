@@ -11,7 +11,9 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
+import { ExternalLink } from '@/components/ExternalLink';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
+import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 export default function LoginScreen() {
@@ -87,9 +89,19 @@ export default function LoginScreen() {
 
         <Text style={styles.hint}>
           Kickflow spricht direkt mit der Kickbase-API. Deine Zugangsdaten und dein Zugriffstoken
-          verlassen dieses Gerät ausschließlich in Richtung Kickbase — nie in Richtung eines
-          eigenen Servers.
+          verlassen dieses Gerät ausschließlich in Richtung Kickbase.
         </Text>
+
+        {/*
+         * Vor dem Login ist der Mehr-Tab unerreichbar — hier ist die einzige
+         * Stelle, an der jemand den Datenschutz-Hinweis lesen kann, bevor er
+         * seine Kickbase-Zugangsdaten eintippt.
+         */}
+        <View style={styles.legal}>
+          <ExternalLink url={HOMEPAGE_URL} label="Homepage" compact />
+          <Text style={styles.legalSeparator}>·</Text>
+          <ExternalLink url={PRIVACY_URL} label="Datenschutz" compact />
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -155,5 +167,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xl,
     lineHeight: 16,
+  },
+  legal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  legalSeparator: {
+    ...typography.small,
+    color: colors.textMuted,
   },
 });

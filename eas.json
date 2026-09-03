@@ -62,6 +62,26 @@
     "testflight": {
       "extends": "production"
     },
-    "production": {}
+    // ascAppId ist für CI nicht optional: `eas build --auto-submit` richtet die
+    // Submission direkt beim Queuen ein, und ohne diese ID fragt eas
+    // interaktiv, welcher App-Store-Connect-Record gemeint ist. In CI gibt es
+    // niemanden, der antwortet — der erste Workflow-Lauf hat den Build
+    // gequeut, dann "Set ascAppId in the submit profile (eas.json) or re-run
+    // this command in interactive mode / Submission failed" gemeldet und den
+    // Build wieder eingesammelt. Lokal fiel das nie auf, weil interaktive
+    // Läufe die ID selbst auflösen.
+    //
+    // Der Wert ist die Apple ID des Records (App Store Connect > App
+    // Information > General Information), hier aus der letzten erfolgreichen
+    // Submission ausgelesen: `eas submit:list --json` > iosConfig.
+    //
+    // Die Felder gehören unter "ios", nicht direkt ins Profil — dort liegen
+    // nur "extends" und die Plattformschlüssel, sonst lehnt das Schema mit
+    // "submit.production.ascAppId is not allowed" ab.
+    "production": {
+      "ios": {
+        "ascAppId": "6807375833"
+      }
+    }
   }
 }
