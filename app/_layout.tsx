@@ -1,7 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Observe, ObserveRoot } from 'expo-observe';
 import { Stack, ThemeProvider } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/auth/AuthProvider';
@@ -33,7 +32,6 @@ function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <StatusBar style="light" />
             <ThemeProvider value={navigationTheme}>
               <Stack screenOptions={stackScreenOptions}>
                 <Stack.Screen name="index" options={{ headerShown: false }} />

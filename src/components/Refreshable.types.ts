@@ -1,14 +1,13 @@
 import type { ReactElement } from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent, RefreshControlProps } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 /**
  * Props, die eine `Refreshable`-Kindfunktion an ihren Scroller (ScrollView /
- * FlatList / SectionList) spreadet. Auf Web zusätzlich `onScroll` +
- * `scrollEventThrottle`, damit Refreshable.web.tsx die Scrollposition kennt —
- * auf nativ bleiben die einfach ungenutzt, wenn der Scroller sie nicht braucht.
+ * FlatList / SectionList) spreadet: `onScroll` + `scrollEventThrottle`, damit
+ * Refreshable.tsx die Scrollposition kennt und einen Pull nur am obersten
+ * Rand als solchen wertet.
  */
 export interface RefreshableChildProps {
-  refreshControl?: ReactElement<RefreshControlProps>;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   scrollEventThrottle?: number;
 }
