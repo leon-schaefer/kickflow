@@ -3,9 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 /**
- * Rein präsentational, plattformunabhängig — wird von UpdateBanner.tsx
- * (nativ, expo-updates) und UpdateBanner.web.tsx (Service-Worker-Erkennung)
- * identisch verwendet, damit der Banner auf beiden Plattformen gleich aussieht.
+ * Rein präsentational: der Banner selbst, ohne die Erkennung. Die steckt in
+ * UpdateBanner.tsx, das auf das Event aus public/register-sw.js lauscht.
  */
 export function UpdateBannerView({ onPress }: { onPress: () => void }) {
   const insets = useSafeAreaInsets();

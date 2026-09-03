@@ -2,8 +2,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -42,10 +40,7 @@ export default function LoginScreen() {
   const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Kickflow</Text>
         <Text style={styles.subtitle}>Mit deinem Kickbase-Konto anmelden</Text>
@@ -102,8 +97,13 @@ export default function LoginScreen() {
           <Text style={styles.legalSeparator}>·</Text>
           <ExternalLink url={PRIVACY_URL} label="Datenschutz" compact />
         </View>
+
+        <Text style={styles.disclaimer}>
+          Inoffizielle App. Nicht mit der Kickbase GmbH verbunden. Kickbase ist eine Marke der
+          Kickbase GmbH.
+        </Text>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -177,5 +177,13 @@ const styles = StyleSheet.create({
   legalSeparator: {
     ...typography.small,
     color: colors.textMuted,
+  },
+  // Wie `hint`, aber mit kleinerem Abstand: sitzt direkt unter den Links.
+  disclaimer: {
+    ...typography.small,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 16,
   },
 });

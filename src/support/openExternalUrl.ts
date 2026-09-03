@@ -1,8 +1,17 @@
 /**
- * Generischer Re-Export, existiert nur für TypeScript/Tooling (tsc, vitest),
- * die Metros Plattform-Auflösung (.web.ts / .native.ts) nicht kennen.
- * Metro selbst bevorzugt beim Bundling immer die plattformspezifische Datei
- * und lädt diese Datei nie tatsächlich — siehe openExternalUrl.web.ts /
- * openExternalUrl.native.ts. Vorbild: src/auth/tokenStore.ts.
+ * Öffnet einen neuen Tab.
+ *
+ * Bewusst `window.open` mit `_blank` und nicht ein Wechsel von
+ * `window.location`: in der installierten PWA (`"display": "standalone"` in
+ * public/manifest.webmanifest) gibt es weder Adressleiste noch Zurück-Pfeil,
+ * der Nutzer säße auf der fremden Seite fest und müsste die App neu starten.
+ *
+ * `noopener,noreferrer`: die geöffnete Seite bekommt keinen `window.opener`
+ * auf die App und keinen Referrer (passt zur Referrer-Policy `no-referrer`
+ * aus vercel.json). Der Rückgabewert wird absichtlich nicht geprüft — mit
+ * `noopener` liefert `window.open` laut HTML-Spec immer `null`, ein
+ * blockiertes Popup ließe sich daran also gar nicht erkennen.
  */
-export * from './openExternalUrl.web';
+export async function openExternalUrl(url: string): Promise<void> {
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
