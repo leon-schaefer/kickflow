@@ -93,8 +93,9 @@ export async function getLeagues(token: string): Promise<LeagueSummary[]> {
 /**
  * Der zentrale Trick: `lineup/overview` (Startelf + Formation) und `squad`
  * (kompletter Kader) werden parallel geholt und zu EINEM Objekt gemerged.
- * Feld- und Listenansicht der Aufstellung lesen dieselbe Query — nie
- * inkonsistent, und der Umschalter kostet keinen Request.
+ * Der Aufstellungs-Screen und der Kader-Filter des Spieler-Tabs lesen
+ * dieselbe Query — nie inkonsistent, und keiner von beiden kostet den anderen
+ * einen Request.
  */
 export async function getLineup(token: string, leagueId: string): Promise<LineupData> {
   const [overviewRaw, squadRaw] = await Promise.all([
@@ -322,8 +323,8 @@ export async function getPlayerBasic(token: string, leagueId: string, playerId: 
 /**
  * NUR die Saison-Performance eines Spielers — bewusst schmal, im Gegensatz zu
  * getPlayer(), das dafür vier Requests abfeuert. Kickbase liefert Spielminuten
- * ausschließlich hier (`ph[].mp`), nicht in Kader- oder Marktlisten; die
- * Kaderliste und der Markt-Tab rufen das deshalb pro Spieler auf. Das Concurrency-Gate hält den
+ * ausschließlich hier (`ph[].mp`), nicht in Kader- oder Marktlisten; der
+ * Spieler- und der Markt-Tab rufen das deshalb pro Spieler auf. Das Concurrency-Gate hält den
  * daraus entstehenden Schwung Requests von Cloudflare fern.
  */
 export async function getPlayerPerformance(

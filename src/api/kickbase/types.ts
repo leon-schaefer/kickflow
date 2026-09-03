@@ -102,6 +102,8 @@ export interface MarketPlayer {
   /** true = kein Manager als Verkäufer (freier Spieler/Kickbase-Listing). */
   isBotListing: boolean;
   sellerName: string | null;
+  /** User-ID des Verkäufers (Rohfeld `u.i`) — zugleich der Besitzer, siehe resolvePlayerOwner. */
+  sellerId: string | null;
   offerCount: number;
   listedAt: string | null;
 

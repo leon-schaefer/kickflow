@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 interface SortChipsProps<K extends string> {
-  /** `dividerBefore`: Trenner vor diesem Chip, z. B. zwischen „Position" und den Wert-Kennzahlen in der Kaderliste. */
+  /** `dividerBefore`: Trenner vor diesem Chip, z. B. zwischen den absoluten und den Wert-Kennzahlen im Spieler-Tab. */
   options: readonly { key: K; label: string; dividerBefore?: boolean }[];
   value: K;
   onChange: (key: K) => void;

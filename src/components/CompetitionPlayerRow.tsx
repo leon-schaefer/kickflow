@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { CompetitionPlayer } from '@/api/kickbase';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatMinutes } from '@/utils/format';
 import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
 import type { PlayerOrigin } from '@/utils/playerOwnership';
+import type { PlaytimeTotals } from '@/utils/playtime';
 import type { StatCell } from './PlayerRowFrame';
 import { PlayerRowFrame, PlayerStatColumn } from './PlayerRowFrame';
 import { StatusBadge } from './StatusBadge';
@@ -18,15 +19,17 @@ interface CompetitionPlayerRowProps {
   teamLogoUrl?: string | null;
   /** Fehlt, wenn der Spieler weder mir gehört noch gelistet ist (der Normalfall). */
   origin?: PlayerOrigin;
+  /** Nur gesetzt, wenn nach Punkte/Min sortiert wird und der Request durch ist. */
+  playtime?: PlaytimeTotals;
   onPress?: (player: CompetitionPlayer) => void;
 }
 
 /**
- * Eine Zeile im Spieler-Tab. Gegenüber `PlayerRow` (Kader) fehlen hier
- * bewusst Aufstellungs- und Tagesänderungs-Angaben — der competition-weite
- * Bestand liefert sie nicht (siehe CompetitionPlayer) —, dafür kommen der
- * Verein und der Herkunftshinweis dazu: bei ~500 Spielern ist „gehört mir“
- * bzw. „ist zu haben“ die Information, nach der man sucht.
+ * Eine Zeile im Spieler-Tab. Aufstellungs- und Tagesänderungs-Angaben fehlen
+ * hier, weil der competition-weite Bestand sie nicht liefert (siehe
+ * CompetitionPlayer); dafür kommen Verein und Herkunftshinweis dazu — bei
+ * ~500 Spielern ist „gehört mir“ bzw. „ist zu haben“ die Information, nach
+ * der man sucht.
  */
 export function CompetitionPlayerRow({
   player,
@@ -34,6 +37,7 @@ export function CompetitionPlayerRow({
   teamName,
   teamLogoUrl,
   origin,
+  playtime,
   onPress,
 }: CompetitionPlayerRowProps) {
   // Der Marktwert steht schon als Anker in Zeile 1 — eine zweite identische
@@ -42,7 +46,7 @@ export function CompetitionPlayerRow({
 
   const cells: StatCell[] = [
     { value: formatCurrency(player.marketValue) },
-    { value: formatMetric(player, secondary), label: metricLabels[secondary].cell },
+    { value: formatMetric(player, secondary, playtime), label: metricLabels[secondary].cell },
   ];
 
   return (
@@ -67,6 +71,8 @@ export function CompetitionPlayerRow({
             </Text>
           </>
         )}
+        {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
+        {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
         {origin?.mine && (
           <View style={styles.originTag}>
             <Text style={styles.originTagText}>Mein Kader</Text>
@@ -97,6 +103,10 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
     flexShrink: 1,
+  },
+  playtimeText: {
+    ...typography.small,
+    color: colors.textMuted,
   },
   originTag: {
     paddingHorizontal: spacing.xs,

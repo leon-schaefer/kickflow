@@ -8,7 +8,8 @@
  *   1. .env.local.example nach .env.local kopieren, KICKBASE_EMAIL/-PASSWORD eintragen
  *   2. npm run probe
  *   3. npm run probe -- --players  (klärt die Quelle für den competition-weiten
- *      Spielerbestand, siehe probeCompetitionPlayers() unten)
+ *      Spielerbestand und die Besitzer-Zuordnung, siehe probeCompetitionPlayers()
+ *      und probeOwnerSources() unten)
  *
  * Schreibt Rohantworten nach scripts/.probe-output/ (git-ignored) und eine
  * Zusammenfassung der auffälligen Felder auf die Konsole.
@@ -302,6 +303,7 @@ async function main() {
 
   if (PROBE_PLAYERS) {
     await probeCompetitionPlayers(token, competitionId, competitionTable, squad.it?.[0]?.n);
+    await probeOwnerSources(token, leagueId, marketItems);
   }
 
   console.log(`\nAlle Rohantworten liegen in ${OUTPUT_DIR}`);
@@ -399,6 +401,85 @@ async function probeCompetitionPlayers(
         '  Pfad stehen lassen und die übrigen Kandidaten dort löschen. Weichen die Feldnamen im\n' +
         '  Dump von rawCompetitionPlayerSchema (src/api/kickbase/schemas.ts) ab, dort nachziehen.',
     );
+  }
+}
+
+/**
+ * Zweiter Teil von `--players`: die Quellen für "wem gehört dieser Spieler".
+ *
+ * Die App leitet den Besitzer derzeit aus dem eigenen Kader, den
+ * Transfermarkt-Listings und den Startelfen der Rangliste ab (siehe
+ * resolvePlayerOwner in src/utils/playerOwnership.ts). Damit bleibt ein
+ * Bankspieler eines Rivalen "unbekannt". Zwei Dinge würden das schließen, und
+ * beide sind unverifiziert — deshalb hier nur nachgesehen, nicht geraten:
+ *
+ * 1. Ein Besitzerfeld in der liga-bezogenen Spielerantwort. Dafür wird ein
+ *    FREMDER Spieler abgefragt (einer vom Transfermarkt), nicht ein eigener:
+ *    bei eigenen Spielern wäre ein Besitzerfeld nicht von einem beliebigen
+ *    "gehört dir"-Flag zu unterscheiden.
+ * 2. Ein Endpoint für den kompletten Kader eines fremden Managers.
+ */
+async function probeOwnerSources(token: string, leagueId: string, marketItems: any[]) {
+  console.log('\n=== --players: Besitzer-Quellen ===');
+
+  const foreignPlayerId = marketItems.find((item: any) => item.i)?.i;
+  if (!foreignPlayerId) {
+    console.warn('  Kein Marktspieler vorhanden — der Test auf ein Besitzerfeld wird übersprungen.');
+  } else {
+    const path = `/v4/leagues/${leagueId}/players/${foreignPlayerId}`;
+    try {
+      const body = await getJson(path, token);
+      await dump('player-detail-foreign', body);
+      console.log(`✓ ${path}`);
+      console.log(`    Felder: ${describeShape(body)}`);
+      // Kandidaten fürs Auge: alles, was nach User-Referenz aussehen könnte.
+      const suspects = Object.entries(body).filter(([key]) => /^(u|us|usr|user|own|ow)/i.test(key));
+      console.log(
+        suspects.length > 0
+          ? `    Besitzer-Kandidaten: ${suspects.map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')}`
+          : '    Kein Feld, dessen Name nach Besitzer/User aussieht — Dump trotzdem prüfen.',
+      );
+    } catch (err) {
+      console.warn(`✗ ${path}`);
+      console.warn(`    ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  let managerId: string | undefined;
+  try {
+    const managers = await getJson(`/v4/leagues/${leagueId}/settings/managers`, token);
+    managerId = (managers.us ?? []).map((u: any) => u.i).filter(Boolean)[0];
+  } catch (err) {
+    console.warn('  Manager-Liste nicht abrufbar:', err instanceof Error ? err.message : String(err));
+  }
+
+  if (!managerId) {
+    console.warn('  Keine Manager-ID — die Kader-Endpoints werden übersprungen.');
+    return;
+  }
+
+  const candidates = [
+    `/v4/leagues/${leagueId}/managers/${managerId}/squad`,
+    `/v4/leagues/${leagueId}/managers/${managerId}/players`,
+    `/v4/leagues/${leagueId}/users/${managerId}/squad`,
+    `/v4/leagues/${leagueId}/users/${managerId}/players`,
+  ];
+  for (const path of candidates) {
+    try {
+      const body = await getJson(path, token);
+      await dump(`manager-squad-${dumpName(path)}`, body);
+      const list = firstPlayerArray(body);
+      console.log(`✓ ${path}`);
+      console.log(`    Felder: ${describeShape(body)}`);
+      console.log(
+        list
+          ? `    ${list.items.length} Spieler unter "${list.key}" — damit wäre der Besitz vollständig auflösbar.`
+          : '    Kein Spieler-Array erkannt (siehe Dump).',
+      );
+    } catch (err) {
+      console.warn(`✗ ${path}`);
+      console.warn(`    ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 }
 
