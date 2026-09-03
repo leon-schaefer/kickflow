@@ -2,33 +2,9 @@
   "expo": {
     "name": "kickflow",
     "slug": "kickflow",
-    "scheme": "kickflow",
     "version": "1.0.2",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0F0C",
-    "newArchEnabled": true,
     "experiments": {
       "typedRoutes": true
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "dev.codewithleon.kickflow",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#0B0F0C",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.kickflow.app",
-      "permissions": ["SCHEDULE_EXACT_ALARM"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -36,38 +12,9 @@
       "bundler": "metro",
       "themeColor": "#0B0F0C"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-status-bar",
-      "expo-system-ui",
-      "expo-notifications",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#0B0F0C",
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
-          "dark": {
-            "backgroundColor": "#0B0F0C",
-            "image": "./assets/splash-icon.png"
-          }
-        }
-      ]
-    ],
+    "plugins": ["expo-router"],
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "e8a724f7-95f2-4230-bac0-9c61ca7971aa"
-      }
-    },
-    "owner": "leon-schaefer",
-    "runtimeVersion": {
-      "policy": "fingerprint"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/e8a724f7-95f2-4230-bac0-9c61ca7971aa",
-      "fallbackToCacheTimeout": 0
+      "router": {}
     }
   }
 }
