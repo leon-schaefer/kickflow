@@ -166,9 +166,9 @@ jobs:
                 'Handy zuerst einen Vercel-Login.</sub>',
             ].join('\n');
 
-            // Ein Kommentar pro PR, bei jedem Deployment aktualisiert — so wie
-            // es der Fingerprint-Report in pr.yml auch hält. Scannen soll man
-            // immer das neueste Deployment, nicht in einer Liste danach suchen.
+            // Ein Kommentar pro PR, bei jedem Deployment aktualisiert:
+            // scannen soll man immer das neueste Deployment, nicht in einer
+            // Liste danach suchen.
             for (const issue_number of pullNumbers) {
               const comments = await github.paginate(
                 github.rest.issues.listComments,
