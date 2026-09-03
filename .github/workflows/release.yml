@@ -51,6 +51,18 @@ jobs:
     name: OTA oder Build
     runs-on: ubuntu-latest
     steps:
+      # Ganz vorne, nicht erst beim ersten eas-Aufruf: ohne Token bricht der
+      # Check-Step sonst mit einem Node-Stacktrace ab, in dem die eigentliche
+      # Meldung ("An Expo user account is required to proceed") untergeht.
+      - name: EXPO_TOKEN vorhanden?
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Repository-Secret EXPO_TOKEN fehlt. Anlegen unter Settings > Secrets and variables > Actions, Token erzeugen unter https://expo.dev/settings/access-tokens"
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v6
@@ -137,7 +149,11 @@ jobs:
           PROFILE: ${{ steps.target.outputs.profile }}
           OTA: ${{ steps.check.outputs.ota-possible }}
         run: |
-          if [ "$OTA" = "true" ]; then
+          # OTA ist leer, wenn der Check-Step selbst abgebrochen ist — dann ist
+          # weder ein Update noch ein Build rausgegangen.
+          if [ -z "$OTA" ]; then
+            echo "Abgebrochen, bevor über OTA oder Build entschieden werden konnte. Nichts veröffentlicht." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$OTA" = "true" ]; then
             echo "OTA-Update auf Kanal \`$CHANNEL\` publiziert." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Fingerprint geändert — Build mit Profil \`$PROFILE\` gestartet und zur App-Store-Connect-Übertragung eingereiht." >> "$GITHUB_STEP_SUMMARY"
