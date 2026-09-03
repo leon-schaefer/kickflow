@@ -2,16 +2,16 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
+import { ExternalLink } from '@/components/ExternalLink';
+import { TextField } from '@/components/TextField';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
+import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 export default function LoginScreen() {
@@ -40,34 +40,29 @@ export default function LoginScreen() {
   const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Kickflow</Text>
         <Text style={styles.subtitle}>Mit deinem Kickbase-Konto anmelden</Text>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="E-Mail"
-            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            clearAccessibilityLabel="E-Mail löschen"
           />
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="Passwort"
-            placeholderTextColor={colors.textMuted}
             secureTextEntry
             autoComplete="password"
             value={password}
             onChangeText={setPassword}
             onSubmitEditing={handleSubmit}
+            clearAccessibilityLabel="Passwort löschen"
           />
 
           {error && <Text style={styles.error}>{error}</Text>}
@@ -89,8 +84,24 @@ export default function LoginScreen() {
           Kickflow spricht direkt mit der Kickbase-API. Deine Zugangsdaten und dein Zugriffstoken
           verlassen dieses Gerät ausschließlich in Richtung Kickbase.
         </Text>
+
+        {/*
+         * Vor dem Login ist der Mehr-Tab unerreichbar — hier ist die einzige
+         * Stelle, an der jemand den Datenschutz-Hinweis lesen kann, bevor er
+         * seine Kickbase-Zugangsdaten eintippt.
+         */}
+        <View style={styles.legal}>
+          <ExternalLink url={HOMEPAGE_URL} label="Homepage" compact />
+          <Text style={styles.legalSeparator}>·</Text>
+          <ExternalLink url={PRIVACY_URL} label="Datenschutz" compact />
+        </View>
+
+        <Text style={styles.disclaimer}>
+          Inoffizielle App. Nicht mit der Kickbase GmbH verbunden. Kickbase ist eine Marke der
+          Kickbase GmbH.
+        </Text>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -120,16 +131,6 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
   },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    ...typography.body,
-  },
   button: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,
@@ -153,6 +154,24 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.xl,
+    lineHeight: 16,
+  },
+  legal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  legalSeparator: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  // Wie `hint`, aber mit kleinerem Abstand: sitzt direkt unter den Links.
+  disclaimer: {
+    ...typography.small,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
     lineHeight: 16,
   },
 });

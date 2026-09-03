@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
@@ -17,6 +14,7 @@ import { usePlaceOffer, useRemoveOffer } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency } from '@/utils/format';
 import { formatCurrencyInput, formatCurrencyInputText, parseCurrencyInput, validateOffer } from '@/utils/offer';
+import { TextField } from './TextField';
 
 interface OfferModalProps {
   /** null = Modal ist zu. */
@@ -92,7 +90,7 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.avoider} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.avoider}>
         <Pressable style={styles.backdrop} onPress={onClose}>
           <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.title}>
@@ -135,17 +133,15 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
             )}
 
             <Text style={styles.sectionLabel}>Mein Gebot</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                keyboardType="number-pad"
-                value={priceText}
-                onChangeText={handlePriceChange}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-              />
-              <Text style={styles.inputSuffix}>€</Text>
-            </View>
+            <TextField
+              containerStyle={styles.priceField}
+              keyboardType="number-pad"
+              value={priceText}
+              onChangeText={handlePriceChange}
+              placeholder="0"
+              clearAccessibilityLabel="Gebot löschen"
+              suffix={<Text style={styles.inputSuffix}>€</Text>}
+            />
 
             <View style={styles.chipRow}>
               <Pressable style={styles.chip} onPress={() => setQuickPrice(player.marketValue)}>
@@ -195,7 +191,7 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
             )}
           </Pressable>
         </Pressable>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -251,20 +247,9 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Das Panel ist selbst `surface` — das Feld setzt sich mit `background` ab.
+  priceField: {
     backgroundColor: colors.background,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    ...typography.body,
   },
   inputSuffix: {
     ...typography.body,
