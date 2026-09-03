@@ -7,7 +7,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import type { MarketPlayer } from '@/api/kickbase';
@@ -17,6 +16,7 @@ import { usePlaceOffer, useRemoveOffer } from '@/queries/hooks';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCountdown, formatCurrency } from '@/utils/format';
 import { formatCurrencyInput, formatCurrencyInputText, parseCurrencyInput, validateOffer } from '@/utils/offer';
+import { TextField } from './TextField';
 
 interface OfferModalProps {
   /** null = Modal ist zu. */
@@ -135,17 +135,15 @@ export function OfferModal({ player, onClose }: OfferModalProps) {
             )}
 
             <Text style={styles.sectionLabel}>Mein Gebot</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                keyboardType="number-pad"
-                value={priceText}
-                onChangeText={handlePriceChange}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-              />
-              <Text style={styles.inputSuffix}>€</Text>
-            </View>
+            <TextField
+              containerStyle={styles.priceField}
+              keyboardType="number-pad"
+              value={priceText}
+              onChangeText={handlePriceChange}
+              placeholder="0"
+              clearAccessibilityLabel="Gebot löschen"
+              suffix={<Text style={styles.inputSuffix}>€</Text>}
+            />
 
             <View style={styles.chipRow}>
               <Pressable style={styles.chip} onPress={() => setQuickPrice(player.marketValue)}>
@@ -251,20 +249,9 @@ const styles = StyleSheet.create({
     ...typography.small,
     color: colors.textMuted,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Das Panel ist selbst `surface` — das Feld setzt sich mit `background` ab.
+  priceField: {
     backgroundColor: colors.background,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    ...typography.body,
   },
   inputSuffix: {
     ...typography.body,

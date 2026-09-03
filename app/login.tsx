@@ -7,10 +7,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
+import { TextField } from '@/components/TextField';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -49,25 +49,23 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>Mit deinem Kickbase-Konto anmelden</Text>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="E-Mail"
-            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            clearAccessibilityLabel="E-Mail löschen"
           />
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="Passwort"
-            placeholderTextColor={colors.textMuted}
             secureTextEntry
             autoComplete="password"
             value={password}
             onChangeText={setPassword}
             onSubmitEditing={handleSubmit}
+            clearAccessibilityLabel="Passwort löschen"
           />
 
           {error && <Text style={styles.error}>{error}</Text>}
@@ -119,16 +117,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.md,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    ...typography.body,
   },
   button: {
     backgroundColor: colors.accent,
