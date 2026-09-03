@@ -97,6 +97,11 @@ export default function LoginScreen() {
           <Text style={styles.legalSeparator}>·</Text>
           <ExternalLink url={PRIVACY_URL} label="Datenschutz" compact />
         </View>
+
+        <Text style={styles.disclaimer}>
+          Inoffizielle App. Nicht mit der Kickbase GmbH verbunden. Kickbase ist eine Marke der
+          Kickbase GmbH.
+        </Text>
       </View>
     </View>
   );
@@ -172,5 +177,13 @@ const styles = StyleSheet.create({
   legalSeparator: {
     ...typography.small,
     color: colors.textMuted,
+  },
+  // Wie `hint`, aber mit kleinerem Abstand: sitzt direkt unter den Links.
+  disclaimer: {
+    ...typography.small,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 16,
   },
 });
