@@ -48,8 +48,8 @@ export default function MoreScreen() {
           <Text style={styles.cardTitle}>kickflow unterstützen</Text>
           <Text style={styles.cardBody}>
             kickflow ist kostenlos und bleibt es — Optimizer, Pflichtverkauf und Kaufempfehlungen
-            inklusive. Wenn dir die App den Spieltag erleichtert, kannst du die laufenden Kosten
-            mittragen. Freiwillig, einmalig, jederzeit.
+            inklusive. Wenn dir die App den Spieltag erleichtert, freue ich mich über
+            Unterstützung bei der Weiterentwicklung. Freiwillig, einmalig, jederzeit.
           </Text>
           <Pressable style={styles.supportButton} onPress={handleSupport} accessibilityRole="button">
             <Text style={styles.supportButtonText}>Unterstützen</Text>
