@@ -18,9 +18,9 @@
 #   (Normalfall beim Öffnen: Vercel baut noch), passiert nichts — kein
 #   Fehlschlag, das deployment_status-Event holt es Sekunden später nach.
 #
-# Wichtig zu wissen: deployment_status-Workflows laufen immer in der Fassung
-# des Default-Branches. Änderungen an dieser Datei wirken für diesen Pfad also
-# erst nach dem Merge nach main, nicht schon im PR selbst.
+# Beide Pfade laufen aus der Fassung des jeweiligen Branches: GitHub nimmt
+# beim deployment_status-Event den ref des Deployments, nicht den
+# Default-Branch. Änderungen an dieser Datei wirken also schon im PR.
 #
 # Gefiltert wird auf offene PRs gegen develop und main. Ein Production-Deploy
 # nach dem Merge trifft nur noch geschlossene PRs und fällt damit raus.
