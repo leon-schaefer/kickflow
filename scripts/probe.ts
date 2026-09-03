@@ -374,7 +374,9 @@ async function probeCompetitionPlayers(
       await dump(`competition-players-${dumpName(candidate.path)}`, body);
       const list = firstPlayerArray(body);
       console.log(`✓ ${candidate.label}  ${candidate.path}`);
-      console.log(`    Top-Level-Keys: ${Object.keys(body).join(', ')}`);
+      // Namen UND Typen: ein `pl: number` (statt der erhofften Spielerliste)
+      // ist genau die Information, an der der erste Anlauf gescheitert ist.
+      console.log(`    Felder: ${describeShape(body)}`);
       if (list) {
         working.push(candidate.path);
         console.log(`    ${list.items.length} Spieler unter "${list.key}". Erster Eintrag:`, list.items[0]);
@@ -410,6 +412,15 @@ function firstPlayerArray(body: any): { key: string; items: any[] } | null {
     }
   }
   return null;
+}
+
+/** `{tid: string, pl: number, it: array[24]}` — Feldnamen samt Typ einer Antwort. */
+function describeShape(raw: any): string {
+  if (typeof raw !== 'object' || raw === null) return typeof raw;
+  const fields = Object.entries(raw).map(
+    ([key, value]) => `${key}: ${Array.isArray(value) ? `array[${value.length}]` : typeof value}`,
+  );
+  return fields.length > 0 ? fields.join(', ') : '(leer)';
 }
 
 /** Pfad → dateisystemtauglicher Dump-Name. */

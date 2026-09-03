@@ -50,6 +50,7 @@ import type {
   Team,
 } from './types';
 import type { RawLeague } from './schemas';
+import { pickCompetitionPlayers } from './schemas';
 import { pointsPerMillion } from '@/utils/valueScore';
 
 const IMAGE_CDN_BASE = 'https://kickbase.b-cdn.net/';
@@ -240,7 +241,7 @@ export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: s
   const averagePoints = raw.ap ?? 0;
   const fullName = [raw.fn, raw.ln].filter(Boolean).join(' ');
   return {
-    id: raw.i,
+    id: String(raw.i),
     name: raw.n ?? (fullName || 'Unbekannt'),
     position: mapPosition(raw.pos),
     teamId: raw.tid ?? fallbackTeamId,
@@ -259,17 +260,15 @@ export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: s
 }
 
 /**
- * Spielerliste aus einer Team-Kader-Antwort. Unter welchem Schlüssel sie
- * steckt, ist pfadabhängig (`it`/`pl`/`players`, siehe
- * rawCompetitionPlayersSchema) — der erste vorhandene gewinnt. Ein leeres
- * Array ist ein legitimes Ergebnis und KEIN Fehler; die Pfadsuche in
- * getCompetitionPlayers() wertet es allerdings als "dieser Pfad liefert
- * nichts" und probiert den nächsten Kandidaten.
+ * Spielerliste aus einer Team-Kader-Antwort. Welcher Schlüssel sie trägt, wird
+ * nicht geraten, sondern an der Form der Einträge erkannt — siehe
+ * pickCompetitionPlayers(). Ein leeres Array ist ein legitimes Ergebnis und
+ * KEIN Fehler; die Pfadsuche in getCompetitionPlayers() wertet es als "dieser
+ * Pfad trägt die Daten nicht" und probiert den nächsten Kandidaten.
  */
 export function toCompetitionPlayers(raw: RawCompetitionPlayers, fallbackTeamId: string): CompetitionPlayer[] {
-  const items = raw.it ?? raw.pl ?? raw.players ?? [];
   const teamId = raw.tid ?? fallbackTeamId;
-  return items.map((item) => toCompetitionPlayer(item, teamId));
+  return pickCompetitionPlayers(raw).map((item) => toCompetitionPlayer(item, teamId));
 }
 
 export function toMarketOffer(raw: RawMarketOffer): MarketOffer {

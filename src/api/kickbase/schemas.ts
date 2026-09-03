@@ -253,7 +253,10 @@ export type RawCompetitionTable = z.infer<typeof rawCompetitionTableSchema>;
  * nicht vorkommenden Varianten entfernen.
  */
 export const rawCompetitionPlayerSchema = z.looseObject({
-  i: z.string(),
+  // Als Union, weil dieser Endpoint noch unverifiziert ist und die v4-Antworten
+  // IDs uneinheitlich als String oder Zahl schicken (vgl. rawLoginResponseSchema).
+  // toCompetitionPlayer() normalisiert auf String.
+  i: z.union([z.string(), z.number()]),
   n: z.string().optional(),
   fn: z.string().optional(),
   ln: z.string().optional(),
@@ -271,19 +274,67 @@ export const rawCompetitionPlayerSchema = z.looseObject({
 export type RawCompetitionPlayer = z.infer<typeof rawCompetitionPlayerSchema>;
 
 /**
- * Antworthülle der Team-Kader-Endpoints. Welcher Schlüssel die Spieler trägt,
- * ist pfadabhängig und unverifiziert (`it` in allen bisher bekannten
- * v4-Listen, `pl` bzw. `players` in den v3-Doku-Beispielen) — deshalb alle
- * drei optional und die Auswahl in `toCompetitionPlayers()`.
+ * Antworthülle der Team-Kader-Endpoints — bewusst OHNE deklarierte
+ * Spielerliste.
+ *
+ * Der erste Anlauf deklarierte `it`/`pl`/`players` als Spieler-Arrays, weil
+ * die v3-Doku-Beispiele diese Namen führen. Real (verifiziert am 03.09.2026
+ * gegen `/v4/competitions/1/teams/2/teamprofile` und `.../teamcenter`, beide
+ * 200) ist `pl` dort eine ZAHL — vermutlich die Kadergröße. Das ließ zod die
+ * KOMPLETTE Antwort verwerfen, obwohl die Spieler darin vermutlich standen.
+ *
+ * Konsequenz: hier wird nichts geraten. Die Hülle bleibt lose, und
+ * pickCompetitionPlayers() erkennt die Liste an den EINTRÄGEN statt am
+ * Schlüsselnamen.
  */
 export const rawCompetitionPlayersSchema = z.looseObject({
-  it: z.array(rawCompetitionPlayerSchema).optional(),
-  pl: z.array(rawCompetitionPlayerSchema).optional(),
-  players: z.array(rawCompetitionPlayerSchema).optional(),
   /** Team-ID, falls die Antwort sie mitschickt — Spieler-Einträge tragen `tid` nicht zwingend. */
   tid: z.string().optional(),
 });
 export type RawCompetitionPlayers = z.infer<typeof rawCompetitionPlayersSchema>;
+
+/**
+ * Die Spielerliste aus einer Team-Kader-Antwort, gefunden über die Form der
+ * Einträge: ein Array, dessen Elemente als `rawCompetitionPlayer` durchgehen
+ * UND von denen mindestens eines ein echtes Spielerfeld trägt (`pos` oder
+ * `mv`). Die zweite Bedingung hält Listen fern, die zufällig auch ein `i`
+ * haben, aber keine Spieler sind.
+ *
+ * `it` wird zuerst geprüft: in allen bisher verifizierten v4-Antworten trägt
+ * dieser Schlüssel die Nutzdaten. Findet sich nichts, ist das kein Fehler,
+ * sondern das Signal an die Pfadsuche in getCompetitionPlayers(), den nächsten
+ * Kandidaten zu probieren.
+ */
+export function pickCompetitionPlayers(raw: RawCompetitionPlayers): RawCompetitionPlayer[] {
+  const entries = Object.entries(raw).sort(([a], [b]) => Number(b === 'it') - Number(a === 'it'));
+
+  for (const [, value] of entries) {
+    const players = asPlayerArray(value);
+    if (players) return players;
+  }
+
+  // Erst wenn oben nichts liegt, eine Ebene tiefer: Profil-Antworten packen
+  // ihre Listen gern in ein Unterobjekt (z.B. `{tm: {pl: [...]}}`). Bewusst
+  // nur EINE Ebene — tiefer wird das Raten teurer als der nächste
+  // Kandidatenpfad, und die Fehlermeldung nennt die Felder ohnehin.
+  for (const [, value] of entries) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    for (const nested of Object.values(value)) {
+      const players = asPlayerArray(nested);
+      if (players) return players;
+    }
+  }
+
+  return [];
+}
+
+function asPlayerArray(value: unknown): RawCompetitionPlayer[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const parsed = z.array(rawCompetitionPlayerSchema).safeParse(value);
+  if (!parsed.success) return null;
+  const looksLikePlayers = parsed.data.some((item) => item.pos !== undefined || item.mv !== undefined);
+  return looksLikePlayers ? parsed.data : null;
+}
 
 export const rawPlayerDetailSchema = z.looseObject({
   i: z.string(),
