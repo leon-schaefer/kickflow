@@ -50,8 +50,17 @@ dem Browser, ohne Proxy) und `kickbase.b-cdn.net` für Logos und Spielerbilder.
 `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
 warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
 
-`EXPO_PUBLIC_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars; ohne den Wert
-erscheint die Unterstützen-Karte im Mehr-Tab gar nicht.
+`EXPO_PUBLIC_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
+Environment, Production und Preview getrennt. Ohne den Wert erscheint die
+Unterstützen-Karte im Mehr-Tab gar nicht (`src/support/supportUrl.ts`), eine
+Preview ohne die Variable zeigt sie also auch dann nicht, wenn Production sie
+hat.
+
+Lokal ist dabei eine Falle zu beachten: Metro backt `EXPO_PUBLIC_*` beim
+Bundling textuell ein, sein Transform-Cache schlüsselt aber nicht auf den
+Wert. Nach dem Setzen oder Ändern der Variable liefert ein Build aus dem Cache
+weiter den alten Stand — dann `rm -rf node_modules/.cache` und neu bauen.
+Vercel baut immer kalt und ist davon nicht betroffen.
 
 CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
 Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
