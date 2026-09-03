@@ -102,6 +102,8 @@ export interface MarketPlayer {
   /** true = kein Manager als Verkäufer (freier Spieler/Kickbase-Listing). */
   isBotListing: boolean;
   sellerName: string | null;
+  /** User-ID des Verkäufers (Rohfeld `u.i`) — zugleich der Besitzer, siehe resolvePlayerOwner. */
+  sellerId: string | null;
   offerCount: number;
   listedAt: string | null;
 
@@ -123,6 +125,35 @@ export interface MarketData {
   players: MarketPlayer[];
   /** ISO-Zeitpunkt des nächsten Marktwert-Updates (Rohfeld `mvud`), oder null wenn nicht geliefert. */
   marketValueUpdateAt: string | null;
+}
+
+/**
+ * Ein Spieler aus dem competition-weiten Bestand — Datengrundlage des
+ * Spieler-Tabs, in dem ALLE Spieler der Competition durchsuchbar sind, nicht
+ * nur eigene (`SquadPlayer`) und gelistete (`MarketPlayer`).
+ *
+ * Bewusst schmal: genau die Felder, die `MetricPlayer`
+ * (src/utils/playerMetric.ts) und `filterPlayers` (src/utils/playerFilter.ts)
+ * verlangen. Alles Weitere — Marktwertverlauf, Saisonpunkte je Spieltag,
+ * aktueller Besitzer — holt der Spieler-Detail-Screen ohnehin selbst über
+ * `getPlayer()`, und das für JEDE Spieler-ID, nicht nur für eigene.
+ */
+export interface CompetitionPlayer {
+  id: string;
+  name: string;
+  position: Position;
+  teamId: string;
+
+  marketValue: number;
+  marketValueTrend: MarketValueTrend;
+
+  totalPoints: number;
+  averagePoints: number;
+  valueScoreAvg: number;
+  valueScoreTotal: number;
+
+  status: PlayerStatus;
+  imageUrl: string | null;
 }
 
 export interface LineupData {

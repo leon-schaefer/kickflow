@@ -3,9 +3,10 @@
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
 import { kbFetch } from './client';
-import { withPerformanceLimit, withPlayerLookupLimit } from './limiter';
+import { withCompetitionPlayersLimit, withPerformanceLimit, withPlayerLookupLimit } from './limiter';
 import {
   toAuthSession,
+  toCompetitionPlayers,
   toLeagueOverview,
   toLeagueRanking,
   toLeagueSummary,
@@ -19,6 +20,7 @@ import {
 } from './mappers';
 import {
   rawCompetitionMatchdaysSchema,
+  rawCompetitionPlayersSchema,
   rawCompetitionTableSchema,
   rawLeagueManagersSchema,
   rawLeagueOverviewSchema,
@@ -34,6 +36,7 @@ import {
 } from './schemas';
 import type {
   AuthSession,
+  CompetitionPlayer,
   LeagueOverview,
   LeagueRanking,
   LeagueSummary,
@@ -90,7 +93,9 @@ export async function getLeagues(token: string): Promise<LeagueSummary[]> {
 /**
  * Der zentrale Trick: `lineup/overview` (Startelf + Formation) und `squad`
  * (kompletter Kader) werden parallel geholt und zu EINEM Objekt gemerged.
- * Aufstellungs- und Kader-Screen lesen dieselbe Query — nie inkonsistent.
+ * Der Aufstellungs-Screen und der Kader-Filter des Spieler-Tabs lesen
+ * dieselbe Query — nie inkonsistent, und keiner von beiden kostet den anderen
+ * einen Request.
  */
 export async function getLineup(token: string, leagueId: string): Promise<LineupData> {
   const [overviewRaw, squadRaw] = await Promise.all([
@@ -150,6 +155,126 @@ export async function getCompetitionTeams(token: string, competitionId: string):
 }
 
 /**
+ * Kandidatenpfade für den Kader EINES Vereins innerhalb einer Competition.
+ *
+ * Stand 03.09.2026 gegen einen echten Account: `teamprofile` und `teamcenter`
+ * antworten beide mit 200, `/teams/{id}/players` mit 404 (deshalb nicht mehr
+ * in der Liste). Welche der beiden 200er-Antworten den Kader trägt, ist noch
+ * offen — die Pfadsuche unten entscheidet das am Inhalt, indem sie den ersten
+ * Pfad nimmt, in dem pickCompetitionPlayers() eine Spielerliste findet.
+ *
+ * Nach `npm run probe -- --players` (siehe scripts/probe.ts) steht der Pfad
+ * fest — dann hier den anderen Kandidaten löschen, damit im Normalbetrieb kein
+ * vergeblicher Request mehr steht.
+ */
+type TeamPlayerPath = (competitionId: string, teamId: string) => string;
+
+const TEAM_PLAYER_PATHS: TeamPlayerPath[] = [
+  (competitionId, teamId) => `/v4/competitions/${competitionId}/teams/${teamId}/teamprofile`,
+  (competitionId, teamId) => `/v4/competitions/${competitionId}/teams/${teamId}/teamcenter`,
+];
+
+/**
+ * Der Pfad, der zuletzt Spieler geliefert hat — Modul-Zustand, damit die
+ * Pfadsuche nicht bei jedem der 18 Vereine erneut läuft. Absichtlich NICHT
+ * persistiert: der Prozess-Lebenszyklus ist die richtige Gültigkeitsdauer,
+ * ein einmal falsch gemerkter Pfad wäre sonst über App-Neustarts hinweg fest.
+ */
+let resolvedTeamPlayerPath: TeamPlayerPath | null = null;
+
+/**
+ * `{tid: string, pl: number, it: array[24]}` — die Feldnamen samt Typ einer
+ * Antwort, in der keine Spielerliste gefunden wurde. Steht so in der
+ * Fehlermeldung: ein 200 ohne erkennbare Liste ist sonst nicht von einem
+ * kaputten Pfad zu unterscheiden, und genau diese Information fehlte beim
+ * ersten Anlauf (siehe rawCompetitionPlayersSchema).
+ */
+function describeShape(raw: unknown): string {
+  if (typeof raw !== 'object' || raw === null) return typeof raw;
+  const fields = Object.entries(raw).map(
+    ([key, value]) => `${key}: ${Array.isArray(value) ? `array[${value.length}]` : typeof value}`,
+  );
+  return fields.length > 0 ? fields.join(', ') : '(leer)';
+}
+
+async function fetchTeamPlayers(
+  token: string,
+  competitionId: string,
+  teamId: string,
+): Promise<CompetitionPlayer[]> {
+  async function load(buildPath: TeamPlayerPath) {
+    const raw = await withCompetitionPlayersLimit(() =>
+      kbFetch(buildPath(competitionId, teamId), { token }),
+    );
+    return { raw, players: toCompetitionPlayers(rawCompetitionPlayersSchema.parse(raw), teamId) };
+  }
+
+  if (resolvedTeamPlayerPath) return (await load(resolvedTeamPlayerPath)).players;
+
+  const failures: string[] = [];
+  for (const buildPath of TEAM_PLAYER_PATHS) {
+    const path = buildPath(competitionId, teamId);
+    try {
+      const { raw, players } = await load(buildPath);
+      // 200 ohne erkennbare Spielerliste heißt: Pfad existiert, trägt aber
+      // nicht die gesuchten Daten — nächster Kandidat, statt ihn für alle
+      // weiteren Vereine festzuschreiben.
+      if (players.length === 0) {
+        failures.push(`${path} → 200, aber keine Spielerliste erkannt. Felder: ${describeShape(raw)}`);
+        continue;
+      }
+      resolvedTeamPlayerPath = buildPath;
+      return players;
+    } catch (err) {
+      failures.push(`${path} → ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  throw new Error(
+    `Kein bekannter Pfad liefert den Vereinskader:\n${failures.join('\n')}\n` +
+      'Pfad mit `npm run probe -- --players` bestimmen und in TEAM_PLAYER_PATHS eintragen.',
+  );
+}
+
+/**
+ * Der komplette Spielerbestand einer Competition — ein Request pro Verein,
+ * gedrosselt über withCompetitionPlayersLimit. Grundlage des Spieler-Tabs,
+ * der als Einziger auch Spieler zeigt, die weder im eigenen Kader noch auf dem
+ * Transfermarkt stehen.
+ *
+ * Der erste Verein läuft SERIELL vorweg: solange `resolvedTeamPlayerPath` noch
+ * leer ist, würden 18 parallele Aufrufe die Pfadsuche 18-fach durchlaufen und
+ * im schlechtesten Fall 36 vergebliche Requests auslösen.
+ *
+ * `allSettled` für den Rest, aus demselben Grund wie in getLeagues(): ein
+ * einzelner ausgefallener Verein soll die Liste nicht kippen. Der Aufrufer
+ * bekommt dann eben 17 Vereine — vollständig genug für Suche und Sortierung,
+ * und ein harter Fehler bliebe die schlechtere Antwort.
+ */
+export async function getCompetitionPlayers(
+  token: string,
+  competitionId: string,
+  teamIds: readonly string[],
+): Promise<CompetitionPlayer[]> {
+  if (teamIds.length === 0) return [];
+
+  const [firstTeamId, ...remainingTeamIds] = teamIds;
+  const players = await fetchTeamPlayers(token, competitionId, firstTeamId);
+
+  const rest = await Promise.allSettled(
+    remainingTeamIds.map((teamId) => fetchTeamPlayers(token, competitionId, teamId)),
+  );
+  for (const result of rest) {
+    if (result.status === 'fulfilled') players.push(...result.value);
+  }
+
+  // Ein Spieler kann in zwei Kadern auftauchen (Wechsel innerhalb der Liga,
+  // je nachdem wie zeitnah Kickbase die Vereinszuordnung nachzieht) — doppelte
+  // Zeilen in einer Suchliste wären ein sichtbarer Fehler.
+  return [...new Map(players.map((player) => [player.id, player])).values()];
+}
+
+/**
  * Der Spielplan der Competition (z.B. Bundesliga) mit Anstoßzeiten je Spiel —
  * anders als `mdln`/`lis` auf `getLineup` die verlässliche Quelle dafür,
  * welcher Spieltag gerade läuft und wann der nächste Aufstellungsdeadline ist.
@@ -199,7 +324,7 @@ export async function getPlayerBasic(token: string, leagueId: string, playerId: 
  * NUR die Saison-Performance eines Spielers — bewusst schmal, im Gegensatz zu
  * getPlayer(), das dafür vier Requests abfeuert. Kickbase liefert Spielminuten
  * ausschließlich hier (`ph[].mp`), nicht in Kader- oder Marktlisten; der
- * Kader- und der Markt-Tab rufen das deshalb pro Spieler auf. Das Concurrency-Gate hält den
+ * Spieler- und der Markt-Tab rufen das deshalb pro Spieler auf. Das Concurrency-Gate hält den
  * daraus entstehenden Schwung Requests von Cloudflare fern.
  */
 export async function getPlayerPerformance(

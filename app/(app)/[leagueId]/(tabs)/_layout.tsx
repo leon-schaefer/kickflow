@@ -40,9 +40,9 @@ export default function LeagueTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="squad"
+        name="players"
         options={{
-          title: leagueTabTitles.squad,
+          title: leagueTabTitles.players,
           tabBarIcon: ({ color, size }) => <SquadIcon color={color} size={size} />,
         }}
       />
