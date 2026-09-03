@@ -3,6 +3,7 @@ import type { SquadPlayer } from '@/api/kickbase';
 import { colors, positionColors, radius, spacing, statusColors, typography } from '@/theme/tokens';
 import { formatPoints } from '@/utils/format';
 import { StatusBadge } from './StatusBadge';
+import React from 'react';
 
 interface PlayerCardProps {
   player: SquadPlayer;
