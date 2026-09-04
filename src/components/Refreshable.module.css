@@ -1,0 +1,49 @@
+.wrapper {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  overflow: hidden;
+
+  /* Für den absolut positionierten Indikator. */
+  position: relative;
+}
+
+.indicator {
+  composes: h from '@/theme/layout.module.css';
+  position: absolute;
+  top: var(--space-lg);
+  left: 0;
+  right: 0;
+  justify-content: center;
+  pointer-events: none;
+
+  /*
+   * Ersetzt `pull.interpolate({inputRange:[0,PARKED], outputRange:[0,1],
+   * extrapolate:'clamp'})` — dieselbe Abbildung, nur deklarativ.
+   */
+  opacity: clamp(0, calc(var(--pull, 0) / var(--pull-parked, 48)), 1);
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  min-height: 0;
+
+  /* `--pull` ist einheitenlos, weil die Deckkraft oben eine Zahl braucht. */
+  transform: translateY(calc(var(--pull, 0) * 1px));
+}
+
+/*
+ * Nur während des Snaps animieren. Eine dauerhafte Transition würde den
+ * 1:1-Zug am Finger um die Snap-Dauer verschleppen.
+ */
+.wrapper[data-snap] .indicator,
+.wrapper[data-snap] .content {
+  transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrapper[data-snap] .indicator,
+  .wrapper[data-snap] .content {
+    transition: none;
+  }
+}
