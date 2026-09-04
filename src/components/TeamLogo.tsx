@@ -1,5 +1,5 @@
-import { Image, StyleSheet, View } from 'react-native';
-import { colors, radius } from '@/theme/tokens';
+import type { CSSProperties } from 'react';
+import styles from './TeamLogo.module.css';
 
 interface TeamLogoProps {
   uri: string | null;
@@ -8,24 +8,24 @@ interface TeamLogoProps {
 
 /**
  * Vereinslogo. Kickbase liefert die meisten Logos als SVG, manche aber als
- * PNG/JPG — im Browser rendert `<Image>` (also ein `<img>`) beides selbst.
+ * PNG/JPG — ein `<img>` rendert beides selbst.
  *
- * Bewusst nicht `SvgUri` aus react-native-svg: das lädt die Datei per
- * `fetch()` und bräuchte dafür CORS-Header vom CDN, ein `<img>` nicht.
+ * Bewusst kein Inline-SVG per `fetch()`: das bräuchte CORS-Header vom CDN,
+ * ein `<img>` nicht. (Genau der Grund, aus dem hier vorher schon `<Image>`
+ * statt `SvgUri` stand.)
  *
- * Ohne URL (unbekannter Gegner) ein leerer Platzhalter, damit die Zeile nicht springt.
+ * Ohne URL (unbekannter Gegner) ein leerer Platzhalter, damit die Zeile nicht
+ * springt. Die Größe kommt als Custom Property, weil sie aus dem Aufrufer
+ * stammt und pro Fundstelle verschieden ist (14–22px).
  */
 export function TeamLogo({ uri, size = 20 }: TeamLogoProps) {
+  const sizeStyle = { '--logo-size': `${size}px` } as CSSProperties;
+
   if (!uri) {
-    return <View style={[styles.placeholder, { width: size, height: size }]} />;
+    return <span className={styles.placeholder} style={sizeStyle} />;
   }
 
-  return <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="contain" />;
+  // Leeres alt: der Vereinsname steht an allen vier Fundstellen daneben, das
+  // Logo wiederholt ihn nur.
+  return <img src={uri} alt="" className={styles.logo} style={sizeStyle} loading="lazy" />;
 }
-
-const styles = StyleSheet.create({
-  placeholder: {
-    borderRadius: radius.sm,
-    backgroundColor: colors.surfaceRaised,
-  },
-});
