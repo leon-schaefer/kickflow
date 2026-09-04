@@ -11,6 +11,7 @@ import { FixturesScreen } from '@/screens/FixturesScreen';
 import { LeagueScreen } from '@/screens/LeagueScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
+import { ManagerDetailScreen } from '@/screens/ManagerDetailScreen';
 import { MarketScreen } from '@/screens/MarketScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
 import { PlayersScreen } from '@/screens/PlayersScreen';
@@ -81,7 +82,7 @@ export const routes: RouteObject[] = [
 
               // Über den Tabs: eigener Header mit Zurück, keine Tab-Leiste.
               { path: 'player/:playerId', element: <DetailPlaceholder name="Spieler" /> },
-              { path: 'manager/:managerId', element: <DetailPlaceholder name="Manager" /> },
+              { path: 'manager/:managerId', element: <ManagerDetailScreen /> },
               { path: 'rules', element: <RulesScreen /> },
               { path: 'fixtures', element: <FixturesScreen /> },
             ],
