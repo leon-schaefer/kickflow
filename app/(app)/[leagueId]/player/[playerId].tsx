@@ -1,6 +1,8 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { PlayerTransfer } from '@/api/kickbase';
+import { useAuth } from '@/auth/AuthProvider';
 import { FixtureDifficultyStrip } from '@/components/FixtureDifficultyStrip';
 import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
@@ -18,18 +20,21 @@ import {
   useMarket,
   useMatchdays,
   usePlayer,
+  usePlayerTransfers,
 } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
 import { buildFixtureIndex, fixtureDifficulty, remainingFixtures, teamGoalRecord, teamStrength } from '@/utils/fixtureDifficulty';
 import {
   formatCurrency,
+  formatIsoDate,
   formatMinutes,
   formatPoints,
   formatPointsPerMinute,
 } from '@/utils/format';
 import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
 import { resolvePlayerOwner, type PlayerOwnerInfo } from '@/utils/playerOwnership';
+import { resolveOwnPurchase } from '@/utils/playerPurchase';
 import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
 
 /** Wie viele kommende Spiele im "Nächste Gegner"-Streifen stehen — passend zur Standard-Ansicht des Restprogramm-Screens. */
@@ -39,6 +44,7 @@ type Timeframe = 92 | 365;
 
 export default function PlayerDetailScreen() {
   const leagueId = useLeagueId();
+  const { userId } = useAuth();
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
   const playerQuery = usePlayer(leagueId, playerId);
   const { data: player } = playerQuery;
@@ -69,8 +75,6 @@ export default function PlayerDetailScreen() {
     enabled: lineupDay !== null,
   });
 
-  const refresh = useRefresh(playerQuery, matchdaysQuery, lineupQuery, marketQuery, rankingQuery);
-
   // Solange eine Quelle noch lädt, ist „Besitzer unbekannt“ verfrüht — das ist
   // eine Aussage über Kickbase, nicht über den Ladezustand.
   const ownerSourcesPending =
@@ -93,6 +97,29 @@ export default function PlayerDetailScreen() {
       }),
     [playerId, lineupQuery.data, marketQuery.data, rankingQuery.data],
   );
+  // Kaufdatum: nur für eigene Spieler geladen — bei fremden gäbe die
+  // Transferhistorie für diesen Screen nichts her (siehe resolveOwnPurchase).
+  const inOwnSquad = owner.kind === 'me';
+  const transfersQuery = usePlayerTransfers(leagueId, playerId, { enabled: inOwnSquad });
+  const purchase = useMemo(
+    () =>
+      resolveOwnPurchase({
+        transfers: transfersQuery.data ?? [],
+        ownUserId: userId,
+        inOwnSquad,
+      }),
+    [transfersQuery.data, userId, inOwnSquad],
+  );
+
+  const refresh = useRefresh(
+    playerQuery,
+    matchdaysQuery,
+    lineupQuery,
+    marketQuery,
+    rankingQuery,
+    transfersQuery,
+  );
+
   const teamNames = useMemo(
     () => new Map((competitionTeams ?? []).map((team) => [team.id, team.name])),
     [competitionTeams],
@@ -175,6 +202,7 @@ export default function PlayerDetailScreen() {
                   : undefined
               }
             />
+            {inOwnSquad && <PurchaseLine purchase={purchase} pending={transfersQuery.isPending} />}
           </View>
         </View>
 
@@ -262,6 +290,25 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /**
+ * "Gekauft am 12.08.2026" — wann der Spieler in den eigenen Kader gewechselt
+ * ist, aus seiner Transferhistorie abgeleitet (siehe resolveOwnPurchase).
+ * Steht nur bei eigenen Spielern.
+ *
+ * Ohne belegbaren Kauf bleibt die Zeile WEG statt „unbekannt“ anzuzeigen:
+ * Kickbase führt nicht zu jedem Spieler eine Transferhistorie (ein von Beginn
+ * an gehaltener Spieler hat schlicht keine), und ein Zusatzrequest, der
+ * ausfällt, soll auf dem Screen keine Fehlermeldung hinterlassen.
+ */
+function PurchaseLine({ purchase, pending }: { purchase: PlayerTransfer | null; pending: boolean }) {
+  if (pending) {
+    return <Text style={[styles.purchase, styles.purchasePending]}>Gekauft …</Text>;
+  }
+  const date = purchase ? formatIsoDate(purchase.date) : null;
+  if (!date) return null;
+  return <Text style={styles.purchase}>Gekauft am {date}</Text>;
+}
+
+/**
  * Wem der Spieler gehört. „Besitzer unbekannt“ ist hier eine echte Aussage und
  * kein Fehler: Kickbase legt von fremden Managern nur die Startelf offen, ein
  * Bankspieler eines Rivalen ist von einem ungekauften Spieler nicht zu
@@ -317,6 +364,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   ownerUnknown: {
+    color: colors.textMuted,
+  },
+  purchase: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  purchasePending: {
     color: colors.textMuted,
   },
   container: {
