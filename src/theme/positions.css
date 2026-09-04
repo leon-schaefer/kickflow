@@ -111,3 +111,39 @@
   --diff: var(--color-negative);
   --diff-soft: var(--color-negative-soft);
 }
+
+/*
+ * SellAdvice.recommendation → Farbe der Empfehlungs-Pille (SellAdviceRow).
+ * Ersetzt die RECOMMENDATION_COLORS-Map.
+ *
+ * Hier steht NUR `--rec`, keine `-soft`-Variante: die neun Empfehlungen
+ * benutzen nur fünf Grundfarben, ein Tokenpaar je Empfehlung würde denselben
+ * Hexwert unter mehreren Namen duplizieren. Die transluzente Füllung leitet
+ * SellAdviceRow.module.css deshalb per `color-mix` aus `--rec` ab — 15 %
+ * entspricht dem Alpha 0x26 (38/255) der alten Konkatenation.
+ */
+[data-recommendation='pflichtverkauf'],
+[data-recommendation='verkaufen'] {
+  --rec: var(--color-danger);
+}
+
+[data-recommendation='ausgeschlossen'],
+[data-recommendation='rotation'] {
+  --rec: var(--color-text-secondary);
+}
+
+[data-recommendation='unverzichtbar'],
+[data-recommendation='effizienz-juwel'] {
+  --rec: var(--color-accent);
+}
+
+/* Punktelieferant trägt bewusst das Torwart-Gelb: die einzige Empfehlung, die
+   weder gut noch schlecht ist, sondern eine Eigenschaft beschreibt. */
+[data-recommendation='punkte-garant'] {
+  --rec: var(--pos-gk);
+}
+
+[data-recommendation='beobachten'],
+[data-recommendation='nicht-einsatzbereit'] {
+  --rec: var(--color-text-muted);
+}

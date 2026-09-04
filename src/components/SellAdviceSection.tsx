@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useId, useState } from 'react';
 import type { SquadPlayer } from '@/api/kickbase';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency } from '@/utils/format';
 import type { SellAdvice } from '@/utils/sellAdvice';
 import type { SellPlan } from '@/utils/sellPlan';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './SellAdviceSection.module.css';
 import { SellAdviceRow } from './SellAdviceRow';
 
 interface SellAdviceSectionProps {
@@ -39,13 +40,17 @@ export function SellAdviceSection({
   onToggleExcluded,
 }: SellAdviceSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const listId = useId();
   const playersById = new Map(players.map((p) => [p.id, p]));
 
   // Bewusst weiter nur 'verkaufen': Pflichtverkäufe haben ihre eigene Zeile und
   // sollen den Zähler der sportlichen Verkaufskandidaten nicht still schrumpfen.
   // Ausgeschlossene tragen 'ausgeschlossen' und fallen damit von selbst heraus.
   const sellEntries = advice.filter((a) => a.recommendation === 'verkaufen');
-  const tiedUpValue = sellEntries.reduce((sum, a) => sum + (playersById.get(a.playerId)?.marketValue ?? 0), 0);
+  const tiedUpValue = sellEntries.reduce(
+    (sum, a) => sum + (playersById.get(a.playerId)?.marketValue ?? 0),
+    0,
+  );
   const excludedCount = advice.filter((a) => a.excluded).length;
   const forcedCount = plan?.sell.length ?? 0;
   const showBalanceLine = plan !== null && (forcedCount > 0 || !plan.feasible);
@@ -63,116 +68,79 @@ export function SellAdviceSection({
   }
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.header} onPress={() => setExpanded((e) => !e)}>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>
-            {expanded ? '▾' : '▸'} Kaufen & Verkaufen ({advice.length})
-          </Text>
-          {showBalanceLine && plan && (
-            <Text style={plan.feasible ? styles.summary : styles.warning}>
-              {plan.feasible
-                ? `Kontoausgleich: ${forcedLabel(forcedCount)} · Erlös ${formatCurrency(plan.proceeds)} → Konto ${formatCurrency(plan.balanceAfter)}`
-                : forcedCount > 0
-                  ? `Kontoausgleich unvollständig: ${forcedLabel(forcedCount)} · es fehlen weiterhin ${formatCurrency(plan.shortfall)}`
-                  : `Kontoausgleich nicht möglich — es fehlen ${formatCurrency(plan.shortfall)}.`}
-            </Text>
+    <div className={styles.container}>
+      <button
+        type="button"
+        className={cx(layout.pressableV, styles.header)}
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        aria-controls={listId}
+      >
+        <span className={styles.title}>
+          <span aria-hidden="true">{expanded ? '▾' : '▸'}</span> Kaufen &amp; Verkaufen (
+          {advice.length})
+        </span>
+        {showBalanceLine && plan && (
+          <span className={plan.feasible ? styles.summary : styles.warning}>
+            {plan.feasible
+              ? `Kontoausgleich: ${forcedLabel(forcedCount)} · Erlös ${formatCurrency(plan.proceeds)} → Konto ${formatCurrency(plan.balanceAfter)}`
+              : forcedCount > 0
+                ? `Kontoausgleich unvollständig: ${forcedLabel(forcedCount)} · es fehlen weiterhin ${formatCurrency(plan.shortfall)}`
+                : `Kontoausgleich nicht möglich — es fehlen ${formatCurrency(plan.shortfall)}.`}
+          </span>
+        )}
+        {/* Nur bei ungedecktem Fehlbetrag: dann ist der Ausschluss eine echte Ursache und keine Randnotiz. */}
+        {showBalanceLine && plan && !plan.feasible && plan.excludedValue > 0 && (
+          <span className={styles.summary}>
+            {formatCurrency(plan.excludedValue)} stecken in ausgeschlossenen Spielern — Ausschluss
+            aufheben, um sie einzuplanen.
+          </span>
+        )}
+        <span className={styles.summary}>
+          {sellEntries.length === 0
+            ? 'Keine Verkaufskandidaten'
+            : `${sellEntries.length} Verkaufskandidat${sellEntries.length === 1 ? '' : 'en'} · ${formatCurrency(tiedUpValue)} gebunden`}
+          {excludedCount > 0 && ` · ${excludedCount} ausgeschlossen`}
+          {budget !== null && (
+            <>
+              {' · Budget '}
+              {/*
+                Der einzige verschachtelte Text im ganzen Projekt: er muss im
+                Fluss der Zeile bleiben, nicht als eigenes Flex-Item daneben.
+                Deshalb ist .summary bewusst kein Flex-Container.
+              */}
+              <span className={budget < 0 ? styles.budgetNegative : undefined}>
+                {formatCurrency(budget)}
+              </span>
+            </>
           )}
-          {/* Nur bei ungedecktem Fehlbetrag: dann ist der Ausschluss eine echte Ursache und keine Randnotiz. */}
-          {showBalanceLine && plan && !plan.feasible && plan.excludedValue > 0 && (
-            <Text style={styles.summary}>
-              {formatCurrency(plan.excludedValue)} stecken in ausgeschlossenen Spielern — Ausschluss aufheben, um sie
-              einzuplanen.
-            </Text>
-          )}
-          <Text style={styles.summary}>
-            {sellEntries.length === 0
-              ? 'Keine Verkaufskandidaten'
-              : `${sellEntries.length} Verkaufskandidat${sellEntries.length === 1 ? '' : 'en'} · ${formatCurrency(tiedUpValue)} gebunden`}
-            {excludedCount > 0 && ` · ${excludedCount} ausgeschlossen`}
-            {budget !== null && (
-              <>
-                {' · Budget '}
-                <Text style={budget < 0 ? styles.budgetNegative : undefined}>{formatCurrency(budget)}</Text>
-              </>
-            )}
-          </Text>
-        </View>
-      </Pressable>
+        </span>
+      </button>
 
       {expanded && (
-        <View style={styles.list}>
+        <div className={styles.list} id={listId}>
           {/* Derselbe Vorbehalt wie in SellPlanBar — er gehört überall dorthin, wo Erlöse stehen. */}
           {forcedCount > 0 && (
-            <Text style={styles.disclaimer}>
+            <p className={styles.disclaimer}>
               Erlös geschätzt zum Marktwert — ein Verkauf an Mitspieler kann darüber liegen.
-            </Text>
+            </p>
           )}
-          {advice.map((entry, index) => {
+          {advice.map((entry) => {
             const player = playersById.get(entry.playerId);
             if (!player) return null;
-            const isLast = index === advice.length - 1;
             return (
-              <View key={entry.playerId} style={!isLast && styles.rowWrap}>
+              <div key={entry.playerId} className={styles.rowWrap}>
                 <SellAdviceRow
                   player={player}
                   advice={entry}
-                  onPress={(p) => handleSelect(p.id)}
+                  onClick={(p) => handleSelect(p.id)}
                   onToggleExcluded={onToggleExcluded ? (p) => handleToggleExcluded(p.id) : undefined}
                 />
-              </View>
+              </div>
             );
           })}
-        </View>
+        </div>
       )}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerText: {
-    gap: 2,
-  },
-  title: {
-    ...typography.heading,
-    color: colors.textPrimary,
-  },
-  summary: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  budgetNegative: {
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  warning: {
-    ...typography.caption,
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  disclaimer: {
-    ...typography.small,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  list: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  rowWrap: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-});
