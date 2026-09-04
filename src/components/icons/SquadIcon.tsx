@@ -1,0 +1,25 @@
+import type { TabIconProps } from './types';
+
+/**
+ * Drei Listenzeilen mit Avatar-Punkt — unterscheidet sich dadurch von einem
+ * generischen Listen-Icon und passt zur Spielerliste im Spieler-Tab.
+ */
+export function SquadIcon({ color = 'currentColor', size = 24 }: TabIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {[6.5, 12, 17.5].flatMap((y) => [
+        <circle key={`dot-${y}`} cx={5.5} cy={y} r={1.9} fill={color} />,
+        <line
+          key={`line-${y}`}
+          x1={10.5}
+          y1={y}
+          x2={20}
+          y2={y}
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />,
+      ])}
+    </svg>
+  );
+}

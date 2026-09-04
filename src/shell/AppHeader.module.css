@@ -1,0 +1,80 @@
+.header {
+  display: grid;
+  /*
+   * Drei Spalten mit gleich breiten Rändern halten den Titel optisch
+   * zentriert, unabhängig davon, wie lang das Zurück-Label ist — das ist das
+   * Äquivalent zu `headerTitleAlign: 'center'`.
+   */
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding-inline: var(--space-md);
+  padding-block: var(--space-sm);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+
+  /*
+   * Wie bei der Tab-Leiste unten: das obere Inset kam bisher gratis vom
+   * SafeAreaProvider. Ohne diese Zeile liegt der Header in der installierten
+   * iOS-PWA unter der Notch. Braucht `viewport-fit=cover` in index.html.
+   */
+  padding-top: max(var(--space-sm), env(safe-area-inset-top));
+}
+
+/* Kein border-bottom: `headerShadowVisible: false` war Absicht. */
+
+.side {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  min-width: 0;
+}
+
+.sideEnd {
+  composes: side;
+  justify-content: flex-end;
+}
+
+.title {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.back {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-inline-start: calc(var(--space-xs) * -1);
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  text-decoration: none;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+}
+
+@media (hover: hover) {
+  .back:hover {
+    background: var(--color-surface);
+  }
+}
+
+.back:active {
+  opacity: 0.7;
+}
+
+.chevron {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.backLabel {
+  composes: line1 from '@/theme/layout.module.css';
+}

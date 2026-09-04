@@ -1,0 +1,82 @@
+/*
+ * GENERIERT aus src/theme/tokens.ts — nicht von Hand editieren.
+ * Neu erzeugen mit: npm run tokens
+ * Abgesichert durch src/theme/tokens.css.test.ts (läuft in `npm test`).
+ *
+ * Die typography-Rollen stehen absichtlich als Var-PAARE
+ * (--font-size-caption / --font-weight-caption) und nicht als fertige
+ * Klassen: sie werden 179x gespreadet, oft mit nachträglichem
+ * fontWeight-Override. Über CSS-Modules-`composes` würde dann die
+ * Quellreihenfolge im Bundle darüber entscheiden, ob der Override greift.
+ * Mit Var-Paaren schreibt die Regel ihr font-weight einfach selbst.
+ *
+ * Bewusst KEINE line-height-Tokens: RN setzt für diese fünf Rollen keine,
+ * react-native-web erbt `normal`. Eine eingeführte line-height würde die
+ * vertikale Rhythmik an 179 Stellen minimal verschieben — genau das, was den
+ * Migrations-Diff unprüfbar macht.
+ */
+:root {
+  /* colors */
+  --color-background: #0B0F0C;
+  --color-surface: #141B15;
+  --color-surface-raised: #1D261E;
+  --color-border: #2A342B;
+  --color-text-primary: #F3F6F3;
+  --color-text-secondary: #9BAA9C;
+  --color-text-muted: #6B786C;
+  --color-accent: #3FBF63;
+  --color-accent-muted: #274A31;
+  --color-pitch: #1E5C33;
+  --color-pitch-line: rgba(255,255,255,0.35);
+  --color-positive: #3FBF63;
+  --color-negative: #E5484D;
+  --color-danger: #E5484D;
+
+  /* positionColors — `-soft` ist die Hintergrundvariante (Alpha 0x26) */
+  --pos-gk: #E0A83F;
+  --pos-gk-soft: #E0A83F26;
+  --pos-def: #3F8FE0;
+  --pos-def-soft: #3F8FE026;
+  --pos-mid: #3FBF63;
+  --pos-mid-soft: #3FBF6326;
+  --pos-fwd: #E0523F;
+  --pos-fwd-soft: #E0523F26;
+
+  /* statusColors */
+  --status-fit: #3FBF63;
+  --status-injured: #E5484D;
+  --status-doubtful: #E0A83F;
+  --status-rehab: #E0A83F;
+  --status-suspended: #E5484D;
+  --status-away: #6B786C;
+  --status-unknown: #6B786C;
+
+  /* spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+
+  /* radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* layout */
+  --layout-max-content-width: 480px;
+
+  /* typography — Var-PAARE, keine Klassen (Begründung in tokens.css) */
+  --font-size-title: 22px;
+  --font-weight-title: 700;
+  --font-size-heading: 17px;
+  --font-weight-heading: 600;
+  --font-size-body: 15px;
+  --font-weight-body: 400;
+  --font-size-caption: 13px;
+  --font-weight-caption: 400;
+  --font-size-small: 11px;
+  --font-weight-small: 500;
+}

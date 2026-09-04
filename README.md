@@ -1,0 +1,166 @@
+# kickflow
+
+Kickbase-Companion als Expo-App, ausgeliefert **ausschließlich als Web-App/PWA**
+über Vercel. Diese README beschreibt Entwicklung und Deployment.
+
+Warum keine Store-App: kickflow zeigt Inhalte von Kickbase an (Marktwerte,
+Kader, Vereinslogos) und meldet sich mit dem Kickbase-Konto des Nutzers an.
+Apple verlangt bei der Einreichung die Rechte an genau diesen Inhalten, und
+eine Genehmigung von Kickbase gibt es nicht. Die native Auslieferung — EAS,
+TestFlight, OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
+
+## Entwicklung
+
+```bash
+npm start            # Metro / Expo Dev Server (Web über `w`)
+npm run web          # direkt im Browser
+npm test             # Vitest
+npm run typecheck    # tsc --noEmit
+npm run probe        # Kickbase-API-Explorer, braucht .env.local
+```
+
+`npm run probe` spricht mit einem echten Konto und dumpt Rohantworten nach
+`scripts/.probe-output/` (git-ignoriert). Zugangsdaten dafür in `.env.local`,
+Vorlage in `.env.local.example`.
+
+## Branches
+
+`main` ist der Default-Branch und damit das, was Vercel nach Production
+deployt; `develop` ist der Integrationsbranch, aus dem heraus nach `main`
+gemerged wird. Beide Workflows filtern genau auf diese zwei Namen
+(`pull_request` gegen `develop` und `main`), Vercel leitet Production vs.
+Preview aus dem Default-Branch ab. Feature-Branches hängen darunter und sind
+Wegwerfware.
+
+Deshalb dürfen `main` und `develop` nicht gelöscht werden — und genau das ist
+schon passiert. GitHubs "Automatically delete head branches" löscht nach einem
+Merge den Head-Branch des Pull Requests. Bei einem Feature-Branch ist das der
+Sinn der Einstellung, bei PR #22 (`develop` -> `main`) war der Head aber
+`develop`. Der Branch war danach weg, während beide Workflows weiter auf ihn
+filterten.
+
+Der Schutz dagegen ist ein Ruleset mit der Regel `deletion` auf
+`refs/heads/main` und `refs/heads/develop`. Ein Branch, den ein Ruleset gegen
+Löschen schützt, wird von der Automatik übersprungen — das Aufräumen der
+Feature-Branches bleibt also an, nur diese zwei sind ausgenommen. Der
+Repo-Schalter wäre das gröbere Werkzeug: er würde alles stehen lassen. Und das
+Ruleset deckt zusätzlich das Löschen von Hand ab, in der UI wie über die API.
+
+Erzwingen lässt sich das nur GitHub-seitig, im Repository liegt nur die
+Vorlage. `.github/rulesets/protected-branches.json` ist die Quelle,
+`scripts/protect-branches.sh` schreibt sie über die API:
+
+```bash
+scripts/protect-branches.sh            # Ruleset anlegen oder aktualisieren
+scripts/protect-branches.sh --check    # nur berichten, nichts ändern
+```
+
+Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
+JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
+dabei, was dort von Hand verstellt wurde.
+
+Ein Haken bleibt: Rulesets werden auf einem **privaten** Repo erst ab GitHub
+Pro durchgesetzt. Auf Free lässt sich das Ruleset anlegen, es greift aber
+nicht — `--check` zeigt es dann als `active`, ohne dass es etwas verhindert.
+Ohne Pro bleibt nur der Repo-Schalter:
+
+```bash
+scripts/protect-branches.sh --disable-auto-delete
+```
+
+Danach bleiben auch die Feature-Branches nach dem Merge stehen und müssen von
+Hand weg. Der Tausch ist trotzdem richtig: ein verlorener `develop` kostet
+mehr als ein bisschen Aufräumen.
+
+Wenn doch mal einer der beiden fehlt, ist er nicht verloren, solange der
+Commit noch über `main` erreichbar ist:
+
+```bash
+git push origin <sha>:refs/heads/develop
+```
+
+## Deployment
+
+Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
+`vercel.json`:
+
+| Schlüssel | Wert |
+| --- | --- |
+| `buildCommand` | `npm run build:web` |
+| `outputDirectory` | `dist` |
+| `rewrites` | `/:path*` → `/` |
+
+`npm run build:web` macht zwei Dinge: `scripts/write-build-id.ts` schreibt
+`public/build-id.txt`, dann exportiert `expo export -p web` nach `dist/`.
+Alles unter `public/` (Manifest, Service Worker, Icons, Build-ID) kopiert Expo
+unverändert mit, `public/index.html` dient als HTML-Template.
+
+Der Catch-All-Rewrite ist zwingend: `app.json` setzt `web.output: "single"`,
+es gibt also nur eine `index.html` und keine Datei pro Route. Nebenwirkung, auf
+die der Update-Check unten Rücksicht nimmt: eine fehlende Datei liefert nicht
+404, sondern `index.html` mit Status 200.
+
+`vercel.json` setzt außerdem CSP und Security-Header. Die CSP erlaubt
+ausdrücklich `api.kickbase.com` (die App spricht die Kickbase-API direkt aus
+dem Browser, ohne Proxy) und `kickbase.b-cdn.net` für Logos und Spielerbilder.
+`script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
+warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
+
+`EXPO_PUBLIC_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
+Environment, Production und Preview getrennt. Ohne den Wert erscheint die
+Unterstützen-Karte im Mehr-Tab gar nicht (`src/support/supportUrl.ts`), eine
+Preview ohne die Variable zeigt sie also auch dann nicht, wenn Production sie
+hat.
+
+Lokal ist dabei eine Falle zu beachten: Metro backt `EXPO_PUBLIC_*` beim
+Bundling textuell ein, sein Transform-Cache schlüsselt aber nicht auf den
+Wert. Nach dem Setzen oder Ändern der Variable liefert ein Build aus dem Cache
+weiter den alten Stand — dann `rm -rf node_modules/.cache` und neu bauen.
+Vercel baut immer kalt und ist davon nicht betroffen.
+
+CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
+Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
+Vercels `deployment_status` eintrifft.
+
+## Updates im Browser
+
+Der reguläre Service-Worker-Update-Lifecycle taugt hier nicht: `public/sw.js`
+ändert sich zwischen Deploys nicht, also feuert `waiting`/`controllerchange`
+praktisch nie. Stattdessen läuft es über eine Build-ID:
+
+1. `scripts/write-build-id.ts` schreibt vor jedem Export
+   `public/build-id.txt` — Format `YYYYMMDDTHHMMSSZ-<sha7>`.
+2. `public/register-sw.js` merkt sich die ID beim ersten erfolgreichen Abruf
+   und holt sie danach neu: bei jedem Wechsel des Tabs in den Vordergrund
+   (`visibilitychange`) und zusätzlich alle 30 Minuten. Der Abruf läuft mit
+   `cache: 'no-store'` und prüft das Format — sonst würde der SPA-Rewrite eine
+   HTML-Seite als Build-ID durchgehen lassen.
+3. Weicht die ID ab, feuert `kickflow:update-available` auf `window`.
+4. `src/components/UpdateBanner.tsx` lauscht darauf und zeigt den Banner.
+   Reload passiert **nur auf Tap** — ein Auto-Reload könnte mitten in einer
+   ungespeicherten Aufstellungsbearbeitung zuschlagen.
+
+Caching in `public/sw.js`: `/_expo/*` cache-first (die Dateinamen tragen einen
+Hash, der Inhalt unter einer URL ändert sich nie), alles andere
+network-first mit Cache als Offline-Fallback.
+
+Zum Testen reicht `npm run build:web` plus ein statischer Server auf `dist/`;
+im Dev-Server ist `build-id.txt` nicht Teil des Bildes.
+
+## PWA
+
+`public/manifest.webmanifest` deklariert `display: standalone`, `lang: de`,
+Portrait und die Icons (192, 512, 512 maskable). Installiert wird über die
+Browser-eigene UI („Zum Home-Bildschirm hinzufügen"); die App zeigt dafür
+keinen eigenen Hinweis.
+
+Den Icon-Satz erzeugt `scripts/generate-icons.py` aus einer gemeinsamen
+Vektor-Marke:
+
+```bash
+pip install pillow cairosvg && python3 scripts/generate-icons.py
+```
+
+Benachrichtigungen gibt es nicht. Aufstellungs-Deadline und ablaufende Gebote
+liefen früher über `expo-notifications` und damit nur nativ; Web Push bräuchte
+einen eigenen Server.

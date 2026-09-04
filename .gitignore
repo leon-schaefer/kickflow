@@ -1,0 +1,39 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.orig.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# probe.ts Rohdumps gegen den echten Account
+scripts/.probe-output/
+
+# typescript
+*.tsbuildinfo
+
+# written by scripts/write-build-id.ts before each web export
+/public/build-id.txt

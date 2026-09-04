@@ -1,0 +1,57 @@
+# Checks für Pull Requests: Typecheck, Tests und der Web-Build.
+#
+# Der Web-Build ist hier der wichtigste Schritt. Kickflow wird ausschließlich
+# als Web-App über Vercel ausgeliefert, und `expo export -p web` ist der einzige
+# Build, den es noch gibt — läuft er nicht, fällt das sonst erst bei Vercel auf,
+# also nach dem Merge. Er braucht keine Secrets und funktioniert deshalb auch in
+# Forks.
+#
+# actions/checkout prüft bei pull_request den Merge-Commit aus, geprüft wird
+# also das, was tatsächlich landen würde — nicht der Branch-Kopf.
+#
+# Die Vercel-Preview selbst kommentiert vercel-qr.yml, ausgelöst über
+# deployment_status aus der Vercel-GitHub-Integration.
+
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+# Bei PRs ist Abbrechen richtig — ein überholter Lauf prüft alten Code.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, Tests, Web-Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      # npm ci, nicht npm install: reproduziert den Dependency-Baum exakt aus
+      # dem Lockfile, so wie Vercel es beim Deploy auch tut.
+      - name: Dependencies installieren
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      # Schreibt public/build-id.txt und exportiert nach dist/ — derselbe
+      # Befehl, den vercel.json als buildCommand fährt.
+      - name: Web-Build
+        run: npm run build:web

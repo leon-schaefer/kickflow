@@ -1,0 +1,90 @@
+/*
+ * Zuordnung Datenwert -> Farbvariable, einmalig statt in jeder Komponente.
+ *
+ * Ersetzt drei Muster, die heute Farben durch JavaScript schleifen:
+ *
+ *   1. `backgroundColor: `${positionColors[position]}26``  (8 Stellen,
+ *      Hex+Alpha per String-Konkatenation — in CSS nicht nachbaubar)
+ *   2. `color: positionColors[position]` / `statusColors[status]`
+ *   3. `color: TONE_COLORS[tone]`  (PlayerRowFrame.tsx)
+ *
+ * Stattdessen setzt die Komponente ein Attribut — `data-position="MID"` —,
+ * die Variable erbt in beliebig tiefe Kinder, und das CSS greift sie über
+ * `var(--pos)` / `var(--pos-soft)`. Genau die Struktur, die PlayerRowFrame
+ * (Tag + Text) und PlayerCard schon haben.
+ *
+ * Global (kein CSS-Modul), weil die Selektoren auf Datenattributen stehen und
+ * nicht umbenannt werden dürfen.
+ */
+
+[data-position='GK'] {
+  --pos: var(--pos-gk);
+  --pos-soft: var(--pos-gk-soft);
+}
+
+[data-position='DEF'] {
+  --pos: var(--pos-def);
+  --pos-soft: var(--pos-def-soft);
+}
+
+[data-position='MID'] {
+  --pos: var(--pos-mid);
+  --pos-soft: var(--pos-mid-soft);
+}
+
+[data-position='FWD'] {
+  --pos: var(--pos-fwd);
+  --pos-soft: var(--pos-fwd-soft);
+}
+
+/* PlayerStatus. `fit` trägt keine Farbe, weil `fit` gar kein Badge rendert
+   (siehe statusShowsBadge in tokens.ts) — der Wert bleibt trotzdem
+   definiert, damit ein data-status="fit" nicht auf undefined läuft. */
+[data-status='fit'] {
+  --status: var(--status-fit);
+}
+
+[data-status='injured'] {
+  --status: var(--status-injured);
+}
+
+[data-status='doubtful'] {
+  --status: var(--status-doubtful);
+}
+
+[data-status='rehab'] {
+  --status: var(--status-rehab);
+}
+
+[data-status='suspended'] {
+  --status: var(--status-suspended);
+}
+
+[data-status='away'] {
+  --status: var(--status-away);
+}
+
+[data-status='unknown'] {
+  --status: var(--status-unknown);
+}
+
+/* StatCell.tone (PlayerRowFrame.tsx) — ersetzt die TONE_COLORS-Map. */
+[data-tone='primary'] {
+  --tone: var(--color-text-primary);
+}
+
+[data-tone='accent'] {
+  --tone: var(--color-accent);
+}
+
+[data-tone='positive'] {
+  --tone: var(--color-positive);
+}
+
+[data-tone='negative'] {
+  --tone: var(--color-negative);
+}
+
+[data-tone='muted'] {
+  --tone: var(--color-text-secondary);
+}
