@@ -1,8 +1,10 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PlayerStatus, Position } from '@/api/kickbase';
-import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import { positionLabels } from '@/theme/tokens';
 import { formatCurrency } from '@/utils/format';
-import { recommendationLabels, type SellAdvice, type SellRecommendation } from '@/utils/sellAdvice';
+import { recommendationLabels, type SellAdvice } from '@/utils/sellAdvice';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './SellAdviceRow.module.css';
 import { StatusBadge } from './StatusBadge';
 
 /** Minimale Feldmenge — von SquadPlayer erfüllt. */
@@ -18,175 +20,97 @@ export interface SellAdviceRowPlayer {
 interface SellAdviceRowProps {
   player: SellAdviceRowPlayer;
   advice: SellAdvice;
-  onPress?: (player: SellAdviceRowPlayer) => void;
+  onClick?: (player: SellAdviceRowPlayer) => void;
   /** Ohne Handler bleibt die Zeile wie bisher ohne Umschalter (siehe utils/sellAdvice.ts). */
   onToggleExcluded?: (player: SellAdviceRowPlayer) => void;
 }
 
-const RECOMMENDATION_COLORS: Record<SellRecommendation, string> = {
-  pflichtverkauf: colors.danger,
-  ausgeschlossen: colors.textSecondary,
-  unverzichtbar: colors.accent,
-  'effizienz-juwel': colors.accent,
-  'punkte-garant': positionColors.GK,
-  rotation: colors.textSecondary,
-  beobachten: colors.textMuted,
-  verkaufen: colors.danger,
-  'nicht-einsatzbereit': colors.textMuted,
-};
-
-/** Zeile für die Kader-Empfehlung: Empfehlungs-Pill + Begründung statt Punkte/Mio-Vergleich. */
-export function SellAdviceRow({ player, advice, onPress, onToggleExcluded }: SellAdviceRowProps) {
-  const color = RECOMMENDATION_COLORS[advice.recommendation];
+/**
+ * Zeile für die Kader-Empfehlung: Empfehlungs-Pill + Begründung statt
+ * Punkte/Mio-Vergleich.
+ *
+ * Wie PlayerRowFrame ein `div role="button"` und kein `<button>`, weil der
+ * Ausschluss-Umschalter darin liegt. Das `stopPropagation` dort war in der
+ * RN-Fassung implizit (nativ gewinnt der innerste Responder, und
+ * react-native-web stoppt die Propagation im Pressable-onClick); im DOM muss
+ * es dastehen.
+ *
+ * Positions- und Empfehlungsfarbe kommen über `data-position` bzw.
+ * `data-recommendation` aus theme/positions.css — vorher zwei
+ * `${farbe}26`-Konkatenationen und eine RECOMMENDATION_COLORS-Map.
+ */
+export function SellAdviceRow({ player, advice, onClick, onToggleExcluded }: SellAdviceRowProps) {
   // 'verkaufen' ist ebenfalls rot — zwei transluzente rote Pills wären nicht
   // unterscheidbar. Der Pflichtverkauf bekommt deshalb eine deckende Füllung.
   const urgent = advice.recommendation === 'pflichtverkauf';
 
   return (
-    <Pressable
-      onPress={() => onPress?.(player)}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    <div
+      className={styles.row}
+      {...(onClick
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onClick: () => onClick(player),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick(player);
+              }
+            },
+          }
+        : {})}
     >
-      <View style={styles.topRow}>
-        <View style={[styles.positionTag, { backgroundColor: `${positionColors[player.position]}26` }]}>
-          <Text style={[styles.positionText, { color: positionColors[player.position] }]}>
-            {positionLabels[player.position]}
-          </Text>
-        </View>
+      <div className={styles.topRow}>
+        <span className={styles.positionTag} data-position={player.position}>
+          {positionLabels[player.position]}
+        </span>
 
         {player.imageUrl ? (
-          <Image source={{ uri: player.imageUrl }} style={styles.image} />
+          <img src={player.imageUrl} alt="" className={styles.image} loading="lazy" />
         ) : (
-          <View style={[styles.image, styles.imageFallback]} />
+          <span className={cx(styles.image, styles.imageFallback)} />
         )}
 
-        <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>
-            {player.name}
-          </Text>
-          <View style={styles.subRow}>
-            <Text style={styles.marketValue}>{formatCurrency(player.marketValue)}</Text>
+        <span className={styles.info}>
+          <span className={styles.name}>{player.name}</span>
+          <span className={styles.subRow}>
+            <span className={styles.marketValue}>{formatCurrency(player.marketValue)}</span>
             <StatusBadge status={player.status} />
-          </View>
-        </View>
+          </span>
+        </span>
 
-        <View style={styles.badgeColumn}>
-          <View style={[styles.badge, { backgroundColor: urgent ? color : `${color}26` }]}>
-            <Text style={[styles.badgeText, { color: urgent ? colors.textPrimary : color }]}>
-              {recommendationLabels[advice.recommendation]}
-            </Text>
-          </View>
+        <span className={styles.badgeColumn}>
+          <span
+            className={cx(styles.badge, urgent && styles.badgeUrgent)}
+            data-recommendation={advice.recommendation}
+          >
+            {recommendationLabels[advice.recommendation]}
+          </span>
           {onToggleExcluded && (
-            // Eigenes Pressable INNERHALB der Zeile: die Zeile öffnet weiterhin
-            // das Spieler-Detail, der Umschalter darf das nicht mitauslösen.
-            // Das passiert von selbst — nativ gewinnt der innerste Responder,
-            // und react-native-web stoppt im Pressable-onClick die Propagation.
-            <Pressable
-              onPress={() => onToggleExcluded(player)}
-              accessibilityRole="button"
-              accessibilityLabel={
+            <button
+              type="button"
+              // Die Zeile öffnet das Spieler-Detail — der Umschalter darf das
+              // nicht mitauslösen.
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleExcluded(player);
+              }}
+              aria-pressed={advice.excluded}
+              aria-label={
                 advice.excluded
                   ? `${player.name} wieder zum Verkauf freigeben`
                   : `${player.name} vom Verkauf ausschließen`
               }
-              hitSlop={spacing.xs}
-              style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+              className={cx(layout.pressable, layout.hitSlopSm, styles.toggle)}
             >
-              <Text style={[styles.toggleText, advice.excluded && styles.toggleTextActive]}>
-                {advice.excluded ? '✓ ausgeschlossen' : 'ausschließen'}
-              </Text>
-            </Pressable>
+              {advice.excluded ? '✓ ausgeschlossen' : 'ausschließen'}
+            </button>
           )}
-        </View>
-      </View>
+        </span>
+      </div>
 
-      <Text style={styles.reason}>{advice.reason}</Text>
-    </Pressable>
+      <p className={styles.reason}>{advice.reason}</p>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.xs,
-  },
-  pressed: {
-    backgroundColor: colors.surfaceRaised,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  positionTag: {
-    width: 36,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-  },
-  positionText: {
-    ...typography.small,
-    fontWeight: '700',
-  },
-  image: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-  },
-  imageFallback: {
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  subRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  marketValue: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  badgeColumn: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-  },
-  toggle: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-  },
-  togglePressed: {
-    opacity: 0.6,
-  },
-  toggleText: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
-    color: colors.accent,
-    fontWeight: '700',
-  },
-  badgeText: {
-    ...typography.small,
-    fontWeight: '700',
-  },
-  reason: {
-    ...typography.small,
-    color: colors.textMuted,
-    marginLeft: 36 + spacing.sm,
-  },
-});

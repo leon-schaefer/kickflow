@@ -1,0 +1,65 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/*
+ * Ein Button über der ganzen Kopfzeile. `align-items: stretch` (der
+ * Flex-Default) statt der Button-Zentrierung, damit die Textzeilen wie im
+ * View davor links stehen — pressableV bringt dafür text-align: inherit mit.
+ */
+.header {
+  padding: var(--space-md);
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+/*
+ * Bewusst KEIN composes: v/h. Diese Zeile enthält den einzigen
+ * verschachtelten Text des Projekts (den Budget-Betrag); als Flex-Container
+ * würde daraus ein eigenes Item neben dem Fließtext.
+ */
+.summary {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.budgetNegative {
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.warning {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.disclaimer {
+  margin: 0;
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  border-top: 1px solid var(--color-border);
+}
+
+/* Trennlinie zwischen den Zeilen, aber nicht unter der letzten — vorher ein
+   `!isLast &&` im JSX. */
+.rowWrap:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
