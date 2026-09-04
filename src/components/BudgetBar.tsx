@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useId, useState } from 'react';
 import type { BudgetLimit } from '@/utils/budget';
 import { formatCurrency } from '@/utils/format';
+import styles from './BudgetBar.module.css';
 
 interface BudgetBarProps {
   limit: BudgetLimit;
@@ -18,107 +17,54 @@ interface BudgetBarProps {
  */
 export function BudgetBar({ limit }: BudgetBarProps) {
   const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
 
   return (
-    <View style={styles.container}>
-      <Pressable
-        style={styles.row}
-        onPress={() => setExpanded((value) => !value)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityHint={expanded ? 'Blendet die Details aus.' : 'Zeigt Konto, offene Gebote und Rahmen.'}
+    <div className={styles.container}>
+      <button
+        type="button"
+        className={styles.row}
+        onClick={() => setExpanded((value) => !value)}
+        // Vorher accessibilityState={{ expanded }}. Der accessibilityHint
+        // („Zeigt Konto, offene Gebote und Rahmen.") entfällt: aria-expanded
+        // sagt schon, dass sich hier etwas auf- und zuklappt, und
+        // aria-controls zeigt worauf.
+        aria-expanded={expanded}
+        aria-controls={detailsId}
       >
-        <Text style={styles.label}>Verfügbar</Text>
-        <View style={styles.valueGroup}>
-          <Text style={styles.value}>{formatCurrency(limit.available)}</Text>
-          <Text style={styles.chevron}>{expanded ? '▾' : '▸'}</Text>
-        </View>
-      </Pressable>
+        <span className={styles.label}>Verfügbar</span>
+        <span className={styles.valueGroup}>
+          <span className={styles.value}>{formatCurrency(limit.available)}</span>
+          <span className={styles.chevron} aria-hidden="true">
+            {expanded ? '▾' : '▸'}
+          </span>
+        </span>
+      </button>
 
       {expanded && (
-        <View style={styles.details}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Konto</Text>
-            <Text style={styles.detailValue}>{formatCurrency(limit.budget)}</Text>
-          </View>
+        <div className={styles.details} id={detailsId}>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Konto</span>
+            <span className={styles.detailValue}>{formatCurrency(limit.budget)}</span>
+          </div>
           {limit.pendingOffers > 0 && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>In offenen Geboten</Text>
-              <Text style={styles.detailValue}>{formatCurrency(limit.pendingOffers)}</Text>
-            </View>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>In offenen Geboten</span>
+              <span className={styles.detailValue}>{formatCurrency(limit.pendingOffers)}</span>
+            </div>
           )}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Rahmen</Text>
-            <Text style={styles.detailValue}>{formatCurrency(limit.overdraftAllowance)}</Text>
-          </View>
-        </View>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Rahmen</span>
+            <span className={styles.detailValue}>{formatCurrency(limit.overdraftAllowance)}</span>
+          </div>
+        </div>
       )}
 
       {limit.overLimit && (
-        <Text style={styles.warning}>Kader bereits über der 33%-Grenze — Verkäufe nötig, bevor neue Gebote zählen.</Text>
+        <p className={styles.warning}>
+          Kader bereits über der 33%-Grenze — Verkäufe nötig, bevor neue Gebote zählen.
+        </p>
       )}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 2,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  label: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  valueGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  value: {
-    ...typography.heading,
-    color: colors.textPrimary,
-  },
-  chevron: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  details: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 2,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  detailValue: {
-    ...typography.small,
-    color: colors.textSecondary,
-  },
-  warning: {
-    ...typography.small,
-    color: colors.danger,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-});

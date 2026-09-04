@@ -1,0 +1,68 @@
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  padding-block: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.matchdayLabel {
+  width: 40px;
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.venue {
+  width: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.opponent {
+  composes: h from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.opponentName {
+  composes: line1 from '@/theme/layout.module.css';
+  flex-shrink: 1;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-primary);
+}
+
+.score {
+  width: 36px;
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  color: var(--tone);
+  text-align: center;
+}
+
+.minutes {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.points {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  text-align: right;
+}

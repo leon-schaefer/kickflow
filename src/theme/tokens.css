@@ -42,6 +42,10 @@
   --pos-fwd: #E0523F;
   --pos-fwd-soft: #E0523F26;
 
+  /* Deckkraft-Varianten der Signalfarben — Hintergrund zu einem farbigen Rand (FixtureDifficultyStrip) */
+  --color-positive-soft: #3FBF6326;
+  --color-negative-soft: #E5484D26;
+
   /* statusColors */
   --status-fit: #3FBF63;
   --status-injured: #E5484D;

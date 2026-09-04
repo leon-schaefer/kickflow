@@ -1,0 +1,77 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+/* Eine echte Liste, weil es eine ist — vorher ein View um Views. Die
+   Listen-Optik des Browsers muss dafür weg. */
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 2px;
+}
+
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rowName {
+  composes: line1 from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-primary);
+}
+
+.rowValue {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.rowTag {
+  padding-inline: var(--space-xs);
+  padding-block: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Absätze: der Browser-Default-Abstand würde das gap der Spalte doppeln. */
+.summary,
+.hint,
+.warning,
+.disclaimer {
+  margin: 0;
+}
+
+.summary {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.hint {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.warning {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.disclaimer {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}

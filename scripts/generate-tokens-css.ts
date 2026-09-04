@@ -57,6 +57,13 @@ export function renderTokensCss(): string {
       ]),
     ]),
     block(
+      'Deckkraft-Varianten der Signalfarben — Hintergrund zu einem farbigen Rand (FixtureDifficultyStrip)',
+      [
+        `--color-positive-soft: ${soft(colors.positive)};`,
+        `--color-negative-soft: ${soft(colors.negative)};`,
+      ],
+    ),
+    block(
       'statusColors',
       Object.entries(statusColors).map(([k, v]) => `--status-${kebab(k)}: ${v};`),
     ),
