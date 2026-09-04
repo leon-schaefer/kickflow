@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { PlayerTransfer } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
+import { Checkbox } from '@/components/Checkbox';
 import { FixtureDifficultyStrip } from '@/components/FixtureDifficultyStrip';
 import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
@@ -12,6 +13,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useFocusedLeagueTabTitle } from '@/leagues/useFocusedLeagueTabTitle';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
 import {
   useCompetitionTeams,
@@ -51,6 +53,8 @@ export default function PlayerDetailScreen() {
   useMarkInteractive(!!player);
   const [timeframe, setTimeframe] = useState<Timeframe>(92);
   const backTitle = useFocusedLeagueTabTitle();
+  const { isExcluded, toggleExcluded } = useExcludedFromSaleContext();
+  const excludedFromSale = isExcluded(playerId);
 
   const competitionId = useCompetitionId();
   const router = useRouter();
@@ -223,6 +227,23 @@ export default function PlayerDetailScreen() {
             }
           />
         </View>
+
+        {/*
+         * Nur für eigene Kaderspieler sinnvoll — bei fremden Spielern gibt es
+         * nichts zu verkaufen. Ein bereits gesetzter Ausschluss bleibt aber
+         * immer sichtbar, sonst ließe er sich nach einem Besitzerwechsel nicht
+         * mehr aufheben.
+         */}
+        {(inOwnSquad || excludedFromSale) && (
+          <View style={styles.excludeCard}>
+            <Checkbox
+              label="Vom Verkauf ausschließen"
+              checked={excludedFromSale}
+              onChange={() => toggleExcluded(playerId)}
+              hint="Der Verkaufsvorschlag schlägt ihn nicht mehr vor, und der Kontoausgleich plant ihn nicht ein. Die Aufstellungs-Optimierung bleibt unberührt."
+            />
+          </View>
+        )}
 
         {nextOpponentRatings.length > 0 && (
           <View style={styles.section}>
@@ -452,6 +473,13 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+  },
+  excludeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

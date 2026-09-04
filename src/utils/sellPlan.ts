@@ -1,3 +1,4 @@
+import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
 import { UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
 import { bestLineupUnderValueCapWithRules, cheapestLineupWithRules, optimizeLineupWithRules } from './constrainedLineup';
 import { AVAILABLE_FORMATIONS } from './formations';
@@ -36,6 +37,21 @@ import {
  * (bei Gleichstand) wer den Restfehlbetrag allein deckt bzw. der größere
  * Marktwert, um mit möglichst wenigen Verkäufen auszukommen.
  *
+ * Vom Nutzer vom Verkauf ausgeschlossene Spieler (`excludedIds`, siehe
+ * src/lineup/excludedFromSale.ts) sind für den Plan unverkäuflich. Die
+ * Rechnung oben bleibt dieselbe, nur zählt der ausgeschlossene Marktwert
+ * nirgends mehr als Erlös: verkauft wird aus `Σ Marktwert der VERKAUFBAREN`,
+ * und in der Cap-Bedingung zählt nur der verkaufbare Anteil der Elf —
+ *
+ *     Defizit deckbar  ⟺  Marktwert der verkaufbaren Elf-Spieler
+ *                          ≤ Σ Marktwert verkaufbar − Defizit
+ *
+ * Technisch fällt das mit dem bestehenden Verfahren zusammen, indem für die
+ * Auswahl der behaltenen Elf der Marktwert ausgeschlossener Spieler auf 0
+ * gesetzt wird (`sellableValues` unten): sie zu behalten kostet keinen Erlös,
+ * weil sie ohnehin nie verkauft werden. Der Punktwert bleibt unberührt —
+ * `metricValue` liest nie den Marktwert (siehe lineupOptimizer.ts).
+ *
  * Vorbehalt für die UI: `proceeds` ist eine Schätzung zum Marktwert. Ein
  * Verkauf an einen Mitspieler kann darüber liegen, ein Verkauf an Kickbase
  * (Bot-Listing) liegt exakt beim Marktwert.
@@ -63,6 +79,14 @@ export interface SellPlan {
   feasible: boolean;
   /** Fehlender Betrag, falls der Kader nicht ausreicht (0, wenn feasible). */
   shortfall: number;
+  /**
+   * Marktwert der vom Verkauf ausgeschlossenen Spieler — was der Plan bewusst
+   * nicht anfassen durfte. Für die UI: erklärt einen Fehlbetrag, den ein
+   * Aufheben von Ausschlüssen decken könnte.
+   */
+  excludedValue: number;
+  /** Anzahl der ausgeschlossenen Kaderspieler. */
+  excludedCount: number;
 }
 
 /**
@@ -112,8 +136,13 @@ export function buildSellPlan(
   deficit: number,
   formations: readonly string[] = AVAILABLE_FORMATIONS,
   constraints: LineupConstraints = UNCONSTRAINED_CONSTRAINTS,
+  /** Vom Nutzer vom Verkauf ausgeschlossene Spieler — für den Plan unverkäuflich. */
+  excludedIds: ReadonlySet<string> = NO_EXCLUSIONS,
 ): SellPlan {
   const unconstrained = optimizeLineupWithRules(players, metric, formations, constraints);
+  const excluded = players.filter((p) => excludedIds.has(p.id));
+  const excludedValue = excluded.reduce((sum, p) => sum + p.marketValue, 0);
+  const excludedCount = excluded.length;
 
   if (deficit <= 0) {
     return {
@@ -126,21 +155,30 @@ export function buildSellPlan(
       scoreLoss: 0,
       feasible: true,
       shortfall: 0,
+      excludedValue,
+      excludedCount,
     };
   }
 
-  const totalMarketValue = players.reduce((sum, p) => sum + p.marketValue, 0);
-  const cap = totalMarketValue - deficit;
+  const sellableMarketValue = players.reduce((sum, p) => sum + (excludedIds.has(p.id) ? 0 : p.marketValue), 0);
+  const cap = sellableMarketValue - deficit;
 
-  // bestLineupUnderValueCap === null: selbst der gesamte Kader reicht nicht
-  // aus, um unter den Cap zu kommen — dann wird maximal erlöst (nur noch die
-  // günstigste besetzbare Elf bleibt stehen).
+  // Ausgeschlossene Spieler mit Marktwert 0 — nur für die Auswahl der
+  // behaltenen Elf (siehe Modul-Doku): sie zu behalten kostet keinen Erlös.
+  // Ohne Ausschlüsse ist das die unveränderte Eingabe und damit exakt der
+  // bisherige Pfad.
+  const sellableValues =
+    excludedCount > 0 ? players.map((p) => (excludedIds.has(p.id) ? { ...p, marketValue: 0 } : p)) : players;
+
+  // bestLineupUnderValueCap === null: selbst der gesamte verkaufbare Kader
+  // reicht nicht aus, um unter den Cap zu kommen — dann wird maximal erlöst
+  // (nur noch die günstigste besetzbare Elf bleibt stehen).
   const keep =
-    bestLineupUnderValueCapWithRules(players, metric, formations, cap, constraints) ??
-    cheapestLineupWithRules(players, metric, formations, constraints);
+    bestLineupUnderValueCapWithRules(sellableValues, metric, formations, cap, constraints) ??
+    cheapestLineupWithRules(sellableValues, metric, formations, constraints);
 
   const keepIds = new Set(keep?.playerIds ?? []);
-  const pool = players.filter((p) => !keepIds.has(p.id) && p.marketValue > 0);
+  const pool = players.filter((p) => !keepIds.has(p.id) && p.marketValue > 0 && !excludedIds.has(p.id));
   const chosen = selectSales(pool, metric, deficit);
 
   const unconstrainedBestIds = new Set(unconstrained.best?.playerIds ?? []);
@@ -172,5 +210,7 @@ export function buildSellPlan(
     scoreLoss,
     feasible,
     shortfall: feasible ? 0 : deficit - proceeds,
+    excludedValue,
+    excludedCount,
   };
 }

@@ -203,3 +203,118 @@ describe('buildSellPlan', () => {
     expect(reversed.sell[0]!.playerId).toBe('BenchA');
   });
 });
+
+describe('buildSellPlan mit ausgeschlossenen Spielern', () => {
+  /** Elf für 4-4-2 ohne jede Alternative — die Bank kommt je Test dazu. */
+  function starters(): OptimizerPlayer[] {
+    return [
+      makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 4_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 4_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 4_000_000 }),
+    ];
+  }
+
+  it('weicht auf den nächsten Kandidaten aus, statt den ausgeschlossenen zu verkaufen', () => {
+    const players: OptimizerPlayer[] = [
+      ...starters(),
+      makePlayer({ id: 'BenchSmall', position: 'FWD', averagePoints: -100, marketValue: 5_000_000 }),
+      makePlayer({ id: 'BenchBig', position: 'FWD', averagePoints: -100, marketValue: 8_000_000 }),
+    ];
+    // Ohne Ausschluss deckt der kleinere Kandidat den Fehlbetrag exakt.
+    expect(buildSellPlan(players, 'points', 5_000_000, ['4-4-2']).sell[0]!.playerId).toBe('BenchSmall');
+
+    const plan = buildSellPlan(players, 'points', 5_000_000, ['4-4-2'], undefined, new Set(['BenchSmall']));
+    expect(plan.sell).toEqual([{ playerId: 'BenchBig', marketValue: 8_000_000, wasInBestXi: false }]);
+    expect(plan.feasible).toBe(true);
+    expect(plan.balanceAfter).toBe(3_000_000);
+    expect(plan.excludedCount).toBe(1);
+    expect(plan.excludedValue).toBe(5_000_000);
+  });
+
+  it('rechnet den ausgeschlossenen Marktwert nicht als Erlös mit (Cap über den verkaufbaren Kader)', () => {
+    // "Hlozek"-Kader: einzige Freiheit ist FWD. Ohne Ausschluss deckt FWD1
+    // (10 Mio) die 7 Mio und der Star FWD0 bleibt — ist FWD1 ausgeschlossen,
+    // bleibt nur noch FWD0, denn FWDBench (2 Mio) reicht nicht.
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', averagePoints: 5, marketValue: 5_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', averagePoints: 5, marketValue: 10_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', averagePoints: 5, marketValue: 10_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', averagePoints: 8, marketValue: 60_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', averagePoints: 6, marketValue: 10_000_000 }),
+      makePlayer({ id: 'FWDBench', position: 'FWD', averagePoints: 1, marketValue: 2_000_000 }),
+    ];
+    expect(buildSellPlan(players, 'points', 7_000_000, ['4-4-2']).sell[0]!.playerId).toBe('FWD1');
+
+    const plan = buildSellPlan(players, 'points', 7_000_000, ['4-4-2'], undefined, new Set(['FWD1']));
+    expect(plan.sell).toEqual([{ playerId: 'FWD0', marketValue: 60_000_000, wasInBestXi: true }]);
+    expect(plan.feasible).toBe(true);
+    // Der ausgeschlossene Spieler steht danach selbstverständlich in der Elf.
+    expect(plan.result.best?.playerIds).toContain('FWD1');
+  });
+
+  it('meldet einen Fehlbetrag, wenn nur ausgeschlossene Spieler Erlös bringen könnten', () => {
+    // Der ausgeschlossene Bankspieler ist verletzt und kann deshalb auch
+    // keinen verkauften Startelfspieler ersetzen — es gibt also tatsächlich
+    // nichts zu verkaufen, ohne die einzige Formation zu sprengen.
+    const players: OptimizerPlayer[] = [
+      ...starters(),
+      makePlayer({ id: 'Bench', position: 'FWD', status: 'injured' as PlayerStatus, marketValue: 5_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 3_000_000, ['4-4-2'], undefined, new Set(['Bench']));
+    expect(plan.sell).toEqual([]);
+    expect(plan.proceeds).toBe(0);
+    expect(plan.feasible).toBe(false);
+    expect(plan.shortfall).toBe(3_000_000);
+    // Genau die Zahl, mit der die UI den Fehlbetrag erklärt.
+    expect(plan.excludedValue).toBe(5_000_000);
+  });
+
+  it('ändert ohne Defizit nichts, meldet die Ausschlüsse aber mit', () => {
+    const players: OptimizerPlayer[] = [
+      ...starters(),
+      makePlayer({ id: 'Bench', position: 'FWD', averagePoints: -100, marketValue: 5_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 0, ['4-4-2'], undefined, new Set(['Bench']));
+    expect(plan.sell).toEqual([]);
+    expect(plan.feasible).toBe(true);
+    expect(plan.excludedCount).toBe(1);
+    expect(plan.excludedValue).toBe(5_000_000);
+  });
+
+  it('ist ohne Ausschlüsse identisch zum bisherigen Plan', () => {
+    const players: OptimizerPlayer[] = [
+      ...starters(),
+      makePlayer({ id: 'BenchSmall', position: 'FWD', averagePoints: -100, marketValue: 5_000_000 }),
+      makePlayer({ id: 'BenchBig', position: 'FWD', averagePoints: -100, marketValue: 8_000_000 }),
+    ];
+    expect(buildSellPlan(players, 'points', 6_000_000, ['4-4-2'], undefined, new Set())).toEqual(
+      buildSellPlan(players, 'points', 6_000_000, ['4-4-2']),
+    );
+    // Eine ID, die gar nicht im Kader steht, darf ebenfalls nichts ändern.
+    expect(buildSellPlan(players, 'points', 6_000_000, ['4-4-2'], undefined, new Set(['GHOST']))).toEqual(
+      buildSellPlan(players, 'points', 6_000_000, ['4-4-2']),
+    );
+  });
+
+  it('verkauft auch bei vollständigem Ausschluss des Kaders nichts', () => {
+    const players: OptimizerPlayer[] = [
+      ...starters(),
+      makePlayer({ id: 'Bench', position: 'FWD', averagePoints: -100, marketValue: 5_000_000 }),
+    ];
+    const plan = buildSellPlan(
+      players,
+      'points',
+      50_000_000,
+      ['4-4-2'],
+      undefined,
+      new Set(players.map((p) => p.id)),
+    );
+    expect(plan.sell).toEqual([]);
+    expect(plan.feasible).toBe(false);
+    expect(plan.shortfall).toBe(50_000_000);
+    // Die Elf bleibt trotzdem besetzt — Ausschlüsse betreffen nie die Optimierung.
+    expect(plan.result.best?.playerIds.length).toBe(11);
+  });
+});
