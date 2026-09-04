@@ -1,0 +1,142 @@
+/*
+ * Basisklassen, die die React-Native-Defaults nach CSS übersetzen.
+ *
+ * RN und DOM gehen in DREI Defaults auseinander:
+ *
+ *              RN <View>            DOM <div>
+ *   display    immer flex           block
+ *   direction  column               row
+ *   shrink     0                    1
+ *
+ * 110 der 446 portierten Style-Regeln haben Layout-Props (flex, align-items,
+ * justify-content, gap, flex-wrap, align-self) OHNE flexDirection und
+ * verlassen sich damit auf RNs implizites `column`. Übersetzt man sie naiv,
+ * wird aus jeder Spalte eine Zeile.
+ *
+ * Deshalb trägt JEDE portierte Container-Regel `composes: v` (Spalte) oder
+ * `composes: h` (Zeile) als erste Zeile. Kein globaler `div`-Reset: der wäre
+ * billiger, würde aber auch Fremdcode und künftige Elemente erfassen, den
+ * Textfluss brechen (mehrere Inline-Kinder werden zu je eigenen Flex-Items)
+ * und wäre später nicht mehr auffindbar. So steht die Entscheidung neben den
+ * Regeln, die sie betrifft, und ein fehlendes `composes` fällt im Diff auf.
+ *
+ * KONVENTION: `flex-direction` kommt in Komponenten-Modulen nie vor. Nur
+ * `composes: v`/`h` bestimmt die Richtung — damit gibt es keine Deklaration,
+ * bei der die `composes`-Quellreihenfolge überhaupt entscheiden könnte.
+ */
+
+/* min-width/min-height: 0 hat RN implizit. Ohne sie brechen Ellipsen
+   (.line1) und Scroller, sobald sie in einer Flex-Spalte liegen. */
+.v {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* StyleSheet.absoluteFill */
+.absoluteFill {
+  position: absolute;
+  inset: 0;
+}
+
+/*
+ * Ersatz für <Pressable>. Element ist <button type="button">, nicht
+ * <div role="button">: Tastaturbedienung, Fokusring, :active und
+ * aria-pressed/aria-expanded kommen dann gratis — das Repo setzt mit
+ * accessibilityRole/accessibilityState heute schon die Absicht dafür.
+ *
+ * Die 6 `style={({pressed}) => …}`-Callbacks werden zu :active. Verlustfrei,
+ * weil `pressed` nirgends in Logik einfließt und es kein
+ * onPressIn/onPressOut/onLongPress im Repo gibt.
+ */
+.pressable {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pressableV {
+  composes: v;
+  composes: pressable;
+}
+
+.pressableH {
+  composes: h;
+  composes: pressable;
+}
+
+/* numberOfLines={1} — alle 13 Fundstellen sind ={1}, kein Mehrzeilen-Clamp. */
+.line1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* RN bricht lange Wörter, <span> per Default nicht überall. */
+.txt {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* hitSlop: vergrößert die Trefferfläche ohne Layout-Effekt.
+   Braucht `position: relative` am Button — steckt hier mit drin. */
+.hitSlop {
+  position: relative;
+}
+
+.hitSlop::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.hitSlopSm {
+  composes: hitSlop;
+}
+
+.hitSlopSm::after {
+  inset: -4px;
+}
+
+/* Ersatz für <ScrollView>. contentContainerStyle braucht einen zweiten
+   Knoten darin — der Scroller trägt nur das Scrollen. */
+.scroller {
+  flex: 1 1 0;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollerH {
+  composes: h;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+/* showsHorizontalScrollIndicator={false} */
+.noScrollbar {
+  scrollbar-width: none;
+}
+
+.noScrollbar::-webkit-scrollbar {
+  display: none;
+}

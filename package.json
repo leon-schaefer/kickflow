@@ -33,6 +33,7 @@
     "start": "expo start",
     "web": "expo start --web",
     "build:web": "tsx scripts/write-build-id.ts && expo export -p web",
+    "tokens": "tsx scripts/generate-tokens-css.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

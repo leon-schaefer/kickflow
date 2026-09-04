@@ -58,6 +58,18 @@ export const statusLabels: Record<PlayerStatus, string> = {
   unknown: 'Unbekannt',
 };
 
+/**
+ * Ob ein Status überhaupt ein Badge bekommt. `fit` bekommt keines — ein Hinweis
+ * auf "alles in Ordnung" ist keiner.
+ *
+ * Trägt dieselbe Information wie `statusIcons[status] !== null`, aber ohne
+ * Icon-Bezug: auf Web rendert StatusBadge ohnehin nur einen Farbpunkt (dort
+ * sind keine Symbol-Fonts geladen, siehe Kommentar in StatusBadge.tsx).
+ */
+export function statusShowsBadge(status: PlayerStatus): boolean {
+  return status !== 'fit';
+}
+
 /** Icon je Status für StatusBadge — `fit` bleibt ohne Icon (kein Hinweis nötig). */
 export const statusIcons: Record<PlayerStatus, { ios: SFSymbol; android: AndroidSymbol } | null> = {
   fit: null,
