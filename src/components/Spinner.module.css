@@ -1,0 +1,35 @@
+.inline {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+}
+
+/* Der Ladezustand, der eine ganze Fläche füllt — der häufigste Fall. */
+.fill {
+  composes: inline;
+  flex: 1 1 0;
+  min-height: 0;
+  background: var(--color-background);
+}
+
+.ring {
+  display: block;
+  width: var(--spinner-size, 24px);
+  height: var(--spinner-size, 24px);
+  border-radius: var(--radius-full);
+  border: 2px solid color-mix(in srgb, var(--spinner-color, var(--color-accent)) 25%, transparent);
+  border-top-color: var(--spinner-color, var(--color-accent));
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring {
+    animation-duration: 2s;
+  }
+}

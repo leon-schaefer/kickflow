@@ -1,0 +1,11 @@
+.shell {
+  composes: v from '@/theme/layout.module.css';
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  max-width: var(--layout-max-content-width);
+  margin-inline: auto;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}

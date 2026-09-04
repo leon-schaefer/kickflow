@@ -1,0 +1,21 @@
+.body {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+}
+
+.link {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-accent);
+}
