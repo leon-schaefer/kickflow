@@ -35,6 +35,17 @@
   background: var(--color-border);
 }
 
+/*
+ * ...außer rund um die hervorgehobene Gegner-Zeile. Die Linie liegt genau
+ * auf deren 1px-Rahmen — unten im eigenen Slot, oben im Slot darüber — und
+ * überdeckte ihn ab dem Einzug grau: der grüne Rahmen sah unten offen aus.
+ * Getrennt wird die Zeile dort vom Rahmen selbst.
+ */
+.rowSlot:has(.rowOpponent)::after,
+.rowSlot:has(+ .rowSlot .rowOpponent)::after {
+  content: none;
+}
+
 .row {
   width: 100%;
   align-items: center;
