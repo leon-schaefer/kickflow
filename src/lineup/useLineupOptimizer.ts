@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SquadPlayer } from '@/api/kickbase';
+import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
 import { DEFAULT_RULES, toConstraints, violatedRules, type LineupRule } from '@/lineup/rules';
 import { optimizeLineupWithRules } from '@/utils/constrainedLineup';
 import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
@@ -73,6 +74,13 @@ export function useLineupOptimizer(
    * geladen) verhält sich die Metrik 'expectedPoints' wie 'points'.
    */
   fixtureDifficultyByTeam?: Map<string, AverageDifficulty>,
+  /**
+   * Vom Nutzer vom Verkauf ausgeschlossene Spieler (siehe
+   * src/lineup/excludedFromSale.ts). Wirkt NUR auf die Verkaufsseite —
+   * Verkaufsvorschlag und Kontoausgleich —, nie auf die Optimierung der Elf:
+   * ein ausgeschlossener Spieler soll ja gerade weiter aufgestellt werden.
+   */
+  excludedFromSaleIds: ReadonlySet<string> = NO_EXCLUSIONS,
 ): LineupOptimizer {
   const [metric, setMetric] = useState<OptimizerMetric>('valuePerMillion');
   const [balanceBudget, setBalanceBudget] = useState(false);
@@ -122,8 +130,11 @@ export function useLineupOptimizer(
   // Edit-Modus. Nur für die AKTIVE Metrik, nicht wie efficiencyResult/
   // pointsResult für beide zugleich.
   const budgetPlan = useMemo(
-    () => (deficit > 0 ? buildSellPlan(players, metric, deficit, AVAILABLE_FORMATIONS, constraints) : null),
-    [players, metric, deficit, constraints],
+    () =>
+      deficit > 0
+        ? buildSellPlan(players, metric, deficit, AVAILABLE_FORMATIONS, constraints, excludedFromSaleIds)
+        : null,
+    [players, metric, deficit, constraints, excludedFromSaleIds],
   );
   // Die Checkbox entscheidet nur noch, ob der Plan auch die ANGEZEIGTE Elf
   // bestimmt — gerechnet wird er ohnehin.
@@ -144,8 +155,15 @@ export function useLineupOptimizer(
   // Die ID-Liste bewusst INNERHALB des Memos ableiten: ein pro Render neu
   // gebautes Array würde die Memoisierung sofort entwerten.
   const sellAdvice = useMemo(
-    () => deriveSellAdvice(players, efficiencyResult, pointsResult, budgetPlan?.sell.map((entry) => entry.playerId) ?? []),
-    [players, efficiencyResult, pointsResult, budgetPlan],
+    () =>
+      deriveSellAdvice(
+        players,
+        efficiencyResult,
+        pointsResult,
+        budgetPlan?.sell.map((entry) => entry.playerId) ?? [],
+        excludedFromSaleIds,
+      ),
+    [players, efficiencyResult, pointsResult, budgetPlan, excludedFromSaleIds],
   );
 
   const preview = useMemo(
