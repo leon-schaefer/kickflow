@@ -19,10 +19,13 @@ interface SellAdviceRowProps {
   player: SellAdviceRowPlayer;
   advice: SellAdvice;
   onPress?: (player: SellAdviceRowPlayer) => void;
+  /** Ohne Handler bleibt die Zeile wie bisher ohne Umschalter (siehe utils/sellAdvice.ts). */
+  onToggleExcluded?: (player: SellAdviceRowPlayer) => void;
 }
 
 const RECOMMENDATION_COLORS: Record<SellRecommendation, string> = {
   pflichtverkauf: colors.danger,
+  ausgeschlossen: colors.textSecondary,
   unverzichtbar: colors.accent,
   'effizienz-juwel': colors.accent,
   'punkte-garant': positionColors.GK,
@@ -33,7 +36,7 @@ const RECOMMENDATION_COLORS: Record<SellRecommendation, string> = {
 };
 
 /** Zeile für die Kader-Empfehlung: Empfehlungs-Pill + Begründung statt Punkte/Mio-Vergleich. */
-export function SellAdviceRow({ player, advice, onPress }: SellAdviceRowProps) {
+export function SellAdviceRow({ player, advice, onPress, onToggleExcluded }: SellAdviceRowProps) {
   const color = RECOMMENDATION_COLORS[advice.recommendation];
   // 'verkaufen' ist ebenfalls rot — zwei transluzente rote Pills wären nicht
   // unterscheidbar. Der Pflichtverkauf bekommt deshalb eine deckende Füllung.
@@ -67,10 +70,33 @@ export function SellAdviceRow({ player, advice, onPress }: SellAdviceRowProps) {
           </View>
         </View>
 
-        <View style={[styles.badge, { backgroundColor: urgent ? color : `${color}26` }]}>
-          <Text style={[styles.badgeText, { color: urgent ? colors.textPrimary : color }]}>
-            {recommendationLabels[advice.recommendation]}
-          </Text>
+        <View style={styles.badgeColumn}>
+          <View style={[styles.badge, { backgroundColor: urgent ? color : `${color}26` }]}>
+            <Text style={[styles.badgeText, { color: urgent ? colors.textPrimary : color }]}>
+              {recommendationLabels[advice.recommendation]}
+            </Text>
+          </View>
+          {onToggleExcluded && (
+            // Eigenes Pressable INNERHALB der Zeile: die Zeile öffnet weiterhin
+            // das Spieler-Detail, der Umschalter darf das nicht mitauslösen.
+            // Das passiert von selbst — nativ gewinnt der innerste Responder,
+            // und react-native-web stoppt im Pressable-onClick die Propagation.
+            <Pressable
+              onPress={() => onToggleExcluded(player)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                advice.excluded
+                  ? `${player.name} wieder zum Verkauf freigeben`
+                  : `${player.name} vom Verkauf ausschließen`
+              }
+              hitSlop={spacing.xs}
+              style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+            >
+              <Text style={[styles.toggleText, advice.excluded && styles.toggleTextActive]}>
+                {advice.excluded ? '✓ ausgeschlossen' : 'ausschließen'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -130,10 +156,29 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  badgeColumn: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   badge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.full,
+  },
+  toggle: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  togglePressed: {
+    opacity: 0.6,
+  },
+  toggleText: {
+    ...typography.small,
+    color: colors.textMuted,
+  },
+  toggleTextActive: {
+    color: colors.accent,
+    fontWeight: '700',
   },
   badgeText: {
     ...typography.small,

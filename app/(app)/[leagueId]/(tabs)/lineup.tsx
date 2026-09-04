@@ -20,6 +20,7 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
+import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useMarkInteractive } from '@/observe/useMarkInteractive';
@@ -68,6 +69,7 @@ export default function LineupScreen() {
   const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
   const { rules } = useLeagueRulesContext();
+  const { excludedIds, toggleExcluded } = useExcludedFromSaleContext();
   const [, forceTick] = useState(0);
 
   const [editing, setEditing] = useState(false);
@@ -124,6 +126,7 @@ export default function LineupScreen() {
     budgetLimit?.deficit ?? 0,
     rules,
     fixtureDifficultyByTeam,
+    excludedIds,
   );
 
   const fallbackDeadlineMs = data ? msUntil(data.lineupDeadline) : null;
@@ -484,6 +487,7 @@ export default function LineupScreen() {
         plan={optimizer.budgetPlan}
         budget={league?.budget ?? null}
         onSelectPlayer={openPlayer}
+        onToggleExcluded={(player) => toggleExcluded(player.id)}
       />
 
       {editing && (
