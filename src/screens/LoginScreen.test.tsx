@@ -19,9 +19,18 @@ function setup() {
   return { router };
 }
 
-async function fillIn(email = 'a@b.de', password = 'geheim') {
-  await userEvent.type(screen.getByRole('textbox', { name: 'E-Mail' }), email);
-  await userEvent.type(screen.getByLabelText('Passwort'), password);
+/*
+ * Beliebige Formulareingaben, kein Geheimnis: `login` ist gemockt, die Werte
+ * verlassen den Test nie. Der Platzhalter-Wert steht hier bewusst so
+ * offensichtlich da — ein plausibel aussehendes Passwort hat den
+ * Secret-Scanner der CI ausgelöst, und ein unterdrückter Scanner-Treffer ist
+ * teurer als ein sprechender Testwert.
+ */
+const EINGABE = { mail: 'a@b.de', platzhalter: 'PLATZHALTER' };
+
+async function fillIn(mail = EINGABE.mail, eingabe = EINGABE.platzhalter) {
+  await userEvent.type(screen.getByRole('textbox', { name: 'E-Mail' }), mail);
+  await userEvent.type(screen.getByLabelText('Passwort'), eingabe);
 }
 
 beforeEach(() => {
@@ -47,7 +56,7 @@ describe('LoginScreen', () => {
     await fillIn();
     await userEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
 
-    expect(login).toHaveBeenCalledWith('a@b.de', 'geheim');
+    expect(login).toHaveBeenCalledWith(EINGABE.mail, EINGABE.platzhalter);
     expect(router.state.location.pathname).toBe('/leagues');
   });
 
@@ -63,9 +72,9 @@ describe('LoginScreen', () => {
 
   it('schneidet Leerzeichen aus der E-Mail — Tastaturen hängen gern eins an', async () => {
     setup();
-    await fillIn(' a@b.de ');
+    await fillIn(` ${EINGABE.mail} `);
     await userEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
-    expect(login).toHaveBeenCalledWith('a@b.de', 'geheim');
+    expect(login).toHaveBeenCalledWith(EINGABE.mail, EINGABE.platzhalter);
   });
 
   it('sendet auch über die Enter-Taste im Feld ab', async () => {
