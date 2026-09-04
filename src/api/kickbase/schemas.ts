@@ -366,6 +366,38 @@ export const rawPlayerDetailSchema = z.looseObject({
 });
 export type RawPlayerDetail = z.infer<typeof rawPlayerDetailSchema>;
 
+/**
+ * Ein Eintrag der Transferhistorie eines Spielers
+ * (`GET /v4/leagues/{id}/players/{playerId}/transferHistory`): EIN
+ * Besitzerwechsel innerhalb der Liga. `u`/`unm`/`uim` beschreiben den
+ * KÄUFER, `dt` den Zeitpunkt, `trp` den gezahlten Preis.
+ *
+ * Feldnamen samt echter Beispielantwort aus kevinskyba/kickbase-api-doc
+ * (inoffiziell) — dieselbe Quelle nennt Einträge OHNE `u`/`unm`/`uim`, wenn
+ * Kickbase zum Käufer nichts liefert. Deshalb ist hier alles optional; was
+ * fehlende Felder bedeuten, entscheidet toPlayerTransfers() in mappers.ts.
+ * `t` (Transferart) bleibt ungemappt: die Codeliste ist nirgends
+ * dokumentiert, nur der Beispielwert 2 ist belegt.
+ *
+ * NICHT durch einen eigenen Probe-Lauf verifiziert — `npm run probe --
+ * --transfers` dumpt genau diese Antwort, siehe probeTransfers() in
+ * scripts/probe.ts.
+ */
+export const rawPlayerTransferSchema = z.looseObject({
+  u: z.string().optional(),
+  unm: z.string().optional(),
+  uim: z.string().optional(),
+  dt: z.string().optional(),
+  trp: z.number().optional(),
+  t: z.number().optional(),
+});
+export type RawPlayerTransfer = z.infer<typeof rawPlayerTransferSchema>;
+
+export const rawPlayerTransferHistorySchema = z.looseObject({
+  it: z.array(rawPlayerTransferSchema).default([]),
+});
+export type RawPlayerTransferHistory = z.infer<typeof rawPlayerTransferHistorySchema>;
+
 export const rawMarketValuePointSchema = z.looseObject({
   dt: z.number(),
   mv: z.number(),

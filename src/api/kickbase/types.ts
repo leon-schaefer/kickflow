@@ -266,6 +266,25 @@ export interface PlayerDetail {
   performance: SeasonPerformance[];
 }
 
+/**
+ * Ein Besitzerwechsel eines Spielers innerhalb der Liga — ein Eintrag aus
+ * `/v4/leagues/{id}/players/{playerId}/transferHistory`, siehe
+ * getPlayerTransferHistory(). Grundlage für "Gekauft am ..." auf dem
+ * Spieler-Screen (src/utils/playerPurchase.ts).
+ */
+export interface PlayerTransfer {
+  /** ISO-Zeitpunkt des Transfers (Rohfeld `dt`). */
+  date: string;
+  /**
+   * Der Käufer. `null`, wenn Kickbase zu diesem Transfer keinen Manager
+   * nennt — laut Doku kommt das vor (z. B. Kauf vom Kickbase-Angebot).
+   */
+  buyerId: string | null;
+  buyerName: string | null;
+  /** Gezahlter Preis (Rohfeld `trp`); 0, wenn die Antwort keinen liefert. */
+  price: number;
+}
+
 /** Ein Manager in der Liga-Tabelle (`/v4/leagues/{id}/ranking`), siehe getLeagueRanking(). */
 export interface LeagueRankingEntry {
   userId: string;

@@ -17,6 +17,7 @@ import {
   toMarketValueHistory,
   toMatchdaySchedule,
   toPlayerDetail,
+  toPlayerTransfers,
   toSquadPlayer,
   toTeam,
 } from './mappers';
@@ -890,5 +891,40 @@ describe('toCompetitionPlayers', () => {
   it('liefert für eine Antwort ohne erkennbare Liste ein leeres Array (Signal der Pfadsuche)', () => {
     expect(toCompetitionPlayers({}, '2')).toEqual([]);
     expect(toCompetitionPlayers({ it: [] }, '2')).toEqual([]);
+  });
+});
+
+describe('toPlayerTransfers', () => {
+  it('sortiert nach Datum, jüngster zuerst, und mappt Käufer und Preis', () => {
+    const transfers = toPlayerTransfers({
+      it: [
+        { u: '608701', unm: 'Juan Arango', dt: '2023-11-09T22:27:39Z', trp: 56185001, t: 2 },
+        { u: '42', unm: 'Rival', dt: '2026-08-12T20:14:03Z', trp: 1_500_000, t: 2 },
+      ],
+    });
+    expect(transfers.map((t) => t.date)).toEqual([
+      '2026-08-12T20:14:03Z',
+      '2023-11-09T22:27:39Z',
+    ]);
+    expect(transfers[0]).toEqual({
+      date: '2026-08-12T20:14:03Z',
+      buyerId: '42',
+      buyerName: 'Rival',
+      price: 1_500_000,
+    });
+  });
+
+  it('lässt Käuferangaben weg, wenn die Antwort keine liefert', () => {
+    const [transfer] = toPlayerTransfers({ it: [{ dt: '2026-08-12T20:14:03Z' }] });
+    expect(transfer).toEqual({
+      date: '2026-08-12T20:14:03Z',
+      buyerId: null,
+      buyerName: null,
+      price: 0,
+    });
+  });
+
+  it('wirft Einträge ohne verwertbares Datum raus', () => {
+    expect(toPlayerTransfers({ it: [{ u: '42' }, { dt: 'kein Datum' }] })).toEqual([]);
   });
 });
