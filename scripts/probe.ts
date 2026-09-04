@@ -21,10 +21,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 // dotenv/config lädt standardmäßig nur ".env" — wir wollen explizit ".env.local".
-config({ path: path.join(__dirname, '..', '.env.local') });
+config({ path: path.join(import.meta.dirname, '..', '.env.local') });
 
 const BASE_URL = 'https://api.kickbase.com';
-const OUTPUT_DIR = path.join(__dirname, '.probe-output');
+const OUTPUT_DIR = path.join(import.meta.dirname, '.probe-output');
 const SAVE_LINEUP = process.argv.includes('--save-lineup');
 const PROBE_OFFERS = process.argv.includes('--offers');
 const PROBE_PLAYERS = process.argv.includes('--players');

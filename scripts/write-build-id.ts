@@ -25,6 +25,6 @@ import { formatBuildId } from '../src/updates/buildId';
 import { resolveGitSha } from './gitSha';
 
 const buildId = formatBuildId(Date.now(), resolveGitSha());
-const outPath = path.join(__dirname, '..', 'public', 'build-id.txt');
+const outPath = path.join(import.meta.dirname, '..', 'public', 'build-id.txt');
 writeFileSync(outPath, buildId);
 console.log(`build-id.txt geschrieben: ${buildId}`);

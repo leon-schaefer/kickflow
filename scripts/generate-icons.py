@@ -73,7 +73,7 @@ def render(svg, size):
 
 # (Pfad, Kantenlänge, Anteil der Marke, deckender Hintergrund)
 TARGETS = [
-    ("assets/favicon.png",                   196, 0.80, True),
+    ("public/favicon.png",                   196, 0.80, True),
     ("public/icons/icon-192.png",            192, 0.76, True),
     ("public/icons/icon-512.png",            512, 0.76, True),
     ("public/icons/icon-maskable-512.png",   512, 0.60, True),

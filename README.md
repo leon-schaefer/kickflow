@@ -1,7 +1,8 @@
 # kickflow
 
-Kickbase-Companion als Expo-App, ausgeliefert **ausschließlich als Web-App/PWA**
-über Vercel. Diese README beschreibt Entwicklung und Deployment.
+Kickbase-Companion als React-SPA (Vite + React Router), ausgeliefert
+**ausschließlich als Web-App/PWA** über Vercel. Diese README beschreibt
+Entwicklung und Deployment.
 
 Warum keine Store-App: kickflow zeigt Inhalte von Kickbase an (Marktwerte,
 Kader, Vereinslogos) und meldet sich mit dem Kickbase-Konto des Nutzers an.
@@ -12,8 +13,9 @@ TestFlight, OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
 ## Entwicklung
 
 ```bash
-npm start            # Metro / Expo Dev Server (Web über `w`)
-npm run web          # direkt im Browser
+npm run dev          # Vite Dev-Server
+npm run preview      # gebautes dist/ lokal servieren
+npm run tokens       # src/theme/tokens.css aus tokens.ts neu erzeugen
 npm test             # Vitest
 npm run typecheck    # tsc --noEmit
 npm run probe        # Kickbase-API-Explorer, braucht .env.local
@@ -91,14 +93,20 @@ Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
 | `rewrites` | `/:path*` → `/` |
 
 `npm run build:web` macht zwei Dinge: `scripts/write-build-id.ts` schreibt
-`public/build-id.txt`, dann exportiert `expo export -p web` nach `dist/`.
-Alles unter `public/` (Manifest, Service Worker, Icons, Build-ID) kopiert Expo
-unverändert mit, `public/index.html` dient als HTML-Template.
+`public/build-id.txt`, dann baut `vite build` nach `dist/`. Alles unter
+`public/` (Manifest, Service Worker, Icons, Favicon, Build-ID) kopiert Vite
+unverändert mit, `index.html` im Projekt-Root ist der Einstieg.
 
-Der Catch-All-Rewrite ist zwingend: `app.json` setzt `web.output: "single"`,
-es gibt also nur eine `index.html` und keine Datei pro Route. Nebenwirkung, auf
-die der Update-Check unten Rücksicht nimmt: eine fehlende Datei liefert nicht
-404, sondern `index.html` mit Status 200.
+Der Script-NAME ist festgenagelt: `vercel.json` (`buildCommand`) und
+`.github/workflows/pr.yml` rufen ihn so auf. Unter `public/` darf außerdem nie
+ein Verzeichnis `assets/` entstehen — das kollidiert mit Vites Ausgabepfad und
+landet im Service Worker als unveränderlich gecachter Inhalt ohne Hash.
+
+Der Catch-All-Rewrite ist zwingend: es gibt nur eine `index.html` und keine
+Datei pro Route, das Routing macht React Router im Browser
+(`src/routes/routes.tsx`). Nebenwirkung, auf die der Update-Check unten
+Rücksicht nimmt: eine fehlende Datei liefert nicht 404, sondern `index.html`
+mit Status 200.
 
 `vercel.json` setzt außerdem CSP und Security-Header. Die CSP erlaubt
 ausdrücklich `api.kickbase.com` (die App spricht die Kickbase-API direkt aus
@@ -106,17 +114,22 @@ dem Browser, ohne Proxy) und `kickbase.b-cdn.net` für Logos und Spielerbilder.
 `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
 warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
 
-`EXPO_PUBLIC_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
+Zwei Dinge hängen daran und dürfen nicht verloren gehen:
+`build.modulePreload.polyfill` ist in `vite.config.ts` **aus** (Vite würde
+sonst ein Inline-`<script>` injizieren), und `src/app/zodConfig.ts` schaltet
+Zods JIT-Kompilierung ab (Zod prüft sonst per `new Function`, ob eval erlaubt
+ist, und der abgefangene Fehler wird trotzdem als CSP-Verstoß gemeldet).
+
+`VITE_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
 Environment, Production und Preview getrennt. Ohne den Wert erscheint die
 Unterstützen-Karte im Mehr-Tab gar nicht (`src/support/supportUrl.ts`), eine
 Preview ohne die Variable zeigt sie also auch dann nicht, wenn Production sie
-hat.
+hat. Vercel baut nach einer Env-Änderung nicht von selbst neu — Redeploy
+anstoßen.
 
-Lokal ist dabei eine Falle zu beachten: Metro backt `EXPO_PUBLIC_*` beim
-Bundling textuell ein, sein Transform-Cache schlüsselt aber nicht auf den
-Wert. Nach dem Setzen oder Ändern der Variable liefert ein Build aus dem Cache
-weiter den alten Stand — dann `rm -rf node_modules/.cache` und neu bauen.
-Vercel baut immer kalt und ist davon nicht betroffen.
+Die Variable hieß bis zum Umzug auf Vite `EXPO_PUBLIC_SUPPORT_URL`. Wie
+damals gilt: der Wert wird zur Build-Zeit eingebacken und ist damit
+öffentlich.
 
 CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
 Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
@@ -128,7 +141,7 @@ Der reguläre Service-Worker-Update-Lifecycle taugt hier nicht: `public/sw.js`
 ändert sich zwischen Deploys nicht, also feuert `waiting`/`controllerchange`
 praktisch nie. Stattdessen läuft es über eine Build-ID:
 
-1. `scripts/write-build-id.ts` schreibt vor jedem Export
+1. `scripts/write-build-id.ts` schreibt vor jedem Build
    `public/build-id.txt` — Format `YYYYMMDDTHHMMSSZ-<sha7>`.
 2. `public/register-sw.js` merkt sich die ID beim ersten erfolgreichen Abruf
    und holt sie danach neu: bei jedem Wechsel des Tabs in den Vordergrund
@@ -140,9 +153,11 @@ praktisch nie. Stattdessen läuft es über eine Build-ID:
    Reload passiert **nur auf Tap** — ein Auto-Reload könnte mitten in einer
    ungespeicherten Aufstellungsbearbeitung zuschlagen.
 
-Caching in `public/sw.js`: `/_expo/*` cache-first (die Dateinamen tragen einen
+Caching in `public/sw.js`: `/assets/*` cache-first (die Dateinamen tragen einen
 Hash, der Inhalt unter einer URL ändert sich nie), alles andere
-network-first mit Cache als Offline-Fallback.
+network-first mit Cache als Offline-Fallback. Der Pfad hieß vor dem Umzug
+`/_expo/*`; deshalb steht der Cache-Name auf `kickflow-v2` — `activate` löscht
+jeden Cache mit anderem Namen und räumt die alten Einträge damit weg.
 
 Zum Testen reicht `npm run build:web` plus ein statischer Server auf `dist/`;
 im Dev-Server ist `build-id.txt` nicht Teil des Bildes.

@@ -1,7 +1,7 @@
 {
   "name": "kickflow",
   "version": "1.0.2",
-  "main": "expo-router/entry",
+  "type": "module",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -40,9 +40,9 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
-    "start": "expo start",
-    "web": "expo start --web",
-    "build:web": "tsx scripts/write-build-id.ts && expo export -p web",
+    "dev": "vite",
+    "build:web": "tsx scripts/write-build-id.ts && vite build",
+    "preview": "vite preview",
     "tokens": "tsx scripts/generate-tokens-css.ts",
     "test": "vitest run",
     "test:watch": "vitest",

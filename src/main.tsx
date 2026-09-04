@@ -1,3 +1,7 @@
+// MUSS als erstes stehen: konfiguriert Zod, bevor irgendein Schema-Modul
+// geladen wird. Begründung und Reihenfolge-Vertrag in der Datei selbst.
+import '@/app/zodConfig';
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app/App';
