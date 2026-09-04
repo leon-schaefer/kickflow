@@ -1,4 +1,3 @@
-import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
 import type { PlayerStatus, Position } from '@/api/kickbase';
 
 /** Zentrale Design-Tokens. Dark-first, Rasengrün als Akzent. */
@@ -62,24 +61,14 @@ export const statusLabels: Record<PlayerStatus, string> = {
  * Ob ein Status überhaupt ein Badge bekommt. `fit` bekommt keines — ein Hinweis
  * auf "alles in Ordnung" ist keiner.
  *
- * Trägt dieselbe Information wie `statusIcons[status] !== null`, aber ohne
- * Icon-Bezug: auf Web rendert StatusBadge ohnehin nur einen Farbpunkt (dort
- * sind keine Symbol-Fonts geladen, siehe Kommentar in StatusBadge.tsx).
+ * Hielt vorher die Icon-Map `statusIcons` fest (SF Symbols bzw. Material
+ * Symbols über expo-symbols, mit `null` für `fit`). Die Icons sind mit dem
+ * Umzug weg, weil auf Web ohnehin nur der Farbpunkt rendert — diese eine
+ * Information musste aber bleiben.
  */
 export function statusShowsBadge(status: PlayerStatus): boolean {
   return status !== 'fit';
 }
-
-/** Icon je Status für StatusBadge — `fit` bleibt ohne Icon (kein Hinweis nötig). */
-export const statusIcons: Record<PlayerStatus, { ios: SFSymbol; android: AndroidSymbol } | null> = {
-  fit: null,
-  injured: { ios: 'cross.case.fill', android: 'medical_services' },
-  doubtful: { ios: 'exclamationmark.triangle.fill', android: 'warning' },
-  rehab: { ios: 'figure.walk', android: 'directions_walk' },
-  suspended: { ios: 'nosign', android: 'block' },
-  away: { ios: 'airplane', android: 'flight' },
-  unknown: { ios: 'questionmark.circle.fill', android: 'help' },
-};
 
 export const spacing = {
   xs: 4,
