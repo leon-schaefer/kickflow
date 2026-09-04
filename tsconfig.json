@@ -30,18 +30,5 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  /*
-   * `app/**` ist der Expo-Router-Baum. Er wird beim Cutover NICHT gelöscht,
-   * sondern nur aus dem Typecheck genommen: src/components/* ist ein
-   * Alles-oder-nichts-Schnitt (StatusBadge, TextField, Refreshable und
-   * QueryState hängen an je 5-10 Screens), also muss app/** aus dem Graph
-   * sein, bevor die Komponenten umgeschrieben werden können. Vite bündelt
-   * nur, was von index.html -> src/main.tsx erreichbar ist, Vitest sammelt
-   * nur src/**, react-native bleibt bis zuletzt installiert — der Baum ist
-   * damit inerter, schrumpfender Ballast.
-   *
-   * Diese Zeile fällt mit dem Löschen von app/ am Ende der Portierung wieder
-   * weg. Das ist das Gate, das die Typprüfung über alles wiederherstellt.
-   */
-  "exclude": ["node_modules", "dist", "app/**"]
+  "exclude": ["node_modules", "dist"]
 }
