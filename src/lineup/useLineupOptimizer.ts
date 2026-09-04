@@ -88,7 +88,13 @@ export function useLineupOptimizer(
 
   // Ein Ignorieren soll nie eine geänderte Regel stillschweigend überdauern.
   useEffect(() => {
-    setIgnoredRuleIds(new Set());
+    // Der Funktions-Updater mit Identitäts-Check ist nicht Kosmetik: ein
+    // `setIgnoredRuleIds(new Set())` setzt IMMER einen neuen Wert, React kann
+    // also nie abbrechen. Übergibt ein Aufrufer `rules` als pro Render neu
+    // gebautes Array, dreht sich daraus eine endlose Render-Schleife —
+    // synchron, also fängt sie auch kein Test-Timeout. So bleibt der State
+    // gleich, wenn es nichts zu leeren gibt.
+    setIgnoredRuleIds((current) => (current.size === 0 ? current : new Set()));
   }, [rules]);
 
   const effectiveRules = useMemo(

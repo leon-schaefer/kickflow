@@ -1,15 +1,8 @@
-import { Navigate, type RouteObject, useParams } from 'react-router';
-import { leagueTabTitles } from '@/leagues/leagueTabs';
-import { useBackTarget } from '@/shell/useBackTarget';
-import { IndexRedirect } from './IndexRedirect';
-import { LeagueLayout } from './LeagueLayout';
-import { NotFound } from './NotFound';
-import { Placeholder } from './Placeholder';
-import { RequireAuth } from './RequireAuth';
-import { RootLayout } from './RootLayout';
+import { Navigate, type RouteObject } from 'react-router';
 import { FixturesScreen } from '@/screens/FixturesScreen';
 import { LeagueScreen } from '@/screens/LeagueScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
+import { LineupScreen } from '@/screens/LineupScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { ManagerDetailScreen } from '@/screens/ManagerDetailScreen';
 import { MarketScreen } from '@/screens/MarketScreen';
@@ -18,6 +11,11 @@ import { PlayerDetailScreen } from '@/screens/PlayerDetailScreen';
 import { PlayersScreen } from '@/screens/PlayersScreen';
 import { RulesScreen } from '@/screens/RulesScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
+import { IndexRedirect } from './IndexRedirect';
+import { LeagueLayout } from './LeagueLayout';
+import { NotFound } from './NotFound';
+import { RequireAuth } from './RequireAuth';
+import { RootLayout } from './RootLayout';
 import { TabsLayout } from './TabsLayout';
 
 /**
@@ -35,13 +33,6 @@ import { TabsLayout } from './TabsLayout';
  * Als Array exportiert und nicht als fertiger Router, damit Tests denselben
  * Baum mit `createMemoryRouter` mounten können, ohne einen Browser.
  */
-
-/** Übergangsweise: Detail-Screens brauchen ihr Zurück-Ziel aus der Herkunft. */
-function DetailPlaceholder({ name }: { name: string }) {
-  const { leagueId } = useParams<{ leagueId: string }>();
-  const back = useBackTarget(leagueId ?? '');
-  return <Placeholder name={name} back={back} />;
-}
 
 export const routes: RouteObject[] = [
   {
@@ -73,7 +64,7 @@ export const routes: RouteObject[] = [
                 // = Klammer-Gruppe `(tabs)`: Rahmen mit Tab-Leiste, ohne URL-Segment.
                 element: <TabsLayout />,
                 children: [
-                  { path: 'lineup', element: <Placeholder name={leagueTabTitles.lineup} /> },
+                  { path: 'lineup', element: <LineupScreen /> },
                   { path: 'players', element: <PlayersScreen /> },
                   { path: 'market', element: <MarketScreen /> },
                   { path: 'league', element: <LeagueScreen /> },

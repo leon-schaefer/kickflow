@@ -1,0 +1,189 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  width: 100%;
+  max-width: var(--layout-max-content-width);
+  margin-inline: auto;
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.matchdayHeader {
+  composes: h from '@/theme/layout.module.css';
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.headerColumn {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-start;
+}
+
+.headerStats {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+}
+
+.headerLabel {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.headerSub {
+  margin-top: 2px;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.headerSubNegative {
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.formation {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.navRow {
+  composes: h from '@/theme/layout.module.css';
+  align-self: flex-start;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+}
+
+.navRowText {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.navRowChevron {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.editToggle {
+  align-self: flex-start;
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.formationRow {
+  composes: h from '@/theme/layout.module.css';
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.formationChip {
+  align-items: center;
+  padding-inline: var(--space-sm);
+  padding-block: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.formationChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
+/* Blass, aber nicht gesperrt: ein Wechsel dorthin ist erlaubt und beschneidet
+   den Entwurf. */
+.formationChip[data-infeasible] {
+  opacity: 0.45;
+}
+
+.formationChipText {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.formationChip[aria-pressed='true'] .formationChipText {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.formationChipScore {
+  margin-top: 1px;
+  font-size: 10px;
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.formationChipScoreBest {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.sectionTitle {
+  margin: var(--space-md) 0 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.bench {
+  composes: h from '@/theme/layout.module.css';
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.saveBar {
+  composes: v from '@/theme/layout.module.css';
+  margin-top: var(--space-md);
+  gap: var(--space-sm);
+}
+
+.errorText {
+  margin: 0;
+  padding-inline: var(--space-xl);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-danger);
+  text-align: center;
+}
+
+.saveButton {
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-background);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
