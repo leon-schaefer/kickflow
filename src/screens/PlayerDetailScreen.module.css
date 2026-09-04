@@ -1,0 +1,202 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-lg);
+  gap: var(--space-lg);
+}
+
+.headerRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.image {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.imageFallback {
+  display: block;
+  border: 1px solid var(--color-border);
+}
+
+.headerInfo {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+}
+
+.team {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+}
+
+.badgeRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+
+/* Farbe und Hintergrund aus data-position (theme/positions.css) — vorher
+   `${positionColors[position]}26` im style-Array. */
+.positionTag {
+  padding-inline: var(--space-sm);
+  padding-block: 2px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  background: var(--pos-soft);
+  color: var(--pos);
+}
+
+.statusDetails {
+  margin: 2px 0 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.owner {
+  margin: 2px 0 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-accent);
+}
+
+.ownerButton {
+  /* Trefferfläche für die eine Zeile, ohne den Abstand darunter zu ändern. */
+  padding-block: 2px;
+}
+
+.ownerUnknown {
+  color: var(--color-text-muted);
+}
+
+.purchase {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.purchasePending {
+  color: var(--color-text-muted);
+}
+
+.statsGrid {
+  composes: h from '@/theme/layout.module.css';
+  margin: 0;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.stat {
+  composes: v from '@/theme/layout.module.css';
+  /* 30 % statt 33 %: das gap kommt dazu, drei Kacheln sollen in eine Zeile passen. */
+  width: 30%;
+  padding: var(--space-sm);
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.statValue {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.statLabel {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.excludeCard {
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.section {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.sectionHeaderRow {
+  composes: h from '@/theme/layout.module.css';
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.legend {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.timeframeToggle {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+.timeframeChip {
+  padding-inline: var(--space-sm);
+  padding-block: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.timeframeChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.minMaxRow {
+  composes: h from '@/theme/layout.module.css';
+  justify-content: space-between;
+}
+
+.minMaxText {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}

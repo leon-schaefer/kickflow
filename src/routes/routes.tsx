@@ -14,6 +14,7 @@ import { LoginScreen } from '@/screens/LoginScreen';
 import { ManagerDetailScreen } from '@/screens/ManagerDetailScreen';
 import { MarketScreen } from '@/screens/MarketScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
+import { PlayerDetailScreen } from '@/screens/PlayerDetailScreen';
 import { PlayersScreen } from '@/screens/PlayersScreen';
 import { RulesScreen } from '@/screens/RulesScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
@@ -81,7 +82,7 @@ export const routes: RouteObject[] = [
               },
 
               // Über den Tabs: eigener Header mit Zurück, keine Tab-Leiste.
-              { path: 'player/:playerId', element: <DetailPlaceholder name="Spieler" /> },
+              { path: 'player/:playerId', element: <PlayerDetailScreen /> },
               { path: 'manager/:managerId', element: <ManagerDetailScreen /> },
               { path: 'rules', element: <RulesScreen /> },
               { path: 'fixtures', element: <FixturesScreen /> },
