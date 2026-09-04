@@ -127,7 +127,12 @@ describe('Auth-Gate', () => {
   });
 
   it('lässt mit Session durch', async () => {
-    renderRoute('/42/lineup');
-    expect(await screen.findByRole('heading', { name: leagueTabTitles.lineup })).toBeInTheDocument();
+    const { router } = renderRoute('/42/lineup');
+
+    // Der geschützte Baum ist montiert (die Tab-Leiste steckt darin) und die
+    // URL wurde nicht umgeleitet. An der Überschrift ließe sich das nicht
+    // prüfen: die trägt auf den Liga-Tabs den LeagueSwitcher.
+    expect(await screen.findByRole('navigation', { name: 'Liga-Bereiche' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/42/lineup');
   });
 });
