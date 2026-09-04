@@ -1,7 +1,7 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { type RefreshState, useRefresh } from '@/queries/useRefresh';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { Refreshable } from './Refreshable';
+import { Spinner } from './Spinner';
+import styles from './QueryState.module.css';
 
 interface QueryLike {
   error: unknown;
@@ -32,6 +32,10 @@ interface Props {
  * In eine `Refreshable` gewickelt, damit auch dieser Zustand ziehbar ist —
  * gerade wenn das Laden fehlschlägt, ist das der Moment, in dem man
  * instinktiv zieht.
+ *
+ * Die zwei Knoten (Scroller außen, Inhalt innen) ersetzen `style` plus
+ * `contentContainerStyle` der ScrollView: das Scrollen gehört an den äußeren,
+ * die Zentrierung und das Padding an den inneren.
  */
 export function QueryState({ query, label, refresh }: Props) {
   const ownRefresh = useRefresh(query);
@@ -40,53 +44,25 @@ export function QueryState({ query, label, refresh }: Props) {
   return (
     <Refreshable refreshing={refreshing} onRefresh={onRefresh}>
       {(p) => (
-        <ScrollView {...p} style={styles.scroll} contentContainerStyle={styles.center}>
-          {query.error ? (
-            <>
-              <Text style={styles.errorText}>
-                {query.error instanceof Error ? query.error.message : `${label} konnte nicht geladen werden.`}
-              </Text>
-              <Pressable style={styles.retryButton} onPress={() => query.refetch()}>
-                <Text style={styles.retryButtonText}>Erneut versuchen</Text>
-              </Pressable>
-            </>
-          ) : (
-            <ActivityIndicator color={colors.accent} />
-          )}
-        </ScrollView>
+        <div {...p} className={styles.scroll}>
+          <div className={styles.center}>
+            {query.error ? (
+              <>
+                <p className={styles.errorText}>
+                  {query.error instanceof Error
+                    ? query.error.message
+                    : `${label} konnte nicht geladen werden.`}
+                </p>
+                <button type="button" className={styles.retryButton} onClick={() => query.refetch()}>
+                  Erneut versuchen
+                </button>
+              </>
+            ) : (
+              <Spinner />
+            )}
+          </div>
+        </div>
       )}
     </Refreshable>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  center: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.danger,
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  retryButtonText: {
-    ...typography.caption,
-    color: colors.accent,
-    fontWeight: '600',
-  },
-});
