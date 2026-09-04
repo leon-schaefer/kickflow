@@ -44,6 +44,22 @@ describe('Modal', () => {
     expect(dialogOf().open).toBe(true);
   });
 
+  it('setzt den Anfangsfokus aufs Panel, nicht auf das erste Bedienelement', () => {
+    render(
+      <Modal open onClose={vi.fn()} title="Liga wechseln">
+        <button type="button">Erste Liga</button>
+      </Modal>,
+    );
+
+    // Den Fokus setzt sonst `showModal()` selbst — auf den ersten Button.
+    // WebKit zeichnet dort auch bei einem Tap den Fokusring, er blieb als
+    // blauer Rand um den ersten Eintrag stehen.
+    const panel = dialogOf().firstElementChild!;
+    expect(panel).toHaveAttribute('tabindex', '-1');
+    expect(document.activeElement).toBe(panel);
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Erste Liga' }));
+  });
+
   it('beschriftet den Dialog mit seinem Titel', () => {
     render(
       <Modal open onClose={vi.fn()} title="Liga wechseln">

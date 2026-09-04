@@ -38,6 +38,16 @@
   background: var(--color-surface);
 }
 
+/*
+ * Das Panel bekommt beim Öffnen den Fokus (siehe Modal.tsx) — ein Ring gehört
+ * dorthin nicht: es ist kein Bedienelement, und WebKit zeichnete ihn auch bei
+ * einem Tap. Die Bedienelemente IM Panel behalten ihren Ring, hier steht
+ * bewusst kein `outline: none` für den ganzen Teilbaum.
+ */
+.panel:focus {
+  outline: none;
+}
+
 .title {
   margin: 0 0 var(--space-xs);
   font-size: var(--font-size-heading);
