@@ -1,0 +1,47 @@
+.row {
+  composes: h from '@/theme/layout.module.css';
+  gap: 4px;
+}
+
+.cell {
+  composes: h from '@/theme/layout.module.css';
+  /* Trägt das absolut positionierte venueBadge — ohne das würde es am
+     nächsten positionierten Vorfahren hängen. In RN war das implizit. */
+  position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--diff);
+  border-radius: var(--radius-sm);
+  background: var(--diff-soft);
+}
+
+.venue {
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/*
+ * Mit Logo ist das H/A nur noch Beiwerk: klein oben rechts über die Ecke
+ * gelegt.
+ *
+ * Bewusst KEIN `composes: venue` mit anschließendem font-size-Override: Vite
+ * emittiert die komponierte Klasse nach der einbindenden Regel, bei gleicher
+ * Spezifität würde also `.venue` mit --font-size-small gewinnen und die 9px
+ * hier wirkungslos bleiben.
+ */
+.venueBadge {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  padding-inline: 1px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  line-height: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  /* Eigener Hintergrund, damit das H/A auch über einem hellen Logo lesbar bleibt. */
+  background: var(--color-background);
+}

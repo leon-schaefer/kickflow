@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Checkbox } from '@/components/Checkbox';
 import type { MaxPerTeamRule } from '@/lineup/rules';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './MaxPerTeamRuleCard.module.css';
 
 const QUICK_VALUES = [1, 2, 3, 4, 5];
 
@@ -29,65 +30,33 @@ export function MaxPerTeamRuleCard({ rule, onChange, leagueMax }: MaxPerTeamRule
   }
 
   return (
-    <View style={styles.card}>
+    <div className={styles.card}>
       <Checkbox
         label="Max. Spieler pro Verein"
         checked={rule.enabled}
         onChange={(enabled) => onChange({ enabled })}
         hint={hintParts.join(' ')}
       />
-      <View style={styles.chipRow}>
+      {/*
+        aria-pressed und nicht role="radio": eine echte radiogroup verlangt
+        Pfeiltasten-Navigation mit wanderndem tabindex, und eine halb erfüllte
+        ARIA-Zusage ist schlechter als eine Reihe Toggle-Buttons. Der aktive
+        Wert ist so trotzdem hörbar — vorher trug der Chip gar keinen Zustand.
+      */}
+      <div className={styles.chipRow} role="group" aria-label="Max. Spieler pro Verein">
         {QUICK_VALUES.map((value) => (
-          <Pressable
+          <button
             key={value}
-            style={[styles.chip, rule.max === value && styles.chipActive, !rule.enabled && styles.chipDisabled]}
-            onPress={() => onChange({ max: value })}
+            type="button"
+            aria-pressed={rule.max === value}
+            className={cx(layout.pressable, styles.chip)}
+            onClick={() => onChange({ max: value })}
             disabled={!rule.enabled}
           >
-            <Text style={[styles.chipText, rule.max === value && styles.chipTextActive]}>{value}</Text>
-          </Pressable>
+            {value}
+          </button>
         ))}
-      </View>
-    </View>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  chip: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  chipDisabled: {
-    opacity: 0.4,
-  },
-  chipText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  chipTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
-  },
-});

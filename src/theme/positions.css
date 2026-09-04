@@ -88,3 +88,26 @@
 [data-tone='muted'] {
   --tone: var(--color-text-secondary);
 }
+
+/*
+ * FixtureDifficultyStrip: drei feste Härtestufen statt eines Farbverlaufs —
+ * dieselbe Diskret-statt-Gradient-Sprache wie StatusBadge/positionColors.
+ * Ersetzt zwei weitere `${colors.positive}26`-Konkatenationen.
+ *
+ * `neutral` ist kein blasser Rand, sondern der normale erhöhte Untergrund:
+ * eine unauffällige Partie soll gar keine Signalfarbe tragen.
+ */
+[data-difficulty='easy'] {
+  --diff: var(--color-positive);
+  --diff-soft: var(--color-positive-soft);
+}
+
+[data-difficulty='neutral'] {
+  --diff: var(--color-border);
+  --diff-soft: var(--color-surface-raised);
+}
+
+[data-difficulty='hard'] {
+  --diff: var(--color-negative);
+  --diff-soft: var(--color-negative-soft);
+}

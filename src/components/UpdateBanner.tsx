@@ -24,5 +24,5 @@ export function UpdateBanner() {
 
   if (!updateAvailable) return null;
 
-  return <UpdateBannerView onPress={() => window.location.reload()} />;
+  return <UpdateBannerView onClick={() => window.location.reload()} />;
 }
