@@ -87,3 +87,25 @@ Element.prototype.scrollTo = () => {};
 Element.prototype.setPointerCapture = () => {};
 Element.prototype.releasePointerCapture = () => {};
 Element.prototype.hasPointerCapture = () => false;
+
+/**
+ * jsdom 30 kennt `<dialog>` als Element, aber nicht `showModal()`/`close()`.
+ * Ohne Stub wirft jeder Test, der einen Modal-Dialog mountet.
+ *
+ * Der Stub tut genau so viel, wie die Tests brauchen: `open` umschalten und
+ * das `close`-Event feuern. Was er NICHT nachbaut, ist das Interessante am
+ * echten `<dialog>` — die Fokusfalle, der Top-Layer und die Escape-Taste, die
+ * `cancel` auslöst. Das sind Plattform-Zusagen, keine Logik dieser App; sie
+ * gehören in die Playwright-Runde. Ein Test für den Escape-Zweig feuert das
+ * `cancel`-Event deshalb direkt.
+ */
+if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement, value?: string) {
+    if (value !== undefined) this.returnValue = value;
+    this.open = false;
+    this.dispatchEvent(new Event('close'));
+  };
+}
