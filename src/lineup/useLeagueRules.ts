@@ -1,10 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { leagueRulesKey } from '@/storage/keys';
+import localStore from '@/storage/local';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_RULES, parseStoredRules, type LineupRule, type MaxPerTeamRule } from './rules';
-
-function storageKey(leagueId: string): string {
-  return `kickflow.rules.v1.${leagueId}`;
-}
 
 export interface LeagueRules {
   rules: LineupRule[];
@@ -42,7 +39,7 @@ export function useLeagueRules(leagueId: string, fallbackMax: number | null = nu
     setLoaded(false);
     hasStoredRef.current = false;
     userModifiedRef.current = false;
-    AsyncStorage.getItem(storageKey(leagueId)).then((raw) => {
+    localStore.getItem(leagueRulesKey(leagueId)).then((raw) => {
       if (cancelled) return;
       hasStoredRef.current = raw !== null;
       setRules(parseStoredRules(raw));
@@ -70,7 +67,7 @@ export function useLeagueRules(leagueId: string, fallbackMax: number | null = nu
       userModifiedRef.current = true;
       setRules((current) => {
         const next = current.map((rule) => (rule.id === id ? ({ ...rule, ...patch } as LineupRule) : rule));
-        AsyncStorage.setItem(storageKey(leagueId), JSON.stringify(next));
+        localStore.setItem(leagueRulesKey(leagueId), JSON.stringify(next));
         return next;
       });
     },

@@ -1,12 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const LAST_LEAGUE_KEY = 'kickflow.lastLeagueId';
+import { LAST_LEAGUE_KEY } from '@/storage/keys';
+import localStore from '@/storage/local';
 
 /** Zuletzt gewählte Liga — nur für das "Zuletzt genutzt"-Badge im Picker, kein Auto-Resume. */
 export function getLastLeagueId(): Promise<string | null> {
-  return AsyncStorage.getItem(LAST_LEAGUE_KEY);
+  return localStore.getItem(LAST_LEAGUE_KEY);
 }
 
 export function setLastLeagueId(id: string): Promise<void> {
-  return AsyncStorage.setItem(LAST_LEAGUE_KEY, id);
+  return localStore.setItem(LAST_LEAGUE_KEY, id);
 }

@@ -36,12 +36,21 @@ describe('localStorage-Schlüssel', () => {
     expect(excludedFromSaleKey('1')).not.toBe(excludedFromSaleKey('2'));
   });
 
-  it('decken sich mit den Modulen, die ihre Schlüssel noch selbst bauen', () => {
-    // Fällt weg, sobald die drei Module keys.ts importieren — bis dahin ist
-    // das die einzige Verbindung zwischen beiden Seiten.
-    expect(read('auth/tokenStore.ts')).toContain(SESSION_KEY);
-    expect(read('leagues/lastLeague.ts')).toContain(LAST_LEAGUE_KEY);
-    expect(read('lineup/useLeagueRules.ts')).toContain('kickflow.rules.v1.');
-    expect(read('lineup/useExcludedFromSale.ts')).toContain('kickflow.excludedFromSale.v1.');
+  it('werden nirgends sonst als Literal gebaut', () => {
+    // Alle Speicher-Module beziehen ihre Schlüssel aus diesem Modul. Ein
+    // zweites Literal irgendwo im Baum wäre genau die Drift, gegen die die
+    // Tests oben schützen sollen — deshalb hier die Gegenprobe.
+    for (const relative of [
+      'auth/tokenStore.ts',
+      'leagues/lastLeague.ts',
+      'lineup/useLeagueRules.ts',
+      'lineup/useExcludedFromSale.ts',
+    ]) {
+      const source = read(relative);
+      expect(source, `${relative} baut Schlüssel selbst`).not.toMatch(/'kickflow\./);
+      expect(source, `${relative} importiert nicht aus @/storage/keys`).toContain(
+        "from '@/storage/keys'",
+      );
+    }
   });
 });
