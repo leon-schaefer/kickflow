@@ -1,0 +1,40 @@
+.base {
+  composes: pressable from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.base:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.full {
+  composes: base;
+  min-height: 44px;
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-body);
+}
+
+/* Nur die volle Variante hat einen Rahmen, der den Zustand zeigen könnte. */
+.full[data-armed] {
+  border-color: var(--color-danger);
+}
+
+.compact {
+  composes: base;
+  min-height: 32px;
+  padding-inline: var(--space-sm);
+  font-size: var(--font-size-caption);
+}
+
+.full:active,
+.compact:active {
+  opacity: 0.7;
+}
