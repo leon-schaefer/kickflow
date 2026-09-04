@@ -1,0 +1,45 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  /* Trägt das absolut liegende Linien-SVG. */
+  position: relative;
+  width: 100%;
+  aspect-ratio: 0.72;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-pitch);
+  /*
+   * Der Untergrund, auf dem die Karten liegen — PlayerCard zieht daraus den
+   * Rahmen um seinen Statusring. Vorher gab Pitch dafür eine
+   * `backgroundColor`-Prop mit.
+   */
+  --card-bg: var(--color-pitch);
+}
+
+.lines {
+  composes: absoluteFill from '@/theme/layout.module.css';
+  width: 100%;
+  height: 100%;
+}
+
+.lines > * {
+  fill: none;
+  stroke: var(--color-pitch-line);
+  stroke-width: 1;
+  /* Sonst wäre eine viewBox-Einheit Strichbreite auf dem Gerät 4–5 Pixel. */
+  vector-effect: non-scaling-stroke;
+}
+
+.rows {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  justify-content: space-evenly;
+  padding-block: var(--space-md);
+  /* Über den Linien. */
+  position: relative;
+}
+
+.row {
+  composes: h from '@/theme/layout.module.css';
+  justify-content: space-evenly;
+  align-items: center;
+}

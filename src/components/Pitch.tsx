@@ -1,8 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import type { Position, SquadPlayer } from '@/api/kickbase';
-import { colors, spacing } from '@/theme/tokens';
+import styles from './Pitch.module.css';
 import { PlayerCard } from './PlayerCard';
 
 interface PitchProps {
@@ -19,10 +16,18 @@ const ROW_ORDER: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
  * Reihen werden aus den tatsächlichen Aufstellungsspielern gebildet (gruppiert
  * nach `position`), nicht aus dem geparsten Formationsstring — die echten
  * Daten sind die verlässlichere Quelle als eine hergeleitete Zählung.
+ *
+ * Die Linien zeichnet ein SVG mit festem `viewBox` statt gemessener Pixel: die
+ * RN-Fassung wartete auf ein `onLayout`, um Breite und Höhe zu kennen, und
+ * rechnete jede Koordinate daraus (`width * 0.16`, `height * 0.12`). Alle diese
+ * Faktoren sind Anteile der Box — in viewBox-Einheiten also Konstanten. Damit
+ * entfällt die Messung samt dem Frame, in dem das Feld noch leer war.
+ *
+ * `vector-effect: non-scaling-stroke` hält die Linien dabei 1px dünn, egal wie
+ * groß das Feld skaliert; ohne das wäre eine viewBox-Einheit Strichbreite je
+ * nach Bildschirm 4–5 Pixel.
  */
 export function Pitch({ players, onSelectPlayer, changedIds }: PitchProps) {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-
   const rows = ROW_ORDER.map((position) => ({
     position,
     players: players
@@ -31,86 +36,31 @@ export function Pitch({ players, onSelectPlayer, changedIds }: PitchProps) {
   })).filter((row) => row.players.length > 0);
 
   return (
-    <View
-      style={styles.container}
-      onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
-    >
-      {size.width > 0 && (
-        <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill}>
-          <Rect x={0} y={0} width={size.width} height={size.height} fill={colors.pitch} />
-          <Line
-            x1={0}
-            y1={size.height / 2}
-            x2={size.width}
-            y2={size.height / 2}
-            stroke={colors.pitchLine}
-            strokeWidth={1}
-          />
-          <Circle
-            cx={size.width / 2}
-            cy={size.height / 2}
-            r={size.width * 0.16}
-            stroke={colors.pitchLine}
-            strokeWidth={1}
-            fill="none"
-          />
-          {/* Strafraum unten (eigenes Tor) */}
-          <Rect
-            x={size.width * 0.22}
-            y={size.height - size.height * 0.12}
-            width={size.width * 0.56}
-            height={size.height * 0.12}
-            stroke={colors.pitchLine}
-            strokeWidth={1}
-            fill="none"
-          />
-          {/* Strafraum oben (gegnerisches Tor) */}
-          <Rect
-            x={size.width * 0.22}
-            y={0}
-            width={size.width * 0.56}
-            height={size.height * 0.12}
-            stroke={colors.pitchLine}
-            strokeWidth={1}
-            fill="none"
-          />
-        </Svg>
-      )}
+    <div className={styles.container}>
+      {/* Reine Dekoration — der Aufstellung fügt das Linienbild nichts hinzu,
+          was nicht schon in den Karten steht. */}
+      <svg className={styles.lines} viewBox="0 0 72 100" aria-hidden="true">
+        <line x1={0} y1={50} x2={72} y2={50} />
+        <circle cx={36} cy={50} r={72 * 0.16} />
+        {/* Strafraum unten (eigenes Tor) und oben (gegnerisches Tor) */}
+        <rect x={72 * 0.22} y={100 - 12} width={72 * 0.56} height={12} />
+        <rect x={72 * 0.22} y={0} width={72 * 0.56} height={12} />
+      </svg>
 
-      <View style={styles.rows}>
+      <div className={styles.rows}>
         {rows.map((row) => (
-          <View key={row.position} style={styles.row}>
+          <div key={row.position} className={styles.row}>
             {row.players.map((player) => (
               <PlayerCard
                 key={player.id}
                 player={player}
-                onPress={onSelectPlayer}
-                backgroundColor={colors.pitch}
+                onClick={onSelectPlayer}
                 changed={changedIds?.has(player.id)}
               />
             ))}
-          </View>
+          </div>
         ))}
-      </View>
-    </View>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    aspectRatio: 0.72,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  rows: {
-    flex: 1,
-    justifyContent: 'space-evenly',
-    paddingVertical: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-  },
-});
