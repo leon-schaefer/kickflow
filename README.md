@@ -166,13 +166,15 @@ im Dev-Server ist `build-id.txt` nicht Teil des Bildes.
 
 Typecheck und Vitest deckt die Logik ab, aber nicht das, was am gebauten
 Artefakt schiefgeht: die Content-Security-Policy, der Service Worker, der
-SPA-Rewrite und die Deep-Link-Einstiege. Dafür gibt es zwei Skripte in
+SPA-Rewrite, die Deep-Link-Einstiege — und die berechneten Stile, die erst in
+der echten Layout-Engine entstehen. Dafür gibt es drei Skripte in
 `scripts/verify/`:
 
 ```bash
 npm run build:web
 node scripts/verify/serve-dist.mjs . 4173 &     # dist/ mit den Headern aus vercel.json
 node scripts/verify/deep-links.mjs http://localhost:4173
+node scripts/verify/computed-styles.mjs http://localhost:4173
 ```
 
 `serve-dist.mjs` liest Header, `cleanUrls` und den Rewrite AUS `vercel.json`,
@@ -192,6 +194,16 @@ Liga-URL (muss auf den ersten Tab), unbekannte Unterseite (404-Route),
 Zurück-Label per Deep Link (Fallback „Aufstellung"), Tab-Leiste mit
 Aktivmarkierung, und dass der Service Worker `/assets/` aus `kickflow-v2`
 bedient.
+
+`computed-styles.mjs` vergleicht `getComputedStyle` gegen die Absicht — die
+Schriftgröße, das Gewicht, den Hintergrund und das Padding einiger tragender
+Elemente, plus die Zusicherung, dass auf keiner der 12 Seiten ein Element eine
+Schrift außerhalb des Basis-Stacks berechnet. Das ist der einzige Test, der die
+Kaskade misst statt sie zu lesen: welche Regel bei gleicher Spezifität gewinnt,
+entscheidet die Emissionsreihenfolge im Bundle, und daran sind schon zwei
+Fehler aufgefallen, die kein Unit-Test sehen konnte — die fehlende
+Schriftfamilie (react-native-web hatte sie gestellt) und `layout.pressable`,
+das jeden Button der App überschrieb. Beides sah im Diff korrekt aus.
 
 Playwright ist bewusst KEINE Dependency des Projekts — das Skript erwartet eine
 globale Installation und läuft nicht in CI. Es ist ein Werkzeug für den Moment

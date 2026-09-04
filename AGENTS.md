@@ -22,14 +22,23 @@ abgewichen wird.
   (Spalte) oder `composes: h` (Zeile). Das ist kein Migrationsrest, sondern die
   Konvention: sie macht die Richtung an jeder Regel sichtbar, statt sie aus der
   Verschachtelung zu erraten. `flex-direction` kommt in Komponenten-Modulen
-  **nie** vor — Vite emittiert die komponierte Klasse nach der einbindenden
-  Regel, ein Override würde also verlieren.
-- **`src/theme/base.css`** setzt `box-sizing: border-box` global. Die einzige
-  globale Regel der App; die Begründung steht in der Datei.
+  **nie** vor — nur `composes` bestimmt die Richtung.
+  Die Basisregeln dort stehen alle in `:where()` und haben damit Spezifität 0.
+  Das ist Pflicht, nicht Stil: Vite emittiert die komponierte Klasse **nach**
+  der einbindenden Regel, bei gleicher Spezifität gewinnt also die Basis und
+  die Komponente kann nichts überschreiben. Eine neue Basisregel ohne
+  `:where()` entstellt still jede Komponente, die sie einbindet — nur
+  `composes`-only-Regeln bleiben nackt, weil CSS Modules es so verlangt.
+- **`src/theme/base.css`** ist die einzige globale Regelmenge der App:
+  `box-sizing: border-box` und die **Schriftart** am `body`. Beides kam
+  gratis von react-native-web (`<Text>` trug `font: '14px System'`) — ohne die
+  Regel rendert der Browser Serifen. Begründung und Werte stehen in der Datei
+  bzw. als `baseFont` in `tokens.ts`; `base.css.test.ts` hält es fest.
 - **`src/theme/tokens.css` ist generiert** aus `src/theme/tokens.ts`
   (`npm run tokens`). Nicht von Hand editieren; `tokens.css.test.ts` prüft es.
 - **Typografie** über die Var-Paare `--font-size-*` / `--font-weight-*`, nicht
-  über fertige Klassen — aus demselben Reihenfolge-Grund.
+  über fertige Rollen-Klassen: die Größe steht damit an der Fundstelle, und ein
+  `font-weight`-Override daneben ist ohne Blick in eine Basisdatei lesbar.
 - **Zustände** (aktiv, ausgewählt, deaktiviert) über `aria-*` bzw. `data-*` und
   Attribut-Selektoren, wo ein echtes Attribut passt (`aria-pressed`,
   `disabled`, `aria-current`). Für rein visuelle Varianten `cx` aus

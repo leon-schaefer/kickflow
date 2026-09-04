@@ -21,3 +21,21 @@
 *::after {
   box-sizing: border-box;
 }
+
+/*
+ * Schrift. Auch das kam bis zum Umzug gratis: react-native-webs `<Text>` trug
+ * `font: '14px System'`, jedes gerenderte Textstück hatte damit Familie und
+ * Größe, ohne dass eine Regel im Projekt sie nennen musste — im ganzen
+ * RN-Code gab es kein einziges `fontFamily`. Ohne RNW fällt der Browser auf
+ * seinen Default zurück, und der ist eine SERIFENSCHRIFT. Die Werte stehen in
+ * tokens.ts (`baseFont`) und sind der Stack, den RNW für `System` einsetzte.
+ *
+ * Am `body` und nicht am `#app-reset`-Block in der index.html: dort kämen die
+ * Custom Properties noch nicht an. Und nicht per `composes` in jeder Regel —
+ * Vererbung ist hier genau das richtige Werkzeug, die Rollen überschreiben
+ * ohnehin ihre Größe.
+ */
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+}

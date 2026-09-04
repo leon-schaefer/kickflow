@@ -20,7 +20,16 @@
  */
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { colors, layout, positionColors, radius, spacing, statusColors, typography } from '../src/theme/tokens';
+import {
+  baseFont,
+  colors,
+  layout,
+  positionColors,
+  radius,
+  spacing,
+  statusColors,
+  typography,
+} from '../src/theme/tokens';
 
 /** camelCase -> kebab-case, damit die Var-Namen mechanisch aus den TS-Keys folgen. */
 function kebab(key: string): string {
@@ -79,6 +88,10 @@ export function renderTokensCss(): string {
       'layout',
       Object.entries(layout).map(([k, v]) => `--layout-${kebab(k)}: ${v}px;`),
     ),
+    block('Schriftfamilie und Erbgröße — von react-native-web geerbt, siehe tokens.ts', [
+      `--font-family-base: ${baseFont.fontFamily};`,
+      `--font-size-base: ${baseFont.fontSize}px;`,
+    ]),
     block('typography — Var-PAARE, keine Klassen (Begründung in tokens.css)', [
       ...Object.entries(typography).flatMap(([k, v]) => [
         `--font-size-${k}: ${v.fontSize}px;`,

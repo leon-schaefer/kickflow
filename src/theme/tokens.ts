@@ -90,6 +90,25 @@ export const layout = {
   maxContentWidth: 480,
 } as const;
 
+/**
+ * Schriftfamilie und Basisgröße.
+ *
+ * Beides kam bis zum Umzug GRATIS von react-native-web: dessen `<Text>` hat
+ * den Basisstil `font: '14px System'`, und `System` expandierte es zu genau
+ * diesem Stack (react-native-web/dist/exports/StyleSheet/compiler/
+ * createReactDOMStyle.js, `SYSTEM_FONT_STACK`). Ohne RNW greift der
+ * Browser-Default — und der ist eine Serifenschrift. Die Werte stehen hier
+ * wörtlich so, wie Produktion sie gerendert hat.
+ *
+ * `fontSize` ist nur die Erbgröße für Container, deren Kinder keine eigene
+ * Rolle setzen; jede Rolle unten bringt ihre mit.
+ */
+export const baseFont = {
+  fontFamily:
+    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif',
+  fontSize: 14,
+} as const;
+
 export const typography = {
   title: { fontSize: 22, fontWeight: '700' as const },
   heading: { fontSize: 17, fontWeight: '600' as const },
