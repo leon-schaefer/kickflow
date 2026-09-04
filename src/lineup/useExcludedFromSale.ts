@@ -1,10 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { excludedFromSaleKey } from '@/storage/keys';
+import localStore from '@/storage/local';
 import { useCallback, useEffect, useState } from 'react';
 import { NO_EXCLUSIONS, parseStoredExclusions, serializeExclusions, toggleExclusion } from './excludedFromSale';
-
-function storageKey(leagueId: string): string {
-  return `kickflow.excludedFromSale.v1.${leagueId}`;
-}
 
 export interface ExcludedFromSale {
   /** IDs der vom Verkauf ausgeschlossenen Spieler. */
@@ -33,7 +30,7 @@ export function useExcludedFromSale(leagueId: string): ExcludedFromSale {
     let cancelled = false;
     setLoaded(false);
     setExcludedIds(NO_EXCLUSIONS);
-    AsyncStorage.getItem(storageKey(leagueId)).then((raw) => {
+    localStore.getItem(excludedFromSaleKey(leagueId)).then((raw) => {
       if (cancelled) return;
       setExcludedIds(parseStoredExclusions(raw));
       setLoaded(true);
@@ -47,7 +44,7 @@ export function useExcludedFromSale(leagueId: string): ExcludedFromSale {
     (playerId: string) => {
       setExcludedIds((current) => {
         const next = toggleExclusion(current, playerId);
-        AsyncStorage.setItem(storageKey(leagueId), serializeExclusions(next));
+        localStore.setItem(excludedFromSaleKey(leagueId), serializeExclusions(next));
         return next;
       });
     },
