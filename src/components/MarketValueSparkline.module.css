@@ -1,0 +1,113 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+/*
+ * Steigend grün, fallend rot — vorher ein `lineColor` in JavaScript, das an
+ * drei SVG-Attribute weitergegeben wurde.
+ */
+.container[data-trend='up'] {
+  --trend: var(--color-positive);
+}
+
+.container[data-trend='down'] {
+  --trend: var(--color-negative);
+}
+
+.empty {
+  display: block;
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+}
+
+/* Fester Platz für die Blase, die absolut darin sitzt. */
+.labelSlot {
+  position: relative;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.bubble {
+  composes: v from '@/theme/layout.module.css';
+  position: absolute;
+  /* Die Blase folgt dem Finger und darf ihn nicht abfangen. */
+  pointer-events: none;
+  padding-inline: var(--space-sm);
+  padding-block: 4px;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.bubbleDate {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}
+
+.bubbleValueRow {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.bubbleValue {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Lokale Attribut-Zuordnung statt data-tone: der Nullfall ist hier
+   text-muted, nicht text-secondary. */
+.bubbleDelta {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+}
+
+.bubbleDelta[data-delta='up'] {
+  color: var(--color-positive);
+}
+
+.bubbleDelta[data-delta='down'] {
+  color: var(--color-negative);
+}
+
+.bubbleDelta[data-delta='flat'] {
+  color: var(--color-text-muted);
+}
+
+.chart {
+  composes: v from '@/theme/layout.module.css';
+  /*
+   * Das Gegenstück zu `failOffsetY([-12, 12])`: senkrechtes Scrollen bleibt
+   * beim Browser, waagerechte Bewegung bekommt der Scrub-Handler. Ohne das
+   * würde ein Wisch über den Chart die Seite nicht mehr scrollen.
+   */
+  touch-action: pan-y;
+}
+
+.line {
+  fill: none;
+  stroke: var(--trend);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.crosshair {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.scrubDot {
+  fill: var(--color-background);
+  stroke: var(--trend);
+  stroke-width: 2;
+}
+
+.endDot {
+  fill: var(--trend);
+}
