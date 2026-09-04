@@ -87,10 +87,27 @@
   color: var(--color-text-muted);
 }
 
-.separator {
-  display: block;
+/*
+ * Trennlinie zwischen zwei Zeilen — trägt das UMSCHLIESSENDE Listenelement,
+ * nicht die Zeile selbst.
+ *
+ * Ersetzt `ItemSeparatorComponent={PlayerRowSeparator}` der FlatLists: die
+ * gerenderte Trenn-Komponente entfällt, `:not(:last-child)` setzt keine Linie
+ * unter die letzte Zeile. Als Pseudo-Element und nicht als `border-bottom`,
+ * damit der Einzug bleibt: die Linie beginnt unter dem Namen, nicht unter dem
+ * Positions-Tag.
+ */
+.separated {
+  position: relative;
+}
+
+.separated:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  /* Positions-Tag (36) + Avatar-Abstand + Innenabstand. */
+  left: calc(var(--space-md) + 36px + var(--space-sm));
   height: 1px;
   background: var(--color-border);
-  /* Positions-Tag (36) + Avatar-Abstand + Innenabstand. */
-  margin-left: calc(var(--space-md) + 36px + var(--space-sm));
 }

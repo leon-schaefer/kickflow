@@ -1,0 +1,87 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+/*
+ * Hält die Scrollhöhe ALLER Zeilen; gerendert werden nur die sichtbaren, und
+ * die liegen absolut darin. `position: relative` ist deshalb Pflicht — in
+ * React Native war das implizit, hier wäre die Bezugsbox sonst der nächste
+ * positionierte Vorfahre weiter oben.
+ */
+.sizer {
+  position: relative;
+  width: 100%;
+}
+
+.rowSlot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+/*
+ * Die Trennlinie steht hier selbst und kommt NICHT über `.separated` aus
+ * PlayerRowFrame.module.css: dessen `:not(:last-child)` passt nicht zum
+ * Virtualizer, der ein wanderndes Fenster rendert — das letzte GERENDERTE
+ * Element ist meistens nicht das letzte der Liste, und die Linie würde je
+ * nach Scrollposition an einer beliebigen Zeile fehlen. Jede Zeile trägt sie
+ * deshalb; unter der wirklich letzten fällt sie nicht auf, weil dort nichts
+ * folgt.
+ *
+ * Der Einzug entspricht dem in `.separated`: Positions-Tag (36) plus
+ * Abstände, damit die Linie unter dem Namen beginnt.
+ */
+.rowSlot::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--space-md) + 36px + var(--space-sm));
+  height: 1px;
+  background: var(--color-border);
+}
+
+.filterChip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.filterChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.countHint {
+  margin: 0;
+  padding-inline: var(--space-md);
+  padding-bottom: var(--space-sm);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.center {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+  text-align: center;
+}

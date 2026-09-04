@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router';
 import { FixtureDifficultyStrip } from '@/components/FixtureDifficultyStrip';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
 import { TeamLogo } from '@/components/TeamLogo';
+import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCompetitionTeams, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
@@ -39,7 +39,7 @@ const LENS_OPTIONS: { key: Lens; label: string }[] = [
  * einen neuen Kickbase-Endpoint auskommt.
  */
 export function FixturesScreen() {
-  const { leagueId = '' } = useParams<{ leagueId: string }>();
+  const leagueId = useLeagueId();
   const competitionId = useCompetitionId();
   const back = useBackTarget(leagueId);
   const matchdaysQuery = useMatchdays(competitionId);

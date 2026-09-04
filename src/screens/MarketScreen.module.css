@@ -1,0 +1,53 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sortChip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.sortChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  padding-inline: var(--space-md);
+  padding-bottom: var(--space-sm);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.center {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+}

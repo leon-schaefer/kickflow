@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MarketValuePoint } from '@/api/kickbase';
+import { fakeLayout } from '@/test/fakeLayout';
 import { formatMarketValueDate } from '@/utils/format';
 import { MarketValueSparkline } from './MarketValueSparkline';
 
@@ -8,9 +9,10 @@ import { MarketValueSparkline } from './MarketValueSparkline';
  * Getestet wird die Gestenschicht, nicht die Geometrie — die liegt
  * framework-frei in src/utils/chart.ts und ist dort abgedeckt.
  *
- * Zwei Dinge fehlen jsdom dafür, beide hier gestellt: eine gemessene Breite
- * (der ResizeObserver-Stub aus src/test/setup.ts feuert nie, also bleibt
- * useElementSize bei 0) und eine Bounding-Box.
+ * Zwei Dinge fehlen jsdom dafür. Die Bounding-Box stellt fakeLayout; die
+ * gemessene Breite kommt aus einem Mock von useElementSize, weil der
+ * ResizeObserver-Stub aus src/test/setup.ts absichtlich nie feuert und der
+ * Hook damit bei 0 bliebe.
  */
 const CHART_WIDTH = 300;
 
@@ -19,17 +21,7 @@ vi.mock('@/hooks/useElementSize', () => ({
 }));
 
 beforeEach(() => {
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
-    x: 0,
-    y: 0,
-    left: 0,
-    top: 0,
-    right: CHART_WIDTH,
-    bottom: 120,
-    width: CHART_WIDTH,
-    height: 120,
-    toJSON: () => ({}),
-  });
+  fakeLayout({ width: CHART_WIDTH, height: 120 });
 });
 
 /**

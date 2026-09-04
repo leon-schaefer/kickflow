@@ -110,13 +110,3 @@ export function PlayerStatColumn({ cells, footer }: PlayerStatColumnProps) {
     </span>
   );
 }
-
-/**
- * Einzug der Trennlinie = Positions-Tag + Avatar + Abstände.
- *
- * Bleibt als Komponente, solange die Listen noch `ItemSeparatorComponent`
- * benutzen; mit dem Port der Listen wird daraus ein `border-top` an der Zeile.
- */
-export function PlayerRowSeparator() {
-  return <span className={styles.separator} />;
-}
