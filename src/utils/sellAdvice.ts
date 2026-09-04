@@ -1,3 +1,4 @@
+import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
 import { formatCurrency } from './format';
 import { isAvailableForLineup, type OptimizationResult, type OptimizerPlayer } from './lineupOptimizer';
 
@@ -10,9 +11,18 @@ import { isAvailableForLineup, type OptimizationResult, type OptimizerPlayer } f
  * Über allem steht ein negativer Kontostand: die Spieler aus `forcedSaleIds`
  * (dem Pflichtverkaufsplan aus utils/sellPlan.ts) müssen weg, egal wie gut sie
  * sportlich sind — sie werden als 'pflichtverkauf' ganz oben einsortiert.
+ *
+ * Über allem wiederum steht die Nutzerentscheidung: wer vom Verkauf
+ * ausgeschlossen ist (`excludedIds`, siehe src/lineup/excludedFromSale.ts),
+ * wird nie zum Verkauf vorgeschlagen — er bekommt die Empfehlung
+ * 'ausgeschlossen', seine sportliche Einordnung bleibt in der Begründung
+ * erhalten. Der Kontoausgleich plant ihn ohnehin nicht mehr ein (buildSellPlan
+ * bekommt dieselbe Menge) — für einen Ausgeschlossenen kann 'pflichtverkauf'
+ * also gar nicht auftreten.
  */
 export type SellRecommendation =
   | 'pflichtverkauf'
+  | 'ausgeschlossen'
   | 'unverzichtbar'
   | 'effizienz-juwel'
   | 'punkte-garant'
@@ -30,10 +40,13 @@ export interface SellAdvice {
   inBestPointsXi: boolean;
   inAnyXi: boolean;
   expensive: boolean;
+  /** true, wenn der Nutzer den Spieler vom Verkauf ausgeschlossen hat. */
+  excluded: boolean;
 }
 
 export const recommendationLabels: Record<SellRecommendation, string> = {
   pflichtverkauf: 'Pflichtverkauf',
+  ausgeschlossen: 'Nicht verkaufen',
   unverzichtbar: 'Behalten',
   'effizienz-juwel': 'Preis-Leistung',
   'punkte-garant': 'Punktelieferant',
@@ -61,6 +74,8 @@ export function deriveSellAdvice(
   points: OptimizationResult,
   /** Pflichtverkäufe in Auswahlreihenfolge — `SellPlan.sell[].playerId`, siehe utils/sellPlan.ts. */
   forcedSaleIds: readonly string[] = [],
+  /** Vom Nutzer vom Verkauf ausgeschlossene Spieler, siehe src/lineup/excludedFromSale.ts. */
+  excludedIds: ReadonlySet<string> = NO_EXCLUSIONS,
 ): SellAdvice[] {
   const bestEfficiencyIds = new Set(efficiency.best?.playerIds ?? []);
   const bestPointsIds = new Set(points.best?.playerIds ?? []);
@@ -71,9 +86,16 @@ export function deriveSellAdvice(
   // Map statt Set: der Index ist zugleich die Verkaufsreihenfolge des Plans
   // (nicht Einsatzfähige zuerst, dann die wenigsten Punkte pro Mio) und damit
   // die einzig sinnvolle Sortierung innerhalb der Pflichtverkäufe.
-  const forcedOrder = new Map(forcedSaleIds.map((id, index) => [id, index]));
+  // Ausgeschlossene fallen vorsorglich heraus: ein konsistent gebauter Plan
+  // enthält sie ohnehin nicht, aber diese Funktion ist rein und soll auch bei
+  // widersprüchlicher Eingabe nie einen Ausschluss zum Verkauf vorschlagen.
+  const forcedOrder = new Map(
+    forcedSaleIds.filter((id) => !excludedIds.has(id)).map((id, index) => [id, index]),
+  );
 
-  const advice = players.map((player): SellAdvice => {
+  // `excluded` setzt erst der Wrapper unten — bis dahin ist das die rein
+  // sportliche Einordnung, die auch für Ausgeschlossene erhalten bleibt.
+  const natural = players.map((player): Omit<SellAdvice, 'excluded'> => {
     const inBestEfficiencyXi = bestEfficiencyIds.has(player.id);
     const inBestPointsXi = bestPointsIds.has(player.id);
     const inAnyXi = anyXiIds.has(player.id);
@@ -178,6 +200,19 @@ export function deriveSellAdvice(
     };
   });
 
+  // Die Nutzerentscheidung überschreibt die Empfehlung, nicht die Analyse: die
+  // sportliche Begründung bleibt hinter dem Ausschluss-Hinweis lesbar.
+  const advice: SellAdvice[] = natural.map((entry) =>
+    excludedIds.has(entry.playerId)
+      ? {
+          ...entry,
+          recommendation: 'ausgeschlossen',
+          reason: `Vom Verkauf ausgeschlossen. ${entry.reason}`,
+          excluded: true,
+        }
+      : { ...entry, excluded: false },
+  );
+
   const order: Record<SellRecommendation, number> = {
     pflichtverkauf: 0,
     verkaufen: 1,
@@ -187,6 +222,8 @@ export function deriveSellAdvice(
     'punkte-garant': 5,
     'effizienz-juwel': 6,
     unverzichtbar: 7,
+    // Ans Ende: bewusst geparkte Spieler sind keine offene Entscheidung mehr.
+    ausgeschlossen: 8,
   };
   const marketValueById = new Map(players.map((p) => [p.id, p.marketValue]));
   return advice.sort((a, b) => {

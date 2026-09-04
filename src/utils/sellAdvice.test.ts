@@ -218,3 +218,54 @@ describe('deriveSellAdvice mit Pflichtverkäufen (negatives Konto)', () => {
     expect(withPlan[0]!.playerId).toBe('FWD0');
   });
 });
+
+describe('deriveSellAdvice mit vom Verkauf ausgeschlossenen Spielern', () => {
+  function adviceWithExclusions(players: OptimizerPlayer[], excludedIds: string[], forcedSaleIds: string[] = []) {
+    const efficiency = optimizeLineup(players, 'valuePerMillion');
+    const points = optimizeLineup(players, 'points');
+    return deriveSellAdvice(players, efficiency, points, forcedSaleIds, new Set(excludedIds));
+  }
+
+  it('ohne Ausschlüsse bleibt die Einordnung unverändert', () => {
+    const players = baseSquad();
+    expect(adviceWithExclusions(players, [])).toEqual(advice(players));
+    expect(advice(players).every((e) => e.excluded === false)).toBe(true);
+  });
+
+  it('macht aus "verkaufen" ein "ausgeschlossen" und behält die Begründung', () => {
+    const players = baseSquad({ FWD: [{}, {}, {}, {}, {}, { marketValue: 90_000_000 }] }, { FWD: 6 });
+    expect(findAdvice(advice(players), 'FWD5').recommendation).toBe('verkaufen');
+
+    const entry = findAdvice(adviceWithExclusions(players, ['FWD5']), 'FWD5');
+    expect(entry.recommendation).toBe('ausgeschlossen');
+    expect(entry.excluded).toBe(true);
+    expect(entry.reason).toContain('Vom Verkauf ausgeschlossen');
+    // Die sportliche Einordnung geht nicht verloren.
+    expect(entry.reason).toContain('In keiner Formation in der Elf');
+  });
+
+  it('schlägt einen ausgeschlossenen Spieler auch dann nicht vor, wenn er im Plan steht', () => {
+    // Widersprüchliche Eingabe (buildSellPlan liefert das nie): der Ausschluss
+    // muss trotzdem gewinnen — nichts darf einen Pflichtverkauf daraus machen.
+    const players = baseSquad();
+    const result = adviceWithExclusions(players, ['FWD0'], ['FWD0']);
+    expect(findAdvice(result, 'FWD0').recommendation).toBe('ausgeschlossen');
+    expect(result.some((e) => e.recommendation === 'pflichtverkauf')).toBe(false);
+  });
+
+  it('sortiert Ausgeschlossene ans Ende — sie sind keine offene Entscheidung mehr', () => {
+    const players = baseSquad({ FWD: [{}, {}, {}, {}, {}, { marketValue: 90_000_000 }] }, { FWD: 6 });
+    const result = adviceWithExclusions(players, ['FWD5']);
+    expect(result[result.length - 1]!.playerId).toBe('FWD5');
+    expect(result.length).toBe(players.length);
+  });
+
+  it('lässt die Einordnung der übrigen Spieler unberührt', () => {
+    const players = baseSquad({ FWD: [{}, {}, {}, {}, {}, { marketValue: 90_000_000 }] }, { FWD: 6 });
+    const withExclusion = adviceWithExclusions(players, ['FWD5']);
+    for (const entry of advice(players)) {
+      if (entry.playerId === 'FWD5') continue;
+      expect(findAdvice(withExclusion, entry.playerId)).toEqual({ ...entry, excluded: false });
+    }
+  });
+});

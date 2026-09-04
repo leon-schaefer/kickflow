@@ -56,7 +56,16 @@ export function SellPlanBar({ players, plan, metric }: SellPlanBarProps) {
           <Text style={styles.hint}>Kosten: {formatScoreLoss(plan.scoreLoss, metric)}</Text>
         </>
       ) : plan.shortfall > 0 ? (
-        <Text style={styles.warning}>Kader deckt den Fehlbetrag nicht — es fehlen {formatCurrency(plan.shortfall)}.</Text>
+        <>
+          <Text style={styles.warning}>Kader deckt den Fehlbetrag nicht — es fehlen {formatCurrency(plan.shortfall)}.</Text>
+          {plan.excludedValue > 0 && (
+            <Text style={styles.hint}>
+              {plan.excludedCount === 1
+                ? `1 ausgeschlossener Spieler mit ${formatCurrency(plan.excludedValue)} bleibt unangetastet.`
+                : `${plan.excludedCount} ausgeschlossene Spieler mit ${formatCurrency(plan.excludedValue)} bleiben unangetastet.`}
+            </Text>
+          )}
+        </>
       ) : (
         <Text style={styles.warning}>Nach den nötigen Verkäufen steht keine Elf mehr.</Text>
       )}
