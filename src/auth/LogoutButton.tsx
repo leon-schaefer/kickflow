@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { Spinner } from '@/components/Spinner';
+import { cx } from '@/utils/cx';
 import { useAuth } from './AuthProvider';
+import styles from './LogoutButton.module.css';
 
 /** Nach dieser Zeit fällt ein scharfgestellter Button in den Normalzustand zurück. */
 const CONFIRM_TIMEOUT_MS = 4000;
@@ -12,16 +13,19 @@ interface LogoutButtonProps {
 }
 
 /**
- * Zweistufig statt `Alert.alert`: react-native-web implementiert `Alert` als
- * leere Methode (node_modules/react-native-web/dist/exports/Alert/index.js —
- * `static alert() {}`). Im Web, also in der PWA, käme nie ein Dialog; der
- * erste Tap würde entweder kommentarlos ausloggen oder gar nichts tun. Ein
- * zweiter Tap auf denselben Button verhält sich überall gleich und braucht
- * kein eigenes Modal.
+ * Abmelden in zwei Stufen: der erste Tap stellt scharf, der zweite meldet ab.
+ *
+ * Die Zweistufigkeit entstand als Ersatz für `Alert.alert`, das
+ * react-native-web als leere Methode implementierte. Dieser Grund ist mit dem
+ * Umzug weg — der Mechanismus bleibt trotzdem, und zwar aus einem eigenen: die
+ * Alternative im Browser wäre `window.confirm`, ein blockierender Systemdialog,
+ * der in einer installierten PWA fremd aussieht und sich nicht gestalten lässt.
+ * Zwei Taps auf denselben Button brauchen kein Modal und lesen sich überall
+ * gleich.
  *
  * Nach dem Abmelden wird bewusst nicht navigiert: `logout()` setzt den Token
- * auf null, woraufhin app/(app)/_layout.tsx auf /login umleitet und diesen
- * Button ohnehin abbaut.
+ * auf null, woraufhin src/routes/RequireAuth.tsx auf /login umleitet und
+ * diesen Button ohnehin abbaut.
  */
 export function LogoutButton({ compact = false }: LogoutButtonProps) {
   const { logout } = useAuth();
@@ -34,7 +38,7 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
     return () => clearTimeout(timer);
   }, [armed]);
 
-  async function handlePress() {
+  async function handleClick() {
     if (!armed) {
       setArmed(true);
       return;
@@ -43,8 +47,7 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
     try {
       await logout();
     } catch {
-      // clearSession() kann auf nativ scheitern (Keychain/Keystore). Ohne
-      // Reset bliebe der Button dauerhaft im Ladezustand hängen.
+      // Ohne Reset bliebe der Button dauerhaft im Ladezustand hängen.
       setBusy(false);
       setArmed(false);
     }
@@ -53,59 +56,17 @@ export function LogoutButton({ compact = false }: LogoutButtonProps) {
   const label = armed ? 'Wirklich abmelden?' : 'Abmelden';
 
   return (
-    <Pressable
-      style={[
-        compact ? styles.compact : styles.full,
-        armed && !compact && styles.fullArmed,
-        busy && styles.busy,
-      ]}
-      onPress={handlePress}
+    <button
+      type="button"
+      onClick={handleClick}
       disabled={busy}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      aria-label={label}
+      // Der scharfgestellte Zustand ist echter Zustand, nicht nur Aussehen —
+      // deshalb ein Attribut und keine zweite Klasse.
+      data-armed={armed ? 'true' : undefined}
+      className={cx(compact ? styles.compact : styles.full)}
     >
-      {busy ? (
-        <ActivityIndicator color={colors.danger} size="small" />
-      ) : (
-        <Text style={[compact ? styles.compactText : styles.fullText, armed && styles.textArmed]}>{label}</Text>
-      )}
-    </Pressable>
+      {busy ? <Spinner size={16} color="var(--color-danger)" /> : label}
+    </button>
   );
 }
-
-const styles = StyleSheet.create({
-  full: {
-    minHeight: 44,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  fullArmed: {
-    borderColor: colors.danger,
-  },
-  fullText: {
-    ...typography.body,
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  compact: {
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  compactText: {
-    ...typography.caption,
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  textArmed: {
-    color: colors.danger,
-  },
-  busy: {
-    opacity: 0.7,
-  },
-});
