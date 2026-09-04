@@ -1,0 +1,162 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.rulesRow {
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.rulesText {
+  flex: 1 1 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.rulesChevron {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.metricRow {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.metricChip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.metricChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.actionRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.applyButton {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-sm);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* Vorher eine eigene applyButtonDisabled-Klasse, die `!best` setzte —
+   dasselbe `disabled`, das der Button ohnehin trägt. */
+.applyButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.resultInfo {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+}
+
+.resultText {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-primary);
+}
+
+.resultTextMuted {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.blockerBox {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.blockerRow {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+.blockerText {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.ignoreButton {
+  align-self: flex-start;
+  padding-inline: var(--space-sm);
+  padding-block: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.violationHint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-danger);
+}
+
+.diffRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.diffText {
+  flex: 1 1 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.resetButton {
+  padding-inline: var(--space-sm);
+  padding-block: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
