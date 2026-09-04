@@ -12,6 +12,7 @@ import {
   getPlayer,
   getPlayerBasic,
   getPlayerPerformance,
+  getPlayerTransferHistory,
   placeOffer,
   removeOffer,
   saveLineup,
@@ -152,6 +153,29 @@ export function usePlayer(leagueId: string, playerId: string) {
     queryFn: () => getPlayer(token!, leagueId, playerId),
     enabled: !!token && !!leagueId && !!playerId,
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Transferhistorie eines Spielers — Quelle des Kaufdatums im Spieler-Screen.
+ *
+ * Ein Zusatzrequest, der nur für EIGENE Spieler laufen soll: bei fremden
+ * Spielern gibt es daraus nichts anzuzeigen. Deshalb `enabled` beim Aufrufer
+ * (siehe app/(app)/[leagueId]/player/[playerId].tsx) statt hier fest an.
+ * Lange staleTime, weil ein vergangener Transfer sich nicht mehr ändert und
+ * ein neuer Kauf ohnehin über Pull-to-Refresh ankommt.
+ */
+export function usePlayerTransfers(
+  leagueId: string,
+  playerId: string,
+  options: { enabled?: boolean } = {},
+) {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.playerTransfers(leagueId, playerId),
+    queryFn: () => getPlayerTransferHistory(token!, leagueId, playerId),
+    enabled: !!token && !!leagueId && !!playerId && (options.enabled ?? true),
+    staleTime: 15 * 60_000,
   });
 }
 

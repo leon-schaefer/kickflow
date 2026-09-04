@@ -24,6 +24,7 @@ import type {
   RawMarketValueHistory,
   RawPerformanceResponse,
   RawPlayerDetail,
+  RawPlayerTransferHistory,
   RawSquadPlayer,
 } from './schemas';
 import type {
@@ -42,6 +43,7 @@ import type {
   MatchdaySchedule,
   PlayerDetail,
   PlayerStatus,
+  PlayerTransfer,
   Position,
   ScheduledFixture,
   ScheduledMatchday,
@@ -439,6 +441,35 @@ export function toPlayerDetail(raw: RawPlayerDetail, performance: RawPerformance
     marketValueHistory365: { points: [], lowest: 0, highest: 0 },
     performance: toSeasonPerformances(performance),
   };
+}
+
+/**
+ * Transferhistorie eines Spielers — JÜNGSTER TRANSFER ZUERST.
+ *
+ * Die Reihenfolge der Antwort wird bewusst nicht geglaubt, sondern über `dt`
+ * neu sortiert: resolveOwnPurchase() (src/utils/playerPurchase.ts) liest den
+ * ersten Eintrag als den aktuellen Besitzerwechsel, und die Doku sagt zur
+ * Sortierung nichts zu.
+ *
+ * Einträge ohne verwertbares Datum fallen raus. Genau dieses Datum ist das,
+ * was der Spieler-Screen anzeigt — ein Eintrag ohne `dt` wäre dort ein
+ * "Gekauft am Invalid Date".
+ */
+export function toPlayerTransfers(raw: RawPlayerTransferHistory): PlayerTransfer[] {
+  return raw.it
+    .flatMap((entry) => {
+      const date = entry.dt;
+      if (!date || Number.isNaN(Date.parse(date))) return [];
+      return [
+        {
+          date,
+          buyerId: entry.u ?? null,
+          buyerName: entry.unm ?? null,
+          price: entry.trp ?? 0,
+        },
+      ];
+    })
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 }
 
 export function toSeasonPerformances(raw: RawPerformanceResponse): SeasonPerformance[] {

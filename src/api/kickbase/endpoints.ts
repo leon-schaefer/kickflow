@@ -15,6 +15,7 @@ import {
   toMarketValueHistory,
   toMatchdaySchedule,
   toPlayerDetail,
+  toPlayerTransfers,
   toSeasonPerformances,
   toTeam,
 } from './mappers';
@@ -32,6 +33,7 @@ import {
   rawMarketValueHistorySchema,
   rawPerformanceResponseSchema,
   rawPlayerDetailSchema,
+  rawPlayerTransferHistorySchema,
   rawSquadResponseSchema,
 } from './schemas';
 import type {
@@ -45,6 +47,7 @@ import type {
   MatchdaySchedule,
   PlaceOfferInput,
   PlayerDetail,
+  PlayerTransfer,
   SaveLineupInput,
   SeasonPerformance,
   Team,
@@ -318,6 +321,33 @@ export async function getPlayer(
 export async function getPlayerBasic(token: string, leagueId: string, playerId: string): Promise<PlayerDetail> {
   const raw = await withPlayerLookupLimit(() => kbFetch(`/v4/leagues/${leagueId}/players/${playerId}`, { token }));
   return toPlayerDetail(rawPlayerDetailSchema.parse(raw), { it: [] });
+}
+
+/**
+ * Die Transferhistorie EINES Spielers in dieser Liga: je Eintrag ein
+ * Besitzerwechsel samt Käufer, Preis und Zeitpunkt. Quelle für "Gekauft
+ * am ..." auf dem Spieler-Screen — der jüngste Eintrag eines Spielers, der
+ * jetzt im eigenen Kader steht, ist der eigene Kauf (siehe
+ * resolveOwnPurchase in src/utils/playerPurchase.ts).
+ *
+ * `?start=0` ist der Pagination-Offset der API. Die erste Seite genügt:
+ * gesucht ist der jüngste Transfer, und toPlayerTransfers() sortiert danach.
+ *
+ * Pfad und Feldnamen stammen aus kevinskyba/kickbase-api-doc (inoffiziell,
+ * inkl. echter Beispielantwort) und sind NICHT gegen ein eigenes Konto
+ * verifiziert — das tut `npm run probe -- --transfers`. Fällt der Aufruf
+ * aus, bleibt auf dem Screen nur die Kaufdatum-Zeile weg; der Rest hängt
+ * nicht daran.
+ */
+export async function getPlayerTransferHistory(
+  token: string,
+  leagueId: string,
+  playerId: string,
+): Promise<PlayerTransfer[]> {
+  const raw = await kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/transferHistory?start=0`, {
+    token,
+  });
+  return toPlayerTransfers(rawPlayerTransferHistorySchema.parse(raw));
 }
 
 /**

@@ -10,6 +10,8 @@
  *   3. npm run probe -- --players  (klärt die Quelle für den competition-weiten
  *      Spielerbestand und die Besitzer-Zuordnung, siehe probeCompetitionPlayers()
  *      und probeOwnerSources() unten)
+ *   4. npm run probe -- --transfers  (verifiziert die Transferhistorie eines
+ *      Spielers — Quelle des Kaufdatums, siehe probeTransfers() unten)
  *
  * Schreibt Rohantworten nach scripts/.probe-output/ (git-ignored) und eine
  * Zusammenfassung der auffälligen Felder auf die Konsole.
@@ -26,6 +28,7 @@ const OUTPUT_DIR = path.join(__dirname, '.probe-output');
 const SAVE_LINEUP = process.argv.includes('--save-lineup');
 const PROBE_OFFERS = process.argv.includes('--offers');
 const PROBE_PLAYERS = process.argv.includes('--players');
+const PROBE_TRANSFERS = process.argv.includes('--transfers');
 
 async function main() {
   const email = process.env.KICKBASE_EMAIL;
@@ -306,6 +309,11 @@ async function main() {
     await probeOwnerSources(token, leagueId, marketItems);
   }
 
+  if (PROBE_TRANSFERS) {
+    const ownUserId = loginBody.u?.id ?? loginBody.user?.id;
+    await probeTransfers(token, leagueId, squad.it ?? [], ownUserId ? String(ownUserId) : undefined);
+  }
+
   console.log(`\nAlle Rohantworten liegen in ${OUTPUT_DIR}`);
 }
 
@@ -480,6 +488,84 @@ async function probeOwnerSources(token: string, leagueId: string, marketItems: a
       console.warn(`✗ ${path}`);
       console.warn(`    ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+}
+
+/**
+ * `--transfers`: verifiziert die Quelle für "Gekauft am ..." auf dem
+ * Spieler-Screen.
+ *
+ * Verdrahtet ist `GET /v4/leagues/{id}/players/{playerId}/transferHistory`
+ * (siehe getPlayerTransferHistory in src/api/kickbase/endpoints.ts) —
+ * übernommen aus kevinskyba/kickbase-api-doc samt Beispielantwort, aber ohne
+ * eigenen Probe-Lauf. Drei Dinge sind damit offen, und genau die klärt das
+ * hier gegen einen EIGENEN Kaderspieler:
+ *
+ * 1. Antwortet der Pfad überhaupt, und liegen die Einträge unter `it`?
+ * 2. Heißen die Felder wirklich `dt`/`u`/`unm`/`trp` (siehe
+ *    rawPlayerTransferSchema in src/api/kickbase/schemas.ts)?
+ * 3. Ist der Käufer des JÜNGSTEN Eintrags die eigene User-ID? Darauf beruht
+ *    resolveOwnPurchase() in src/utils/playerPurchase.ts.
+ *
+ * Zusätzlich abgefragt wird der dokumentierte Gegenkandidat
+ * `/managers/{userId}/transfer` (alle eigenen Transfers, paginiert) — als
+ * Rückfallebene, falls der spielerbezogene Pfad nichts hergibt.
+ */
+async function probeTransfers(
+  token: string,
+  leagueId: string,
+  squadItems: any[],
+  ownUserId: string | undefined,
+) {
+  console.log('\n=== --transfers: Kaufdatum-Quelle verifizieren ===');
+  console.log('Eigene User-ID laut Login:', ownUserId ?? '(nicht in der Login-Antwort)');
+
+  const player = squadItems[0];
+  if (!player?.i) {
+    console.warn('  Kein eigener Kaderspieler vorhanden — --transfers übersprungen.');
+    return;
+  }
+  console.log(`Zielspieler (eigener Kader): ${player.n ?? ''} (${player.i})`);
+
+  const historyPath = `/v4/leagues/${leagueId}/players/${player.i}/transferHistory?start=0`;
+  const history = await tryRequest('GET', historyPath, token, undefined, 'GET .../transferHistory?start=0');
+  if (history.ok) {
+    await dump('player-transfer-history', history.body);
+    const body: any = history.body;
+    console.log(`    Felder: ${describeShape(body)}`);
+    const entries: any[] = Array.isArray(body?.it) ? body.it : [];
+    console.log(`    ${entries.length} Eintrag/Einträge. Erster Eintrag:`, entries[0]);
+    const newest = [...entries]
+      .filter((e) => typeof e?.dt === 'string')
+      .sort((a, b) => Date.parse(b.dt) - Date.parse(a.dt))[0];
+    if (!newest) {
+      console.warn('    Kein Eintrag mit `dt` — das Kaufdatum bliebe auf dem Screen leer.');
+    } else {
+      console.log(`    Jüngster Transfer: dt=${newest.dt}, u=${newest.u}, unm=${newest.unm}, trp=${newest.trp}, t=${newest.t}`);
+      console.log(
+        ownUserId === undefined
+          ? '    Ohne eigene User-ID nicht gegenprüfbar, ob der Käufer ich bin.'
+          : String(newest.u) === ownUserId
+            ? '    ✓ Käufer des jüngsten Transfers = eigene User-ID (resolveOwnPurchase trägt).'
+            : '    ✗ Käufer des jüngsten Transfers ist NICHT die eigene User-ID — `u` bedeutet dann etwas anderes als "Käufer".',
+      );
+    }
+  }
+
+  if (!ownUserId) {
+    console.warn('  Keine eigene User-ID — der Manager-Pfad wird übersprungen.');
+    return;
+  }
+  const managerPath = `/v4/leagues/${leagueId}/managers/${ownUserId}/transfer?start=0`;
+  const managerTransfers = await tryRequest('GET', managerPath, token, undefined, 'GET .../managers/{id}/transfer?start=0');
+  if (managerTransfers.ok) {
+    await dump('manager-transfers', managerTransfers.body);
+    const body: any = managerTransfers.body;
+    console.log(`    Felder: ${describeShape(body)}`);
+    const own: any[] = Array.isArray(body?.it) ? body.it : [];
+    console.log(`    ${own.length} eigene Transfers. Erster Eintrag:`, own[0]);
+    const forPlayer = own.filter((e) => String(e?.pi) === String(player.i));
+    console.log(`    Davon zum Zielspieler: ${forPlayer.length}`, forPlayer[0] ?? '');
   }
 }
 
