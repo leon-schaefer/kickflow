@@ -1,4 +1,3 @@
-import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { MarketPlayer } from "@/api/kickbase";
 import { colors, radius, spacing, typography } from "@/theme/tokens";
@@ -85,17 +84,12 @@ export function MarketRow({ player, playtime, metric, onPress, onBid }: MarketRo
       </View>
       {hasOwnOffer && (
         <View style={styles.ownOfferRow}>
-          <SymbolView
-            name={{ ios: "hammer.fill", android: "gavel", web: "gavel" }}
-            tintColor={colors.accent}
-            size={12}
-            style={{ width: 12, height: 12 }}
-            fallback={
-              <View
-                style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }}
-              />
-            }
-          />
+          {/*
+            Vorher ein SymbolView (Hammer) mit genau diesem Punkt als
+            `fallback`. Auf Web waren die Symbol-Fonts nie geladen, es rendert
+            dort also seit immer der Punkt — hier steht jetzt direkt er.
+          */}
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }} />
           <Text style={styles.ownOfferText} numberOfLines={1}>
             {formatCurrency(player.ownOfferPrice!)}
           </Text>

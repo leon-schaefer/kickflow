@@ -1,32 +1,43 @@
-import { SymbolView } from 'expo-symbols';
-import { View } from 'react-native';
+import { statusLabels, statusShowsBadge } from '@/theme/tokens';
 import type { PlayerStatus } from '@/api/kickbase';
-import { statusColors, statusIcons, statusLabels } from '@/theme/tokens';
+import styles from './StatusBadge.module.css';
 
 interface StatusBadgeProps {
   status: PlayerStatus;
   size?: number;
-  /** Überschreibt die Statusfarbe — für Icons auf farbigem Grund (siehe PlayerCard). */
+  /** Überschreibt die Statusfarbe — für Punkte auf farbigem Grund (siehe PlayerCard). */
   color?: string;
 }
 
-/** Status als Icon statt Text-Tag — auf einen Blick unterscheidbar, ohne dass
- * die Zeile je nach Statuslänge ("Aufbautraining" vs. "Fit") unterschiedlich breit wird. */
+/**
+ * Status als Farbpunkt statt Text-Tag — auf einen Blick unterscheidbar, ohne
+ * dass die Zeile je nach Statuslänge („Aufbautraining" vs. „Fit")
+ * unterschiedlich breit wird.
+ *
+ * Vorher lief das über `SymbolView` aus expo-symbols mit SF-Symbols bzw.
+ * Material Symbols und einem Farbpunkt als `fallback`. Auf Web waren die
+ * Symbol-Fonts nie geladen, es rendert dort also seit immer genau dieser
+ * Punkt — der Port ist damit pixelgleich und beseitigt zugleich eine
+ * Abhängigkeit, die nicht einmal in der package.json stand.
+ *
+ * `role="img"` mit Label: der Punkt trägt eine Bedeutung, die sonst nur
+ * farblich vorliegt.
+ */
 export function StatusBadge({ status, size = 16, color }: StatusBadgeProps) {
-  const icon = statusIcons[status];
-  if (!icon) return null;
-
-  const tint = color ?? statusColors[status];
+  if (!statusShowsBadge(status)) return null;
 
   return (
-    <SymbolView
-      name={{ ios: icon.ios, android: icon.android, web: icon.android }}
-      tintColor={tint}
-      size={size}
-      style={{ width: size, height: size }}
-      accessibilityLabel={statusLabels[status]}
-      // Web hat keine Material-Symbols-Fonts geladen — dort reicht ein Farbpunkt.
-      fallback={<View style={{ width: size / 2, height: size / 2, borderRadius: size / 2, backgroundColor: tint }} />}
+    <span
+      role="img"
+      aria-label={statusLabels[status]}
+      className={styles.dot}
+      data-status={status}
+      style={{
+        // Größe kommt aus dem Aufrufer, die Farbe nur wenn sie überschrieben
+        // wird — sonst erbt sie über data-status aus theme/positions.css.
+        '--badge-size': `${size}px`,
+        ...(color ? { '--badge-color': color } : {}),
+      } as React.CSSProperties}
     />
   );
 }
