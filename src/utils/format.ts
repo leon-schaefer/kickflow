@@ -36,6 +36,17 @@ export function formatMarketValueDate(dt: number): string {
   });
 }
 
+/**
+ * Formatiert einen ISO-Zeitpunkt der API als Datum:
+ * "2026-08-12T20:14:03Z" → "12.08.2026". `null` bei unlesbarem Datum, damit
+ * der Aufrufer die Zeile weglassen kann statt "Invalid Date" anzuzeigen.
+ */
+export function formatIsoDate(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 /** Formatiert Punkte/Mio kompakt: 10.5 → "10,5". */
 export function formatValueScore(value: number): string {
   return value.toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });

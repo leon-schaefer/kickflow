@@ -3,6 +3,7 @@ import {
   formatCountdown,
   formatCurrency,
   formatDelta,
+  formatIsoDate,
   formatMarketValueDate,
   formatMinutes,
   formatPercentDelta,
@@ -51,6 +52,15 @@ describe('formatPercentDelta', () => {
 describe('formatMarketValueDate', () => {
   it('formatiert einen Kickbase-Verlaufstag als deutsches Datum', () => {
     expect(formatMarketValueDate(20418)).toBe('26.11.2025');
+  });
+});
+
+describe('formatIsoDate', () => {
+  it('formatiert einen ISO-Zeitpunkt als deutsches Datum', () => {
+    expect(formatIsoDate('2026-08-12T10:14:03Z')).toBe('12.08.2026');
+  });
+  it('liefert null bei unlesbarem Datum', () => {
+    expect(formatIsoDate('kein Datum')).toBeNull();
   });
 });
 
