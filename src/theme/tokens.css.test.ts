@@ -2,7 +2,16 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { renderTokensCss } from '../../scripts/generate-tokens-css';
-import { colors, layout, positionColors, radius, spacing, statusColors, typography } from './tokens';
+import {
+  baseFont,
+  colors,
+  layout,
+  positionColors,
+  radius,
+  spacing,
+  statusColors,
+  typography,
+} from './tokens';
 
 /**
  * Wächter über die Duplizierung zwischen tokens.ts und tokens.css.
@@ -57,6 +66,11 @@ describe('tokens.css', () => {
       expect(CSS).toContain(`--font-size-${key}: ${role.fontSize}px;`);
       expect(CSS).toContain(`--font-weight-${key}: ${role.fontWeight};`);
     }
+  });
+
+  it('führt Schriftfamilie und Erbgröße', () => {
+    expect(CSS).toContain(`--font-family-base: ${baseFont.fontFamily};`);
+    expect(CSS).toContain(`--font-size-base: ${baseFont.fontSize}px;`);
   });
 
   it('setzt bewusst keine line-height (siehe Kommentar in tokens.css)', () => {
