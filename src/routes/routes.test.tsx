@@ -12,7 +12,10 @@ import { renderRoute } from '@/test/renderRoute';
  * Lesezeichen.
  */
 const URLS: { path: string; screen: string }[] = [
-  { path: '/login', screen: 'Anmelden' },
+  // Der Login trägt keinen AppHeader — er hatte auch unter expo-router keinen
+  // (`headerShown: false`), weil es dort nichts zurückzugehen gibt. Seine
+  // Überschrift ist der Produktname.
+  { path: '/login', screen: 'Kickflow' },
   { path: '/leagues', screen: 'Meine Ligen' },
   { path: '/settings', screen: 'Einstellungen' },
   { path: '/42/lineup', screen: leagueTabTitles.lineup },

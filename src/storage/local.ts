@@ -14,12 +14,22 @@
  * Alle Zugriffe sind gekapselt: im privaten Modus und bei blockierten
  * Site-Daten wirft schon der Zugriff auf `window.localStorage`.
  */
-async function getItem(key: string): Promise<string | null> {
+/**
+ * Synchrone Variante. Nur für Werte, an denen KEINE `loaded`-Semantik hängt —
+ * derzeit die zuletzt genutzte Liga (src/leagues/lastLeague.ts), die im
+ * useState-Initializer eines Screens gelesen wird. Dieselbe Kapselung, nur
+ * ohne das Promise davor.
+ */
+function getItemSync(key: string): string | null {
   try {
     return window.localStorage.getItem(key);
   } catch {
     return null;
   }
+}
+
+async function getItem(key: string): Promise<string | null> {
+  return getItemSync(key);
 }
 
 async function setItem(key: string, value: string): Promise<void> {
@@ -40,6 +50,6 @@ async function removeItem(key: string): Promise<void> {
   }
 }
 
-export const localStore = { getItem, setItem, removeItem };
+export const localStore = { getItem, getItemSync, setItem, removeItem };
 
 export default localStore;
