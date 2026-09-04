@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useParams } from 'react-router';
 import { MaxPerTeamRuleCard } from '@/components/MaxPerTeamRuleCard';
 import { Refreshable } from '@/components/Refreshable';
+import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
@@ -21,7 +21,7 @@ import styles from './RulesScreen.module.css';
  * nicht als Tab.
  */
 export function RulesScreen() {
-  const { leagueId = '' } = useParams<{ leagueId: string }>();
+  const leagueId = useLeagueId();
   const competitionId = useCompetitionId();
   const league = useCurrentLeague();
   const back = useBackTarget(leagueId);

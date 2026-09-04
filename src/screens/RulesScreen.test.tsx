@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import type { LineupData, SquadPlayer, Team } from '@/api/kickbase';
+import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { squadPlayer } from '@/test/squadPlayer';
 import { RulesScreen } from './RulesScreen';
 
@@ -39,9 +40,19 @@ function players(): SquadPlayer[] {
 }
 
 function setup() {
-  const router = createMemoryRouter([{ path: '/:leagueId/rules', element: <RulesScreen /> }], {
-    initialEntries: ['/42/rules'],
-  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/:leagueId/rules',
+        element: (
+          <LeagueIdProvider id="42">
+            <RulesScreen />
+          </LeagueIdProvider>
+        ),
+      },
+    ],
+    { initialEntries: ['/42/rules'] },
+  );
   render(<RouterProvider router={router} />);
 }
 

@@ -10,7 +10,9 @@ import { RootLayout } from './RootLayout';
 import { FixturesScreen } from '@/screens/FixturesScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
+import { MarketScreen } from '@/screens/MarketScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
+import { PlayersScreen } from '@/screens/PlayersScreen';
 import { RulesScreen } from '@/screens/RulesScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TabsLayout } from './TabsLayout';
@@ -69,8 +71,8 @@ export const routes: RouteObject[] = [
                 element: <TabsLayout />,
                 children: [
                   { path: 'lineup', element: <Placeholder name={leagueTabTitles.lineup} /> },
-                  { path: 'players', element: <Placeholder name={leagueTabTitles.players} /> },
-                  { path: 'market', element: <Placeholder name={leagueTabTitles.market} /> },
+                  { path: 'players', element: <PlayersScreen /> },
+                  { path: 'market', element: <MarketScreen /> },
                   { path: 'league', element: <Placeholder name={leagueTabTitles.league} /> },
                   { path: 'more', element: <MoreScreen /> },
                 ],

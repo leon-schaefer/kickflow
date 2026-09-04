@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import type { MatchdaySchedule, ScheduledFixture, Team } from '@/api/kickbase';
+import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { FixturesScreen } from './FixturesScreen';
 
 const matchdays = vi.hoisted(() => ({
@@ -76,9 +77,19 @@ function schedule(): MatchdaySchedule {
 function setup() {
   render(
     <RouterProvider
-      router={createMemoryRouter([{ path: '/:leagueId/fixtures', element: <FixturesScreen /> }], {
-        initialEntries: ['/42/fixtures'],
-      })}
+      router={createMemoryRouter(
+        [
+          {
+            path: '/:leagueId/fixtures',
+            element: (
+              <LeagueIdProvider id="42">
+                <FixturesScreen />
+              </LeagueIdProvider>
+            ),
+          },
+        ],
+        { initialEntries: ['/42/fixtures'] },
+      )}
     />,
   );
 }
