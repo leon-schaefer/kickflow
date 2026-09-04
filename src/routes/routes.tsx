@@ -8,6 +8,7 @@ import { Placeholder } from './Placeholder';
 import { RequireAuth } from './RequireAuth';
 import { RootLayout } from './RootLayout';
 import { FixturesScreen } from '@/screens/FixturesScreen';
+import { LeagueScreen } from '@/screens/LeagueScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { MarketScreen } from '@/screens/MarketScreen';
@@ -73,7 +74,7 @@ export const routes: RouteObject[] = [
                   { path: 'lineup', element: <Placeholder name={leagueTabTitles.lineup} /> },
                   { path: 'players', element: <PlayersScreen /> },
                   { path: 'market', element: <MarketScreen /> },
-                  { path: 'league', element: <Placeholder name={leagueTabTitles.league} /> },
+                  { path: 'league', element: <LeagueScreen /> },
                   { path: 'more', element: <MoreScreen /> },
                 ],
               },

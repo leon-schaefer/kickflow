@@ -1,0 +1,204 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.headerCards {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-md);
+  gap: var(--space-md);
+}
+
+/* Eine geordnete Liste — die Platzierung IST die Ordnung. */
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * Trennlinie zwischen den Zeilen, keine unter der letzten. Als
+ * Pseudo-Element und nicht als `border-bottom`, weil sie einen Einzug hat:
+ * Platz (24) + Avatar (36) + drei Abstände, damit sie unter dem Namen beginnt.
+ */
+.rowSlot {
+  position: relative;
+}
+
+.rowSlot:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--space-md) + 24px + var(--space-sm) + 36px + var(--space-sm));
+  height: 1px;
+  background: var(--color-border);
+}
+
+.row {
+  width: 100%;
+  align-items: center;
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md);
+  gap: var(--space-sm);
+  /* Immer ein Rahmen, nur meist unsichtbar: sonst würde die
+     Duell-Hervorhebung die Zeile um zwei Pixel wachsen lassen. */
+  border: 1px solid transparent;
+}
+
+.row:active {
+  background: var(--color-surface-raised);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.rowOwn {
+  background: var(--color-accent-muted);
+}
+
+.rowOpponent {
+  border-color: var(--color-accent);
+}
+
+.duelCard {
+  padding: var(--space-md);
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.duelTitle {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.duelRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.duelScore {
+  flex: 1 1 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-primary);
+}
+
+.duelAvatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.duelPlace {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.duelTag {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.place {
+  width: 24px;
+  flex-shrink: 0;
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: block;
+  border: 1px solid var(--color-border);
+}
+
+.info {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.nameRow {
+  composes: h from '@/theme/layout.module.css';
+  max-width: 100%;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.name {
+  composes: line1 from '@/theme/layout.module.css';
+  flex-shrink: 1;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-primary);
+}
+
+.adminTag {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.subText {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.scores {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.seasonPoints {
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.matchdayPoints {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}
+
+.empty {
+  composes: v from '@/theme/layout.module.css';
+  align-items: center;
+  padding: var(--space-xl);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+}
