@@ -33,6 +33,14 @@ interface ModalProps {
  * darin — deshalb braucht das Panel kein `stopPropagation` mehr, anders als
  * die beiden Pressables der RN-Fassung. Es ist außerdem ein normales `div`
  * und liegt damit nicht mehr unnötig im Tab-Fokus.
+ *
+ * Den Anfangsfokus setzt der Dialog selbst — und zwar auf das erste
+ * bedienbare Element darin. Das ist hier nicht erwünscht: WebKit zeichnet den
+ * Fokusring auch dann, wenn der Dialog per Tap geöffnet wurde, und er blieb
+ * bis zur nächsten Berührung als blauer Rand um den ersten Eintrag stehen.
+ * Der Fokus geht deshalb aufs Panel (siehe `panelRef`) — das ist ohnehin die
+ * bessere Ansage: Screenreader lesen den Dialog von oben, nicht ab dem ersten
+ * Listeneintrag.
  */
 export function Modal({ open, onClose, title, children, panelClassName }: ModalProps) {
   if (!open) return null;
@@ -52,11 +60,18 @@ function ModalShell({
   panelClassName,
 }: Omit<ModalProps, 'open'>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Erst `showModal()` macht daraus einen echten Modal-Dialog; ein
     // gerendertes `<dialog>` ohne den Aufruf bleibt unsichtbar.
     dialogRef.current?.showModal();
+    // Direkt danach, im selben Zug: `showModal()` hat den Fokus schon auf das
+    // erste bedienbare Element gesetzt, gezeichnet wird aber erst nach diesem
+    // Effekt — der Ring dort blitzt also nicht auf. `autoFocus` wäre kein
+    // Ersatz: React ruft es nur für button/input/select/textarea auf und
+    // rendert das Attribut nicht, ein `div` bliebe unbeachtet.
+    panelRef.current?.focus();
   }, []);
 
   function handleBackdropClick(event: SyntheticEvent<HTMLDialogElement>) {
@@ -78,7 +93,10 @@ function ModalShell({
         onClose();
       }}
     >
-      <div className={cx(styles.panel, panelClassName)}>
+      {/* `tabIndex={-1}`: fokussierbar für den Zeiger und für Skripte, aber
+          nicht in der Tab-Reihenfolge. Tab führt von hier zum ersten
+          Bedienelement im Panel. */}
+      <div ref={panelRef} tabIndex={-1} className={cx(styles.panel, panelClassName)}>
         <h2 className={styles.title}>{title}</h2>
         {children}
       </div>
