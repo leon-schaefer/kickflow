@@ -7,6 +7,9 @@ import { NotFound } from './NotFound';
 import { Placeholder } from './Placeholder';
 import { RequireAuth } from './RequireAuth';
 import { RootLayout } from './RootLayout';
+import { LeaguesScreen } from '@/screens/LeaguesScreen';
+import { LoginScreen } from '@/screens/LoginScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TabsLayout } from './TabsLayout';
 
 /**
@@ -38,14 +41,14 @@ export const routes: RouteObject[] = [
     element: <RootLayout />,
     children: [
       { index: true, element: <IndexRedirect /> },
-      { path: 'login', element: <Placeholder name="Anmelden" /> },
+      { path: 'login', element: <LoginScreen /> },
 
       {
         // = Klammer-Gruppe `(app)`: das Auth-Gate, ohne URL-Segment.
         element: <RequireAuth />,
         children: [
-          { path: 'leagues', element: <Placeholder name="Meine Ligen" /> },
-          { path: 'settings', element: <Placeholder name="Einstellungen" /> },
+          { path: 'leagues', element: <LeaguesScreen /> },
+          { path: 'settings', element: <SettingsScreen /> },
 
           {
             path: ':leagueId',

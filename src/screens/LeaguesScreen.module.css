@@ -1,0 +1,77 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: var(--space-lg);
+  list-style: none;
+  gap: var(--space-md);
+}
+
+.center {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+}
+
+.card {
+  width: 100%;
+  padding: var(--space-lg);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--color-accent-muted);
+  }
+}
+
+.cardHeader {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.leagueName {
+  composes: line1 from '@/theme/layout.module.css';
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.lastBadge {
+  padding-inline: var(--space-sm);
+  padding-block: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.statsRow {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-lg);
+}
+
+.statText {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
