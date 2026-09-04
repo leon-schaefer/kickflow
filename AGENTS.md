@@ -1,9 +1,12 @@
 # Vite + React Router, nicht React Native
 
-kickflow ist eine reine React-SPA im Browser. `react-native`, `expo-*` und der
-Ordner `app/` sind Restbestand der laufenden Migration: `app/**` ist aus dem
-Typecheck genommen (`tsconfig.json`) und wird von nichts gebündelt. Neuer Code
-gehört nach `src/`, als DOM und CSS-Module.
+kickflow ist eine reine React-SPA im Browser. React Native und Expo sind
+vollständig entfernt — kein `react-native`, kein `expo-*`, kein `app/`. Der
+ganze Code liegt in `src/`: DOM-Elemente und CSS-Module.
+
+Wer hier auf React-Native-Reste stößt (ein `StyleSheet.create`, ein `<View>`,
+einen `expo-`Import), hat ein Stück gefunden, das übersehen wurde — es gehört
+portiert, nicht ergänzt.
 
 Vor dem Schreiben von Code die exakten versionierten Docs lesen:
 
@@ -15,11 +18,14 @@ Vor dem Schreiben von Code die exakten versionierten Docs lesen:
 Die Begründung steht jeweils in der Datei selbst — dort nachlesen, bevor davon
 abgewichen wird.
 
-- **`src/theme/layout.module.css`**: Jede portierte Container-Regel trägt
-  `composes: v` (Spalte) oder `composes: h` (Zeile). Das übersetzt die drei
-  Defaults, in denen React Native und DOM auseinandergehen. `flex-direction`
-  kommt in Komponenten-Modulen **nie** vor — Vite emittiert die komponierte
-  Klasse nach der einbindenden Regel, ein Override würde also verlieren.
+- **`src/theme/layout.module.css`**: Jede Container-Regel trägt `composes: v`
+  (Spalte) oder `composes: h` (Zeile). Das ist kein Migrationsrest, sondern die
+  Konvention: sie macht die Richtung an jeder Regel sichtbar, statt sie aus der
+  Verschachtelung zu erraten. `flex-direction` kommt in Komponenten-Modulen
+  **nie** vor — Vite emittiert die komponierte Klasse nach der einbindenden
+  Regel, ein Override würde also verlieren.
+- **`src/theme/base.css`** setzt `box-sizing: border-box` global. Die einzige
+  globale Regel der App; die Begründung steht in der Datei.
 - **`src/theme/tokens.css` ist generiert** aus `src/theme/tokens.ts`
   (`npm run tokens`). Nicht von Hand editieren; `tokens.css.test.ts` prüft es.
 - **Typografie** über die Var-Paare `--font-size-*` / `--font-weight-*`, nicht
@@ -36,3 +42,10 @@ abgewichen wird.
   Argumentation für den Token im localStorage. Nichts einbauen, was Inline-
   Scripts oder `eval` braucht — siehe `vite.config.ts`
   (`modulePreload.polyfill: false`) und `src/app/zodConfig.ts`.
+  `style-src 'unsafe-inline'` muss dagegen BLEIBEN: die echt dynamischen Werte
+  (Positionsfarben, Zellengrößen, Pull-Offset) sind Inline-`style`-Attribute
+  und fielen sonst lautlos aus.
+- **Modale** liegen per `createPortal` an `document.body` (siehe
+  `src/components/Modal.tsx`). Nicht optional: die Touch-Listener von
+  `Refreshable` hängen mit `capture` am Wrapper, und ein im Baum gerendertes
+  Panel würde einen Wisch darin als Pull-to-Refresh im Hintergrund auslösen.

@@ -162,6 +162,41 @@ jeden Cache mit anderem Namen und räumt die alten Einträge damit weg.
 Zum Testen reicht `npm run build:web` plus ein statischer Server auf `dist/`;
 im Dev-Server ist `build-id.txt` nicht Teil des Bildes.
 
+## Verifikation im Browser
+
+Typecheck und Vitest deckt die Logik ab, aber nicht das, was am gebauten
+Artefakt schiefgeht: die Content-Security-Policy, der Service Worker, der
+SPA-Rewrite und die Deep-Link-Einstiege. Dafür gibt es zwei Skripte in
+`scripts/verify/`:
+
+```bash
+npm run build:web
+node scripts/verify/serve-dist.mjs . 4173 &     # dist/ mit den Headern aus vercel.json
+node scripts/verify/deep-links.mjs http://localhost:4173
+```
+
+`serve-dist.mjs` liest Header, `cleanUrls` und den Rewrite AUS `vercel.json`,
+damit die lokale Prüfung nicht von Produktion abdriften kann. Der häufigste
+Fehler bei so einer Verifikation ist `serve -s dist`: das sendet keine CSP —
+und genau die CSP ist der Ort, an dem ein Bundler überrascht.
+
+`deep-links.mjs` ruft alle 13 URLs direkt auf und prüft Status, Überschrift,
+Konsolenfehler und CSP-Verstöße. Letztere über das DOM-Event
+`securitypolicyviolation`, nicht über eine Konsolen-Textsuche: nur so werden
+auch stille Verstöße sichtbar. Genau daran ist aufgefallen, dass Zods
+JIT-Kompilierung `eval` probiert (siehe `src/app/zodConfig.ts`) — die Konsole
+zeigte davon nur einen abgefangenen Fehler.
+
+Dazu sechs Sonderfälle: Deep Link ohne Session (muss auf `/login`), nackte
+Liga-URL (muss auf den ersten Tab), unbekannte Unterseite (404-Route),
+Zurück-Label per Deep Link (Fallback „Aufstellung"), Tab-Leiste mit
+Aktivmarkierung, und dass der Service Worker `/assets/` aus `kickflow-v2`
+bedient.
+
+Playwright ist bewusst KEINE Dependency des Projekts — das Skript erwartet eine
+globale Installation und läuft nicht in CI. Es ist ein Werkzeug für den Moment
+vor einem Deploy, nicht für jeden Commit.
+
 ## PWA
 
 `public/manifest.webmanifest` deklariert `display: standalone`, `lang: de`,
