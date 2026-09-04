@@ -12,7 +12,7 @@
  * das Build-ID-Format sie ohnehin definiert.
  */
 import { execSync } from 'node:child_process';
-import { shortSha } from '../src/updates/buildId';
+import { shortSha } from '../src/updates/buildId.ts';
 
 /** Die volle SHA, ungeprüft — Aufrufer entscheiden über die Verkürzung. */
 export function resolveGitSha(): string | null {
