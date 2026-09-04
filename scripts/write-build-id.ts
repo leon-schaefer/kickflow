@@ -19,23 +19,12 @@
  * buildCommand in vercel.json auf. Ohne diesen Schritt fehlt build-id.txt im
  * Deploy und der SPA-Rewrite liefert stattdessen index.html aus.
  */
-import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { formatBuildId } from '../src/updates/buildId';
+import { resolveGitSha } from './gitSha';
 
-function resolveSha(): string | null {
-  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
-  try {
-    return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
-  } catch {
-    // Kein Git-Kontext (z. B. Export aus einem Tarball) — der Zeitstempel
-    // allein ist als Build-ID eindeutig genug.
-    return null;
-  }
-}
-
-const buildId = formatBuildId(Date.now(), resolveSha());
+const buildId = formatBuildId(Date.now(), resolveGitSha());
 const outPath = path.join(__dirname, '..', 'public', 'build-id.txt');
 writeFileSync(outPath, buildId);
 console.log(`build-id.txt geschrieben: ${buildId}`);
