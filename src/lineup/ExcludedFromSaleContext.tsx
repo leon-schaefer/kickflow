@@ -24,7 +24,7 @@ export function ExcludedFromSaleProvider({
   return <ExcludedFromSaleContext.Provider value={leagueId ? value : null}>{children}</ExcludedFromSaleContext.Provider>;
 }
 
-/** Der Provider sitzt in app/(app)/[leagueId]/_layout.tsx — Vorbild: useLeagueRulesContext(). */
+/** Der Provider sitzt in src/routes/LeagueLayout.tsx — Vorbild: useLeagueRulesContext(). */
 export function useExcludedFromSaleContext(): ExcludedFromSale {
   const value = use(ExcludedFromSaleContext);
   if (!value) throw new Error('useExcludedFromSaleContext() muss innerhalb von [leagueId] aufgerufen werden.');

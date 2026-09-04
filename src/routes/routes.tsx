@@ -7,8 +7,11 @@ import { NotFound } from './NotFound';
 import { Placeholder } from './Placeholder';
 import { RequireAuth } from './RequireAuth';
 import { RootLayout } from './RootLayout';
+import { FixturesScreen } from '@/screens/FixturesScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
+import { MoreScreen } from '@/screens/MoreScreen';
+import { RulesScreen } from '@/screens/RulesScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TabsLayout } from './TabsLayout';
 
@@ -69,15 +72,15 @@ export const routes: RouteObject[] = [
                   { path: 'players', element: <Placeholder name={leagueTabTitles.players} /> },
                   { path: 'market', element: <Placeholder name={leagueTabTitles.market} /> },
                   { path: 'league', element: <Placeholder name={leagueTabTitles.league} /> },
-                  { path: 'more', element: <Placeholder name={leagueTabTitles.more} /> },
+                  { path: 'more', element: <MoreScreen /> },
                 ],
               },
 
               // Über den Tabs: eigener Header mit Zurück, keine Tab-Leiste.
               { path: 'player/:playerId', element: <DetailPlaceholder name="Spieler" /> },
               { path: 'manager/:managerId', element: <DetailPlaceholder name="Manager" /> },
-              { path: 'rules', element: <DetailPlaceholder name="Regeln" /> },
-              { path: 'fixtures', element: <DetailPlaceholder name="Restprogramm" /> },
+              { path: 'rules', element: <RulesScreen /> },
+              { path: 'fixtures', element: <FixturesScreen /> },
             ],
           },
         ],

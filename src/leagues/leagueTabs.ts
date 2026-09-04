@@ -18,7 +18,7 @@ export type TabsAwareState = { index?: number; routes: readonly TabsAwareRoute[]
  * Titel der Screens, die im `[leagueId]`-Stack ÜBER den Tabs liegen und
  * selbst weiterpushen können — nur von dort aus ist ihr Titel das
  * Zurück-Label des obersten Screens. Muss zu den Routennamen in
- * app/(app)/[leagueId]/_layout.tsx passen.
+ * src/routes/routes.tsx passen.
  */
 const leagueStackTitles: Record<string, string> = {
   'manager/[managerId]': 'Manager',

@@ -1,0 +1,110 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.controlRow {
+  composes: h from '@/theme/layout.module.css';
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+
+.segmentGroup {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+.segmentChip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.segmentChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: var(--space-sm);
+}
+
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.teamCell {
+  composes: h from '@/theme/layout.module.css';
+  width: 96px;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.teamName {
+  composes: line1 from '@/theme/layout.module.css';
+  flex-shrink: 1;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-primary);
+}
+
+/*
+ * Eigener Scroll-Container, damit der Streifen nicht über den Wert rechts
+ * läuft. `min-width: 0` bringt die .h-Basisklasse mit — in Yoga (RN) musste
+ * es dafür explizit dastehen, weil dort `min-width: auto` fehlt.
+ */
+.fixtureCells {
+  composes: h from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.avgText {
+  width: 36px;
+  flex-shrink: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.emptyText {
+  margin: 0;
+  padding-top: var(--space-xl);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
