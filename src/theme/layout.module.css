@@ -21,8 +21,19 @@
  * Regeln, die sie betrifft, und ein fehlendes `composes` fällt im Diff auf.
  *
  * KONVENTION: `flex-direction` kommt in Komponenten-Modulen nie vor. Nur
- * `composes: v`/`h` bestimmt die Richtung — damit gibt es keine Deklaration,
- * bei der die `composes`-Quellreihenfolge überhaupt entscheiden könnte.
+ * `composes: v`/`h` bestimmt die Richtung.
+ *
+ * Diese Konvention ist nicht Vorsicht, sondern nötig. Am gebauten CSS
+ * nachgemessen: Vite emittiert die komponierte Klasse NACH der Regel, die sie
+ * einbindet. Beide haben dieselbe Spezifität, also gewinnt bei einem Konflikt
+ * `.v`/`.h` — die Komponente kann eine hier gesetzte Eigenschaft NICHT
+ * überschreiben. Deshalb dürfen hier nur Eigenschaften stehen, die eine
+ * Komponente nie anders haben will.
+ *
+ * Aus demselben Grund liegen die typography-Rollen als Var-Paare in
+ * tokens.css und nicht als `composes`-Klassen: die 179 Fundstellen
+ * überschreiben oft das font-weight, und das würde gegen eine komponierte
+ * Klasse verlieren.
  */
 
 /* min-width/min-height: 0 hat RN implizit. Ohne sie brechen Ellipsen

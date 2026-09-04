@@ -8,6 +8,11 @@ import { TrendIcon } from '@/components/icons/TrendIcon';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { colors } from '@/theme/tokens';
 
+/*
+ * `color as string`: React Navigation gibt `ColorValue`, die Icons nehmen seit
+ * dem Port auf DOM-SVG `string`. Auf Web ist ColorValue immer ein String —
+ * und diese Datei fällt mit dem Cutover auf React Router ohnehin weg.
+ */
 export default function LeagueTabsLayout() {
   return (
     <Tabs
@@ -36,28 +41,28 @@ export default function LeagueTabsLayout() {
         name="lineup"
         options={{
           title: leagueTabTitles.lineup,
-          tabBarIcon: ({ color, size }) => <PitchIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <PitchIcon color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="players"
         options={{
           title: leagueTabTitles.players,
-          tabBarIcon: ({ color, size }) => <SquadIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <SquadIcon color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="market"
         options={{
           title: leagueTabTitles.market,
-          tabBarIcon: ({ color, size }) => <TrendIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <TrendIcon color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="league"
         options={{
           title: leagueTabTitles.league,
-          tabBarIcon: ({ color, size }) => <LeagueIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <LeagueIcon color={color as string} size={size} />,
         }}
       />
 <Tabs.Screen
@@ -68,7 +73,7 @@ export default function LeagueTabsLayout() {
           // ist nichts liga-spezifisch, ein Liga-Umschalter im Titel wäre nur
           // irreführend.
           headerTitle: leagueTabTitles.more,
-          tabBarIcon: ({ color, size }) => <MoreIcon color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <MoreIcon color={color as string} size={size} />,
         }} />
     </Tabs>
   );
