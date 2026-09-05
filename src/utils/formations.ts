@@ -10,6 +10,7 @@ import { parseFormation } from '@/api/kickbase';
 export const AVAILABLE_FORMATIONS = [
   '3-4-3',
   '3-5-2',
+  '3-6-1',
   '4-4-2',
   '4-3-3',
   '4-2-4',
