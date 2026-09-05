@@ -32,15 +32,30 @@ export interface NavOrigin {
  * Detail — führt Zurück auf den ersten Tab, und der heißt „Aufstellung".
  * Bewusst kein `navigate(-1)`: in einer aus der PWA heraus geöffneten
  * History gibt es keinen Eintrag, auf den es zurückgehen könnte.
+ *
+ * `leagueId` leer = der Screen liegt außerhalb einer Liga (die Einstellungen).
+ * Dann gibt es keinen Tab, auf den der Fallback zeigen könnte — siehe
+ * `fallbackFor()`.
  */
 export function useBackTarget(leagueId: string): BackTarget {
   const { state } = useLocation();
   const origin = (state ?? null) as NavOrigin | null;
+  const fallback = fallbackFor(leagueId);
 
   return {
-    to: safeInternalPath(origin?.fromPath) ?? `/${leagueId}/lineup`,
-    label: origin?.fromTitle ?? leagueTabTitles.lineup,
+    to: safeInternalPath(origin?.fromPath) ?? fallback.to,
+    label: origin?.fromTitle ?? fallback.label,
   };
+}
+
+/**
+ * Ohne Liga-Kontext ergäbe `/${leagueId}/lineup` den Pfad `//lineup` — für den
+ * Browser keine App-Route, sondern eine protokollrelative URL, also ein Sprung
+ * auf den Host `lineup`. Zurück führt deshalb in die Ligenliste.
+ */
+function fallbackFor(leagueId: string): BackTarget {
+  if (!leagueId) return { to: '/leagues', label: 'Meine Ligen' };
+  return { to: `/${leagueId}/lineup`, label: leagueTabTitles.lineup };
 }
 
 /**
