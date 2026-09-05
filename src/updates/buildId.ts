@@ -39,16 +39,26 @@ export function formatBuildId(now: number, sha?: string | null): string {
     .toISOString()
     .replace(/[-:]/g, '')
     .replace(/\.\d{3}Z$/, 'Z');
-  const shortSha = normalizeSha(sha);
-  return shortSha ? `${timestamp}-${shortSha}` : timestamp;
+  const short = shortSha(sha);
+  return short ? `${timestamp}-${short}` : timestamp;
 }
 
-function normalizeSha(sha: string | null | undefined): string | null {
+/**
+ * Kürzt eine Commit-SHA auf sieben Zeichen, oder gibt `null` zurück, wenn der
+ * Wert keine ist.
+ *
+ * Vercel setzt VERCEL_GIT_COMMIT_SHA auch in Preview-Deploys ohne Git-Push
+ * gelegentlich leer oder mit Platzhaltern — alles, was keine Hex-SHA ist,
+ * fällt hier still raus, statt eine unparsebare Build-ID zu erzeugen.
+ *
+ * Exportiert, weil dieselbe Verkürzung an mehreren Stellen gebraucht wird:
+ * für die Build-ID (scripts/write-build-id.ts) und für die Versionsanzeige im
+ * Mehr-Tab (bisher app.config.js, nach dem Umzug vite.config.ts). Vorher stand
+ * die Logik dreifach im Repo.
+ */
+export function shortSha(sha: string | null | undefined): string | null {
   if (!sha) return null;
   const trimmed = sha.trim().toLowerCase();
-  // Vercel setzt VERCEL_GIT_COMMIT_SHA auch in Preview-Deploys ohne Git-Push
-  // gelegentlich leer oder mit Platzhaltern — alles, was keine Hex-SHA ist,
-  // fällt hier still raus, statt eine unparsebare Build-ID zu erzeugen.
   if (!/^[0-9a-f]{7,40}$/.test(trimmed)) return null;
   return trimmed.slice(0, 7);
 }

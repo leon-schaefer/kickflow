@@ -1,0 +1,26 @@
+.frame {
+  composes: v from '@/theme/layout.module.css';
+  position: absolute;
+  /* Vorher insets.top + spacing.sm aus useSafeAreaInsets(). */
+  top: calc(env(safe-area-inset-top) + var(--space-sm));
+  left: var(--space-md);
+  right: var(--space-md);
+  z-index: 1000;
+}
+
+.banner {
+  composes: pressableV from '@/theme/layout.module.css';
+  align-items: center;
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-background);
+  text-align: center;
+}
+
+.banner:active {
+  opacity: 0.9;
+}

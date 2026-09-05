@@ -1,12 +1,13 @@
-import type { ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { KeyboardEvent, ReactNode } from 'react';
 import type { Position } from '@/api/kickbase';
-import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import { positionLabels } from '@/theme/tokens';
+import { cx } from '@/utils/cx';
+import styles from './PlayerRowFrame.module.css';
 
 interface PlayerRowFrameProps {
   position: Position;
   imageUrl: string | null;
-  onPress?: () => void;
+  onClick?: () => void;
   /** Namenszeile + Meta-Zeile — screenspezifisch (Kader vs. Markt). */
   children: ReactNode;
   /** Rechter Slot, i. d. R. `<PlayerStatColumn>`. */
@@ -14,30 +15,58 @@ interface PlayerRowFrameProps {
 }
 
 /**
- * Gemeinsame Geometrie einer Spieler-Zeile: Pressable, Positions-Tag, Avatar
- * und die flexible Info-Spalte. Bisher wortgleich zwischen der Kader- und der
- * Markt-Zeile dupliziert (`row`, `pressed`, `positionTag`, `positionText`,
- * `image`, `imageFallback`, `info`) — hier einmalig.
+ * Gemeinsame Geometrie einer Spieler-Zeile: klickbare Zeile, Positions-Tag,
+ * Avatar und die flexible Info-Spalte. Bisher wortgleich zwischen der Kader-
+ * und der Markt-Zeile dupliziert — hier einmalig.
+ *
+ * Die Zeile ist ein `div` mit `role="button"` und nicht selbst ein `<button>`:
+ * MarketRow schiebt eine Bieten-Pille in den rechten Slot, und ein Button darf
+ * keinen Button enthalten. Das entspricht dem Pressable-in-Pressable der
+ * React-Native-Fassung, inklusive des `stopPropagation` dort. Tastaturbedienung
+ * kommt hier von Hand dazu — die hatte die alte Fassung auf Web nicht.
+ *
+ * Die Positionsfarbe kommt über `data-position` aus theme/positions.css. Damit
+ * verschwindet die String-Konkatenation `${positionColors[position]}26`, die
+ * sich in CSS nicht nachbauen ließe, und der Farbwert wandert nicht mehr durch
+ * JavaScript.
  */
-export function PlayerRowFrame({ position, imageUrl, onPress, children, right }: PlayerRowFrameProps) {
+export function PlayerRowFrame({
+  position,
+  imageUrl,
+  onClick,
+  children,
+  right,
+}: PlayerRowFrameProps) {
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!onClick) return;
+    // Ein echter Button macht das selbst; hier steht es von Hand, weil die
+    // Zeile ein div sein muss.
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick();
+    }
+  }
+
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={[styles.positionTag, { backgroundColor: `${positionColors[position]}26` }]}>
-        <Text style={[styles.positionText, { color: positionColors[position] }]}>
-          {positionLabels[position]}
-        </Text>
-      </View>
+    <div
+      className={styles.row}
+      data-position={position}
+      {...(onClick
+        ? { role: 'button', tabIndex: 0, onClick, onKeyDown: handleKeyDown }
+        : {})}
+    >
+      <span className={styles.positionTag}>{positionLabels[position]}</span>
 
       {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} />
+        <img src={imageUrl} alt="" className={styles.image} loading="lazy" />
       ) : (
-        <View style={[styles.image, styles.imageFallback]} />
+        <span className={cx(styles.image, styles.imageFallback)} />
       )}
 
-      <View style={styles.info}>{children}</View>
+      <span className={styles.info}>{children}</span>
 
       {right}
-    </Pressable>
+    </div>
   );
 }
 
@@ -50,108 +79,34 @@ export interface StatCell {
   emphasis?: boolean;
 }
 
-const TONE_COLORS: Record<NonNullable<StatCell['tone']>, string> = {
-  primary: colors.textPrimary,
-  accent: colors.accent,
-  positive: colors.positive,
-  negative: colors.negative,
-  muted: colors.textSecondary,
-};
-
 interface PlayerStatColumnProps {
   cells: readonly StatCell[];
   /** Bieten/Ändern-Pille im Markt — sonst leer. */
   footer?: ReactNode;
 }
 
-/** Rechte Statistik-Spalte einer Spieler-Zeile: gestapelte Zahl+Label-Paare, optional mit Footer (Markt-Button). */
+/**
+ * Rechte Statistik-Spalte einer Spieler-Zeile: gestapelte Zahl+Label-Paare,
+ * optional mit Footer (Markt-Button).
+ *
+ * `tone` läuft über `data-tone` und theme/positions.css statt über eine
+ * TONE_COLORS-Map in JavaScript.
+ */
 export function PlayerStatColumn({ cells, footer }: PlayerStatColumnProps) {
   return (
-    <View style={styles.stats}>
+    <span className={styles.stats}>
       {cells.map((cell, index) => (
-        <View key={index} style={styles.statCell}>
-          <Text
-            style={[
-              styles.statValue,
-              cell.emphasis && styles.statValueEmphasis,
-              cell.tone && { color: TONE_COLORS[cell.tone] },
-            ]}
+        <span key={index} className={styles.statCell}>
+          <span
+            className={cx(styles.statValue, cell.emphasis && styles.statValueEmphasis)}
+            data-tone={cell.tone}
           >
             {cell.value}
-          </Text>
-          {cell.label && <Text style={styles.statLabel}>{cell.label}</Text>}
-        </View>
+          </span>
+          {cell.label && <span className={styles.statLabel}>{cell.label}</span>}
+        </span>
       ))}
       {footer}
-    </View>
+    </span>
   );
 }
-
-/** Einzug der Trennlinie = Positions-Tag + Avatar + Abstände — bisher in beiden Screens als Magic Number dupliziert. */
-export const PLAYER_ROW_SEPARATOR_INSET = spacing.md + 36 + spacing.sm;
-
-export function PlayerRowSeparator() {
-  return <View style={styles.separator} />;
-}
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  pressed: {
-    backgroundColor: colors.surfaceRaised,
-  },
-  positionTag: {
-    width: 36,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-  },
-  positionText: {
-    ...typography.small,
-    fontWeight: '700',
-  },
-  image: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-  },
-  imageFallback: {
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  stats: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  statCell: {
-    alignItems: 'flex-end',
-  },
-  statValue: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  statValueEmphasis: {
-    ...typography.body,
-    fontWeight: '700',
-  },
-  statLabel: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: PLAYER_ROW_SEPARATOR_INSET,
-  },
-});

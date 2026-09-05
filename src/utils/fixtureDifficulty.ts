@@ -1,5 +1,5 @@
 /**
- * Gegner-Härte fürs Restprogramm (siehe app/(app)/[leagueId]/fixtures.tsx) und
+ * Gegner-Härte fürs Restprogramm (siehe src/screens/FixturesScreen.tsx) und
  * als drittes Optimizer-Signal (siehe src/lineup/useLineupOptimizer.ts).
  *
  * Bewusst OHNE einen neuen Kickbase-Endpoint: Vereinsstärke wird ausschließlich

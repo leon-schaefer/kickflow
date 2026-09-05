@@ -1,0 +1,77 @@
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: flex-start;
+  gap: var(--space-sm);
+  cursor: pointer;
+
+  /* Für das absolut positionierte `.input` darunter. In React Native
+     positionierte `absolute` automatisch gegen den nächsten View. */
+  position: relative;
+}
+
+.row:has(.input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/*
+ * Das echte Input bleibt bedienbar und fokussierbar, ist aber nicht sichtbar:
+ * `appearance: none` plus Nullfläche über der gestylten Box. Bewusst NICHT
+ * `display: none` oder `visibility: hidden` — dann wäre es nicht mehr
+ * fokussierbar und die Tastaturbedienung verloren.
+ */
+.input {
+  appearance: none;
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.box {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.input:checked + .box {
+  background: var(--color-accent-muted);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* Der Fokusring gehört an die sichtbare Box, nicht an das unsichtbare Input. */
+.input:focus-visible + .box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.textColumn {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+}
+
+.label {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}

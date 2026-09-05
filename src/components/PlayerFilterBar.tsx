@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Position, Team } from '@/api/kickbase';
-import { colors, positionColors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import { positionLabels } from '@/theme/tokens';
 import type { PlayerFilterCriteria } from '@/utils/playerFilter';
 import { isPlayerFilterActive } from '@/utils/playerFilter';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './PlayerFilterBar.module.css';
 import { TeamLogo } from './TeamLogo';
 import { TextField } from './TextField';
 
@@ -48,186 +50,96 @@ export function PlayerFilterBar({ criteria, onChange, teams }: PlayerFilterBarPr
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchRow}>
+    <div className={styles.container}>
+      <div className={styles.searchRow}>
         <TextField
-          containerStyle={styles.search}
-          style={styles.searchInput}
+          className={styles.search}
+          inputClassName={styles.searchInput}
+          type="search"
           placeholder="Spieler suchen…"
+          aria-label="Spieler suchen"
           value={criteria.query}
-          onChangeText={(query) => onChange({ ...criteria, query })}
-          autoCorrect={false}
+          onChange={(query) => onChange({ ...criteria, query })}
+          autoCorrect="off"
           autoCapitalize="none"
-          clearAccessibilityLabel="Suche löschen"
+          clearLabel="Suche löschen"
         />
-        <Pressable
-          onPress={() => setExpanded((v) => !v)}
-          style={[styles.filterToggle, active && styles.filterToggleActive]}
+        <button
+          type="button"
+          className={cx(layout.pressable, styles.filterToggle)}
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
         >
-          <Text style={[styles.filterToggleText, active && styles.filterToggleTextActive]}>
-            Filter{active ? ` · ${filterCount(criteria)}` : ''}
-          </Text>
-        </Pressable>
-      </View>
+          Filter{active ? ` · ${filterCount(criteria)}` : ''}
+        </button>
+      </div>
 
       {expanded && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipScroll}
-          contentContainerStyle={styles.chipRow}
-        >
-          {POSITIONS.map((position) => {
-            const selected = criteria.positions.includes(position);
-            return (
-              <Pressable
+        <div className={cx(styles.chipScroll, layout.noScrollbar)}>
+          <div className={styles.chipRow} role="group" aria-label="Filter">
+            {POSITIONS.map((position) => (
+              <button
                 key={position}
-                onPress={() => togglePosition(position)}
-                style={[
-                  styles.chip,
-                  selected && { backgroundColor: `${positionColors[position]}26`, borderColor: positionColors[position] },
-                ]}
+                type="button"
+                // data-position + aria-pressed statt
+                // `${positionColors[position]}26` im style-Array: die aktive
+                // Farbe kommt aus theme/positions.css.
+                data-position={position}
+                aria-pressed={criteria.positions.includes(position)}
+                className={cx(layout.pressable, styles.chip, styles.positionChip)}
+                onClick={() => togglePosition(position)}
               >
-                <Text style={[styles.chipText, selected && { color: positionColors[position], fontWeight: '700' }]}>
-                  {positionLabels[position]}
-                </Text>
-              </Pressable>
-            );
-          })}
+                {positionLabels[position]}
+              </button>
+            ))}
 
-          <View style={styles.chipDivider} />
+            <span className={styles.chipDivider} />
 
-          <Pressable
-            onPress={toggleFitOnly}
-            style={[styles.chip, criteria.statuses.includes('fit') && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, criteria.statuses.includes('fit') && styles.chipTextActive]}>
+            <button
+              type="button"
+              aria-pressed={criteria.statuses.includes('fit')}
+              className={cx(layout.pressable, styles.chip)}
+              onClick={toggleFitOnly}
+            >
               Nur fit
-            </Text>
-          </Pressable>
+            </button>
 
-          {teams && teams.length > 0 && (
-            <>
-              <View style={styles.chipDivider} />
-              {teams.map((team) => {
-                const selected = criteria.teamIds.includes(team.id);
-                return (
-                  <Pressable
+            {teams && teams.length > 0 && (
+              <>
+                <span className={styles.chipDivider} />
+                {teams.map((team) => (
+                  <button
                     key={team.id}
-                    onPress={() => toggleTeam(team.id)}
-                    style={[styles.teamChip, selected && styles.chipActive]}
+                    type="button"
+                    // Der Chip zeigt nur das Logo — ohne Label war er vorher
+                    // für Screenreader ein namenloser Knopf.
+                    aria-label={team.name}
+                    aria-pressed={criteria.teamIds.includes(team.id)}
+                    className={cx(layout.pressable, styles.teamChip)}
+                    onClick={() => toggleTeam(team.id)}
                   >
                     <TeamLogo uri={team.logoUrl} size={16} />
-                  </Pressable>
-                );
-              })}
-            </>
-          )}
+                  </button>
+                ))}
+              </>
+            )}
 
-          {active && (
-            <Pressable onPress={clear} style={styles.clearChip}>
-              <Text style={styles.clearChipText}>Zurücksetzen</Text>
-            </Pressable>
-          )}
-        </ScrollView>
+            {active && (
+              <button
+                type="button"
+                className={cx(layout.pressable, styles.clearChip)}
+                onClick={clear}
+              >
+                Zurücksetzen
+              </button>
+            )}
+          </div>
+        </div>
       )}
-    </View>
+    </div>
   );
 }
 
 function filterCount(criteria: PlayerFilterCriteria): number {
   return criteria.positions.length + criteria.statuses.length + criteria.teamIds.length;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  search: {
-    flex: 1,
-  },
-  searchInput: {
-    paddingVertical: spacing.sm,
-  },
-  filterToggle: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterToggleActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  filterToggleText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  filterToggleTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
-  },
-  // Gleicher Fix wie in SortChips (src/components/SortChips.tsx): ohne feste
-  // Mindesthöhe schrumpft die ScrollView beim Scrollen auf reine Texthöhe.
-  chipScroll: {
-    flexGrow: 0,
-    minHeight: 42,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
-    minHeight: 42,
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  chipTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
-  },
-  teamChip: {
-    padding: spacing.xs,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipDivider: {
-    width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    marginVertical: spacing.xs,
-    backgroundColor: colors.border,
-  },
-  clearChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  clearChipText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
-  },
-});

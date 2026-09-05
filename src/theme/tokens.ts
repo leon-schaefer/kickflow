@@ -1,4 +1,3 @@
-import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
 import type { PlayerStatus, Position } from '@/api/kickbase';
 
 /** Zentrale Design-Tokens. Dark-first, Rasengrün als Akzent. */
@@ -58,16 +57,18 @@ export const statusLabels: Record<PlayerStatus, string> = {
   unknown: 'Unbekannt',
 };
 
-/** Icon je Status für StatusBadge — `fit` bleibt ohne Icon (kein Hinweis nötig). */
-export const statusIcons: Record<PlayerStatus, { ios: SFSymbol; android: AndroidSymbol } | null> = {
-  fit: null,
-  injured: { ios: 'cross.case.fill', android: 'medical_services' },
-  doubtful: { ios: 'exclamationmark.triangle.fill', android: 'warning' },
-  rehab: { ios: 'figure.walk', android: 'directions_walk' },
-  suspended: { ios: 'nosign', android: 'block' },
-  away: { ios: 'airplane', android: 'flight' },
-  unknown: { ios: 'questionmark.circle.fill', android: 'help' },
-};
+/**
+ * Ob ein Status überhaupt ein Badge bekommt. `fit` bekommt keines — ein Hinweis
+ * auf "alles in Ordnung" ist keiner.
+ *
+ * Hielt vorher die Icon-Map `statusIcons` fest (SF Symbols bzw. Material
+ * Symbols über expo-symbols, mit `null` für `fit`). Die Icons sind mit dem
+ * Umzug weg, weil auf Web ohnehin nur der Farbpunkt rendert — diese eine
+ * Information musste aber bleiben.
+ */
+export function statusShowsBadge(status: PlayerStatus): boolean {
+  return status !== 'fit';
+}
 
 export const spacing = {
   xs: 4,
@@ -87,6 +88,25 @@ export const radius = {
 
 export const layout = {
   maxContentWidth: 480,
+} as const;
+
+/**
+ * Schriftfamilie und Basisgröße.
+ *
+ * Beides kam bis zum Umzug GRATIS von react-native-web: dessen `<Text>` hat
+ * den Basisstil `font: '14px System'`, und `System` expandierte es zu genau
+ * diesem Stack (react-native-web/dist/exports/StyleSheet/compiler/
+ * createReactDOMStyle.js, `SYSTEM_FONT_STACK`). Ohne RNW greift der
+ * Browser-Default — und der ist eine Serifenschrift. Die Werte stehen hier
+ * wörtlich so, wie Produktion sie gerendert hat.
+ *
+ * `fontSize` ist nur die Erbgröße für Container, deren Kinder keine eigene
+ * Rolle setzen; jede Rolle unten bringt ihre mit.
+ */
+export const baseFont = {
+  fontFamily:
+    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif',
+  fontSize: 14,
 } as const;
 
 export const typography = {

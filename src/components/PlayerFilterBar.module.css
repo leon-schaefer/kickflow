@@ -1,0 +1,120 @@
+.container {
+  composes: v from '@/theme/layout.module.css';
+  padding-inline: var(--space-md);
+  gap: var(--space-sm);
+}
+
+.searchRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.search {
+  flex: 1 1 0;
+}
+
+.searchInput {
+  padding-block: var(--space-sm);
+}
+
+/* type="search" bringt in WebKit einen eigenen Löschknopf mit — das X von
+   TextField steht schon daneben. */
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.filterToggle {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.filterToggle[aria-expanded='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/*
+ * Wie in SortChips: die `minHeight: 42` beider Knoten waren Gegenmittel gegen
+ * den Messfehler von RNs horizontaler ScrollView und fallen ersatzlos weg.
+ */
+.chipScroll {
+  composes: h from '@/theme/layout.module.css';
+  overflow-x: auto;
+}
+
+.chipRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.chip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Akzent-Variante für alles außer den Positions-Chips. */
+.chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* Positions-Chips tragen ihre eigene Farbe. Steht nach der Regel darüber,
+   damit sie gewinnt. */
+.positionChip[aria-pressed='true'] {
+  border-color: var(--pos);
+  background: var(--pos-soft);
+  color: var(--pos);
+  font-weight: 700;
+}
+
+.teamChip {
+  composes: h from '@/theme/layout.module.css';
+  padding: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.teamChip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
+/* StyleSheet.hairlineWidth */
+.chipDivider {
+  width: 1px;
+  align-self: stretch;
+  margin-block: var(--space-xs);
+  background: var(--color-border);
+}
+
+.clearChip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  white-space: nowrap;
+}

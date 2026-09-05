@@ -161,7 +161,7 @@ export function usePlayer(leagueId: string, playerId: string) {
  *
  * Ein Zusatzrequest, der nur für EIGENE Spieler laufen soll: bei fremden
  * Spielern gibt es daraus nichts anzuzeigen. Deshalb `enabled` beim Aufrufer
- * (siehe app/(app)/[leagueId]/player/[playerId].tsx) statt hier fest an.
+ * (siehe src/screens/PlayerDetailScreen.tsx) statt hier fest an.
  * Lange staleTime, weil ein vergangener Transfer sich nicht mehr ändert und
  * ein neuer Kauf ohnehin über Pull-to-Refresh ankommt.
  */

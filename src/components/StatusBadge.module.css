@@ -1,0 +1,13 @@
+/*
+ * Der Punkt ist halb so groß wie die angefragte Größe — so war es schon im
+ * `fallback` der expo-symbols-Fassung, damit er im Platz eines Icons sitzt,
+ * ohne ihn zu füllen.
+ */
+.dot {
+  display: block;
+  width: calc(var(--badge-size, 16px) / 2);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--badge-color, var(--status, var(--color-text-muted)));
+}

@@ -1,0 +1,41 @@
+.name {
+  composes: line1 from '@/theme/layout.module.css';
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-primary);
+  /* Anders als der Rest: darf gegen die Statistik-Spalte nachgeben. */
+  flex-shrink: 1;
+}
+
+.metaRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.teamName {
+  composes: line1 from '@/theme/layout.module.css';
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  flex-shrink: 1;
+}
+
+.playtimeText {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Vorher ein View um einen Text; als ein Span mit Padding reicht es, weil der
+   Text der einzige Inhalt war. */
+.originTag {
+  padding-inline: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
+}

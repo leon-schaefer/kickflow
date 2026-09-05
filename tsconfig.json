@@ -1,20 +1,34 @@
 {
-  "extends": "expo/tsconfig.base",
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "strict": true,
-    "types": [
-      "node"
-    ],
+    "noEmit": true,
+
+    "target": "ESNext",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "jsx": "react-jsx",
+
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    /*
+     * Erlaubt `.ts` in Import-Pfaden. Gebraucht in scripts/gitSha.ts: die
+     * Datei wird von Vite als ECHTES ESM geladen ("type": "module"), und dort
+     * ist ein Import ohne Dateiendung nicht auflösbar. Setzt `noEmit` voraus,
+     * was hier ohnehin gilt — tsc erzeugt nichts, gebündelt wird von Vite.
+     */
+    "allowImportingTsExtensions": true,
+
+    "types": ["node"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "expo-env.d.ts",
-    ".expo/types/**/*.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
 }

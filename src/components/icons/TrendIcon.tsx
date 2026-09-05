@@ -1,14 +1,13 @@
-import Svg, { Polyline } from 'react-native-svg';
 import type { TabIconProps } from './types';
 
 /**
  * Aufwärtstrend mit Pfeilspitze für den Markt-Tab (Transfermarkt).
  * Bewusst ohne Achsen — bei Tab-Größe ist der bloße Pfeilzug lesbarer.
  */
-export function TrendIcon({ color, size = 24 }: TabIconProps) {
+export function TrendIcon({ color = 'currentColor', size = 24 }: TabIconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Polyline
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <polyline
         points="3,17 9,11 13,15 21,7"
         stroke={color}
         strokeWidth={1.9}
@@ -16,7 +15,7 @@ export function TrendIcon({ color, size = 24 }: TabIconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Polyline
+      <polyline
         points="14.5,7 21,7 21,13.5"
         stroke={color}
         strokeWidth={1.9}
@@ -24,6 +23,6 @@ export function TrendIcon({ color, size = 24 }: TabIconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
+    </svg>
   );
 }

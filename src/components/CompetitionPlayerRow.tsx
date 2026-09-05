@@ -1,10 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
 import type { CompetitionPlayer } from '@/api/kickbase';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatMinutes } from '@/utils/format';
 import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
 import type { PlayerOrigin } from '@/utils/playerOwnership';
 import type { PlaytimeTotals } from '@/utils/playtime';
+import styles from './CompetitionPlayerRow.module.css';
 import type { StatCell } from './PlayerRowFrame';
 import { PlayerRowFrame, PlayerStatColumn } from './PlayerRowFrame';
 import { StatusBadge } from './StatusBadge';
@@ -21,7 +20,7 @@ interface CompetitionPlayerRowProps {
   origin?: PlayerOrigin;
   /** Nur gesetzt, wenn nach Punkte/Min sortiert wird und der Request durch ist. */
   playtime?: PlaytimeTotals;
-  onPress?: (player: CompetitionPlayer) => void;
+  onClick?: (player: CompetitionPlayer) => void;
 }
 
 /**
@@ -38,7 +37,7 @@ export function CompetitionPlayerRow({
   teamLogoUrl,
   origin,
   playtime,
-  onPress,
+  onClick,
 }: CompetitionPlayerRowProps) {
   // Der Marktwert steht schon als Anker in Zeile 1 — eine zweite identische
   // Zahl wäre Rauschen, deshalb fällt diese Kennzahl auf Ø Punkte zurück.
@@ -53,69 +52,25 @@ export function CompetitionPlayerRow({
     <PlayerRowFrame
       position={player.position}
       imageUrl={player.imageUrl}
-      onPress={() => onPress?.(player)}
+      onClick={onClick && (() => onClick(player))}
       right={<PlayerStatColumn cells={cells} />}
     >
-      <Text style={styles.name} numberOfLines={1}>
-        {player.name}
-      </Text>
-      <View style={styles.metaRow}>
+      <span className={styles.name}>{player.name}</span>
+      <span className={styles.metaRow}>
         <StatusBadge status={player.status} />
         {/* Logo nur zusammen mit dem Namen: ein Logo ohne Verein ist bei
             fehlender Teamliste nur ein grauer Platzhalter. */}
         {teamName && (
           <>
             <TeamLogo uri={teamLogoUrl ?? null} size={14} />
-            <Text style={styles.teamName} numberOfLines={1}>
-              {teamName}
-            </Text>
+            <span className={styles.teamName}>{teamName}</span>
           </>
         )}
         {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
-        {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
-        {origin?.mine && (
-          <View style={styles.originTag}>
-            <Text style={styles.originTagText}>Mein Kader</Text>
-          </View>
-        )}
-        {origin?.onMarket && (
-          <View style={styles.originTag}>
-            <Text style={styles.originTagText}>Gelistet</Text>
-          </View>
-        )}
-      </View>
+        {playtime && <span className={styles.playtimeText}>{formatMinutes(playtime.minutes)}</span>}
+        {origin?.mine && <span className={styles.originTag}>Mein Kader</span>}
+        {origin?.onMarket && <span className={styles.originTag}>Gelistet</span>}
+      </span>
     </PlayerRowFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  name: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  teamName: {
-    ...typography.small,
-    color: colors.textMuted,
-    flexShrink: 1,
-  },
-  playtimeText: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  originTag: {
-    paddingHorizontal: spacing.xs,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accentMuted,
-  },
-  originTagText: {
-    ...typography.small,
-    color: colors.accent,
-    fontWeight: '600',
-  },
-});

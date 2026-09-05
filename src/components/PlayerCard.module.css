@@ -1,0 +1,112 @@
+.card {
+  width: 68px;
+  align-items: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  /* Immer ein Rahmen, nur meist unsichtbar: sonst würde `changed` die Karte
+     um zwei Pixel wachsen lassen. (RN kennt nur border-box, im DOM sorgt
+     theme/base.css dafür — der transparente Rahmen macht es zusätzlich
+     unabhängig davon.) */
+  border: 1px solid transparent;
+}
+
+.card:active {
+  opacity: 0.7;
+}
+
+.highlighted {
+  background: var(--color-accent-muted);
+}
+
+.changed {
+  border-color: var(--color-accent);
+}
+
+.imageWrap {
+  composes: v from '@/theme/layout.module.css';
+  /* Trägt Statusring und Kapitäns-Badge, die absolut darüber sitzen. */
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--space-xs);
+}
+
+.image {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.imageFallback {
+  border: 1px solid var(--color-border);
+}
+
+/*
+ * Kreis um den Statuspunkt — knapp größer als der alte 12-px-Punkt, damit der
+ * Punkt darin sichtbar bleibt.
+ *
+ * --card-bg ist der Untergrund, auf dem die Karte liegt: auf dem Rasen setzt
+ * Pitch ihn auf die Rasenfarbe, auf der Bank bleibt es der Default. Vorher war
+ * das die `backgroundColor`-Prop, die jeder Aufrufer mitgeben musste.
+ */
+.statusRing {
+  composes: h from '@/theme/layout.module.css';
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card-bg, var(--color-surface));
+  border-radius: var(--radius-full);
+  background: var(--status);
+  --badge-color: var(--color-background);
+}
+
+.captainBadge {
+  composes: h from '@/theme/layout.module.css';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-background);
+}
+
+.name {
+  composes: line1 from '@/theme/layout.module.css';
+  align-self: stretch;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.statsRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.positionDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--pos);
+}
+
+.points {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}

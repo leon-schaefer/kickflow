@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { openExternalUrl } from '@/support/openExternalUrl';
-import { colors, spacing, typography } from '@/theme/tokens';
+import styles from './ExternalLink.module.css';
 
 interface ExternalLinkProps {
   url: string;
@@ -14,8 +13,14 @@ interface ExternalLinkProps {
  * Textlink auf eine Seite außerhalb der App (Homepage, Datenschutz).
  *
  * Kein `<a href>`, sondern `openExternalUrl` (src/support/openExternalUrl.ts):
- * das öffnet einen neuen Tab, weil die installierte PWA standalone läuft und
- * bei einer Navigation im aktuellen Tab keinen Zurück-Weg hätte.
+ * das öffnet über `window.open` einen neuen Tab, weil die installierte PWA
+ * standalone läuft und bei einer Navigation im aktuellen Tab keinen
+ * Zurück-Weg hätte.
+ *
+ * `role="link"` an einem `<button>`: Screenreader kündigen damit an, dass die
+ * App verlassen wird, während Tastaturbedienung und Fokus die des Buttons
+ * bleiben. Ein echtes `<a>` wäre idiomatischer, verlöre aber die Behandlung
+ * eines blockierten Popups unten.
  *
  * Der Fehlerzustand hängt am Link und nicht am Screen — die Meldung soll
  * unter dem angetippten Link stehen und nicht irgendwo auf der Karte.
@@ -23,7 +28,7 @@ interface ExternalLinkProps {
 export function ExternalLink({ url, label, compact = false }: ExternalLinkProps) {
   const [failed, setFailed] = useState(false);
 
-  async function handlePress() {
+  async function handleClick() {
     setFailed(false);
     try {
       await openExternalUrl(url);
@@ -33,44 +38,16 @@ export function ExternalLink({ url, label, compact = false }: ExternalLinkProps)
   }
 
   return (
-    <View>
-      <Pressable
-        style={compact ? styles.compact : styles.full}
-        onPress={handlePress}
-        // `link` statt `button`: VoiceOver/TalkBack kündigen damit an, dass die
-        // App verlassen wird.
-        accessibilityRole="link"
-        accessibilityLabel={label}
-        hitSlop={compact ? spacing.sm : undefined}
+    <div>
+      <button
+        type="button"
+        role="link"
+        onClick={handleClick}
+        className={compact ? styles.compact : styles.full}
       >
-        <Text style={compact ? styles.compactText : styles.fullText}>{label}</Text>
-      </Pressable>
-      {failed && <Text style={styles.error}>Die Seite konnte nicht geöffnet werden.</Text>}
-    </View>
+        {label}
+      </button>
+      {failed && <p className={styles.error}>Die Seite konnte nicht geöffnet werden.</p>}
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  full: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  fullText: {
-    ...typography.body,
-    color: colors.accent,
-    fontWeight: '600',
-  },
-  compact: {
-    minHeight: 32,
-    justifyContent: 'center',
-  },
-  compactText: {
-    ...typography.small,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  error: {
-    ...typography.caption,
-    color: colors.danger,
-  },
-});

@@ -1,0 +1,74 @@
+.bar {
+  composes: h from '@/theme/layout.module.css';
+  align-items: stretch;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
+
+  /*
+   * WICHTIG. Das untere Padding kam bisher GRATIS von React Navigation, das
+   * die Safe-Area-Insets intern konsumiert hat. Die selbstgebaute Leiste
+   * verliert das lautlos — ohne diese Zeile liegen die Tabs in der
+   * installierten iOS-PWA unter dem Home-Indicator und sind nicht antippbar.
+   *
+   * `max()` statt einer Addition, damit die Leiste auf Geräten ohne Inset
+   * nicht unnötig hoch wird. Funktioniert nur, weil public/index.html
+   * `viewport-fit=cover` setzt — ohne das melden alle env() null.
+   */
+  padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
+}
+
+.tab {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding-block: var(--space-xs);
+  text-decoration: none;
+
+  /*
+   * `currentColor` trägt die Farbe an die SVG-Icons weiter, deshalb genügt
+   * hier eine Deklaration für Icon UND Label. Ersetzt
+   * tabBarActiveTintColor/tabBarInactiveTintColor.
+   */
+  color: var(--color-text-muted);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Setzt NavLink selbst — gleichzeitig A11y-Information und CSS-Hook. */
+.tab[aria-current='page'] {
+  color: var(--color-accent);
+}
+
+@media (hover: hover) {
+  .tab:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .tab[aria-current='page']:hover {
+    color: var(--color-accent);
+  }
+}
+
+.tab:active {
+  opacity: 0.7;
+}
+
+.icon {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+}
+
+.label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+
+  /*
+   * Feste Zeilenhöhe wie in der alten Leiste, aber aus einem anderen Grund:
+   * dort war sie ein Gegenmittel gegen abgeschnittene Unterlängen in der
+   * 49-pt-Bar, hier hält sie die Leiste über alle fünf Labels gleich hoch.
+   */
+  line-height: 13px;
+}

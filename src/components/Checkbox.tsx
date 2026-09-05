@@ -1,5 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import styles from './Checkbox.module.css';
 
 interface CheckboxProps {
   label: string;
@@ -11,68 +10,34 @@ interface CheckboxProps {
 }
 
 /**
- * Erste Checkbox der App — bisher gab es dafür kein Vorbild, nur das
- * hartcodierte "✓" in LeagueSwitcher.tsx für eine reine Auswahlanzeige.
- * Farben/Radius folgen der bestehenden Chip-Konvention (z.B. OptimizerBar
- * metricChipActive): aktiv = accentMuted-Füllung + accent-Rand.
+ * Farben und Radius folgen der Chip-Konvention der App (OptimizerBar):
+ * aktiv = accentMuted-Füllung mit accent-Rand.
+ *
+ * Anders als die React-Native-Fassung, die ein `Pressable` mit
+ * handgemachtem Häkchen war, steckt hier ein echtes
+ * `<input type="checkbox">` in einem `<label>`. Das bringt Tastaturbedienung,
+ * Label-Zuordnung, `:checked`, `:disabled` und die Rolle für Screenreader
+ * mit, ohne dass ein einziges ARIA-Attribut nötig wäre — das Element IST die
+ * Semantik. Sichtbar ist die gestylte Box daneben, das Input selbst liegt
+ * darunter (siehe `.input` im Modul).
  */
 export function Checkbox({ label, checked, onChange, disabled, hint }: CheckboxProps) {
   return (
-    <Pressable
-      style={[styles.row, disabled && styles.rowDisabled]}
-      onPress={() => !disabled && onChange(!checked)}
-      disabled={disabled}
-    >
-      <View style={[styles.box, checked && styles.boxChecked]}>
-        {checked && <Text style={styles.checkmark}>✓</Text>}
-      </View>
-      <View style={styles.textColumn}>
-        <Text style={styles.label}>{label}</Text>
-        {hint && <Text style={styles.hint}>{hint}</Text>}
-      </View>
-    </Pressable>
+    <label className={styles.row}>
+      <input
+        type="checkbox"
+        className={styles.input}
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className={styles.box} aria-hidden="true">
+        ✓
+      </span>
+      <span className={styles.textColumn}>
+        <span className={styles.label}>{label}</span>
+        {hint && <span className={styles.hint}>{hint}</span>}
+      </span>
+    </label>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  rowDisabled: {
-    opacity: 0.5,
-  },
-  box: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  boxChecked: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  checkmark: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  textColumn: {
-    flex: 1,
-    gap: 2,
-  },
-  label: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  hint: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-});

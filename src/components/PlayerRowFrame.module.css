@@ -1,0 +1,113 @@
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md);
+  gap: var(--space-sm);
+  text-align: start;
+}
+
+.row[role='button'] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ersetzt den `pressed`-Zweig des Pressable-Style-Callbacks. */
+.row[role='button']:active {
+  background: var(--color-surface-raised);
+}
+
+@media (hover: hover) {
+  .row[role='button']:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.positionTag {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  padding-block: 3px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+
+  /* Beides aus data-position (theme/positions.css) — vorher war das
+     Hintergrund per `${positionColors[position]}26` in JS zusammengesetzt. */
+  background: var(--pos-soft);
+  color: var(--pos);
+}
+
+.image {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.imageFallback {
+  border: 1px solid var(--color-border);
+}
+
+.info {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+}
+
+.stats {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.statCell {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+}
+
+.statValue {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  /* Ohne data-tone bleibt es die Primärfarbe. */
+  color: var(--tone, var(--color-text-primary));
+}
+
+.statValueEmphasis {
+  font-size: var(--font-size-body);
+  font-weight: 700;
+}
+
+.statLabel {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+/*
+ * Trennlinie zwischen zwei Zeilen — trägt das UMSCHLIESSENDE Listenelement,
+ * nicht die Zeile selbst.
+ *
+ * Ersetzt `ItemSeparatorComponent={PlayerRowSeparator}` der FlatLists: die
+ * gerenderte Trenn-Komponente entfällt, `:not(:last-child)` setzt keine Linie
+ * unter die letzte Zeile. Als Pseudo-Element und nicht als `border-bottom`,
+ * damit der Einzug bleibt: die Linie beginnt unter dem Namen, nicht unter dem
+ * Positions-Tag.
+ */
+.separated {
+  position: relative;
+}
+
+.separated:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  /* Positions-Tag (36) + Avatar-Abstand + Innenabstand. */
+  left: calc(var(--space-md) + 36px + var(--space-sm));
+  height: 1px;
+  background: var(--color-border);
+}
