@@ -67,6 +67,21 @@ describe('MarketRow', () => {
     expect(screen.queryByRole('button', { name: 'Bieten' })).not.toBeInTheDocument();
   });
 
+  it('zeigt das eigene Gebot mit Hammer-Icon, nicht mit einem Punkt', () => {
+    const { container } = render(
+      <MarketRow
+        player={makePlayer({ ownOfferPrice: 12_000_000 })}
+        metric="avgPerMillion"
+        onBid={vi.fn()}
+      />,
+    );
+    // Der Punkt hier war der `fallback` eines nie geladenen Hammer-Symbols und
+    // von jedem anderen Punkt der Zeile nicht zu unterscheiden.
+    const offerRow = screen.getByText('12 Mio €').parentElement!;
+    expect(offerRow.querySelector('svg')).not.toBeNull();
+    expect(container.querySelector('[class*="ownOfferDot"]')).toBeNull();
+  });
+
   it('zeigt den Aufschlag auf den Marktwert, nicht den Marktwert selbst', () => {
     setup({ price: 11_000_000, marketValue: 10_000_000 });
     expect(screen.getByText('+10 %')).toBeInTheDocument();
