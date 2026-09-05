@@ -57,16 +57,19 @@ export const statusLabels: Record<PlayerStatus, string> = {
   unknown: 'Unbekannt',
 };
 
+/** Jeder Status außer `fit` — also genau die, die ein Badge tragen. */
+export type BadgeStatus = Exclude<PlayerStatus, 'fit'>;
+
 /**
  * Ob ein Status überhaupt ein Badge bekommt. `fit` bekommt keines — ein Hinweis
  * auf "alles in Ordnung" ist keiner.
  *
- * Hielt vorher die Icon-Map `statusIcons` fest (SF Symbols bzw. Material
- * Symbols über expo-symbols, mit `null` für `fit`). Die Icons sind mit dem
- * Umzug weg, weil auf Web ohnehin nur der Farbpunkt rendert — diese eine
- * Information musste aber bleiben.
+ * Type Predicate statt `boolean`: nach dem Guard ist der Status auf
+ * `BadgeStatus` verengt und indiziert die Icon-Map
+ * (`components/icons/statusIcons.tsx`) ohne zweiten `fit`-Fall. Die Regel
+ * steht damit weiterhin nur hier — die Map muss sie nicht wiederholen.
  */
-export function statusShowsBadge(status: PlayerStatus): boolean {
+export function statusShowsBadge(status: PlayerStatus): status is BadgeStatus {
   return status !== 'fit';
 }
 

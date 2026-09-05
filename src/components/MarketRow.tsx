@@ -13,6 +13,7 @@ import layout from '@/theme/layout.module.css';
 import styles from './MarketRow.module.css';
 import type { StatCell } from './PlayerRowFrame';
 import { PlayerRowFrame, PlayerStatColumn } from './PlayerRowFrame';
+import { OfferIcon } from './icons/OfferIcon';
 import { StatusBadge } from './StatusBadge';
 
 interface MarketRowProps {
@@ -91,11 +92,12 @@ export function MarketRow({ player, playtime, metric, onClick, onBid }: MarketRo
       {hasOwnOffer && (
         <span className={styles.ownOfferRow}>
           {/*
-            Vorher ein SymbolView (Hammer) mit genau diesem Punkt als
-            `fallback`. Auf Web waren die Symbol-Fonts nie geladen, es rendert
-            dort also seit immer der Punkt — hier steht jetzt direkt er.
+            Vorher ein SymbolView (Hammer) mit einem Punkt als `fallback`. Auf
+            Web waren die Symbol-Fonts nie geladen, es rendert dort also seit
+            immer nur der Punkt — und der war von jedem anderen Punkt der Zeile
+            nicht zu unterscheiden. Hier steht jetzt ein eigener Hammer.
           */}
-          <span className={styles.ownOfferDot} />
+          <OfferIcon size={13} />
           <span className={styles.ownOfferText}>{formatCurrency(player.ownOfferPrice!)}</span>
         </span>
       )}

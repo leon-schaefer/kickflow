@@ -45,26 +45,20 @@
   color: var(--color-text-muted);
 }
 
+/* Die Akzentfarbe steht an der Zeile, nicht an ihren beiden Kindern: das
+   Hammer-Icon zeichnet mit `currentColor` und erbt sie damit genauso wie der
+   Text. Vorher trug sie der Punkt als `background` und der Text als `color`. */
 .ownOfferRow {
   composes: h from '@/theme/layout.module.css';
   align-items: center;
-  gap: 3px;
-}
-
-.ownOfferDot {
-  display: block;
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
+  gap: 4px;
+  color: var(--color-accent);
 }
 
 .ownOfferText {
   composes: line1 from '@/theme/layout.module.css';
   font-size: var(--font-size-small);
   font-weight: 600;
-  color: var(--color-accent);
 }
 
 .bidPill {

@@ -52,8 +52,8 @@
 }
 
 /*
- * Kreis um den Statuspunkt — knapp größer als der alte 12-px-Punkt, damit der
- * Punkt darin sichtbar bleibt.
+ * Kreis um das Statusicon — knapp größer als das Icon (STATUS_ICON_SIZE),
+ * damit dessen Tinte nicht am Rand klebt.
  *
  * --card-bg ist der Untergrund, auf dem die Karte liegt: auf dem Rasen setzt
  * Pitch ihn auf die Rasenfarbe, auf der Bank bleibt es der Default. Vorher war
