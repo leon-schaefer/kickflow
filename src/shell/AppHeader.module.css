@@ -44,9 +44,16 @@
  * Titel wie Zurück-Label werden weiter verschmiert. Die Messung samt Hergang
  * steht in der index.html, der Wert als `iosStatusBandOverhang` in tokens.ts.
  *
- * Also einmal um die Länge des Überstands nach unten. Der Hintergrund der
+ * Der Inhalt fängt deshalb erst unter dem Band an. Der Hintergrund der
  * Kopfzeile bleibt darunter liegen und darf das auch: eine Fläche in einer
  * Farbe verschmiert nicht sichtbar, nur Text und Icons müssen heraus.
+ *
+ * Der Überstand kommt als dritter Kandidat ins `max()` und wird NICHT auf die
+ * 8px addiert: gebraucht wird ein Mindestabstand von der Viewport-Kante, kein
+ * Aufschlag auf einen Wert, der dasselbe schon leistet. Addiert stand der
+ * Titel 8px tiefer als nötig, und das war sichtbar. Weiter herunter geht es
+ * nicht — 40px sind die gemessene Bandunterkante, alles darunter liegt wieder
+ * darin.
  *
  * Beide Bedingungen sind nötig, keine genügt allein:
  * `display-mode: standalone` trifft nur die vom Homescreen gestartete PWA —
@@ -62,9 +69,10 @@
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .header {
-      padding-top: calc(
-        max(var(--space-sm), env(safe-area-inset-top)) +
-          var(--layout-ios-status-band-overhang)
+      padding-top: max(
+        var(--space-sm),
+        env(safe-area-inset-top),
+        var(--layout-ios-status-band-overhang)
       );
     }
   }

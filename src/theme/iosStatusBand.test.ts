@@ -48,9 +48,10 @@ describe('Abstand zum iOS-Statusband', () => {
     expect(block, '@supports-Block fehlt in AppHeader.module.css').toBeDefined();
     expect(block).toContain('display-mode: standalone');
     expect(block).toContain(`var(${VAR})`);
-    // Der Ausdruck bleibt additiv zum bestehenden max(): das Inset kann
-    // zurückkommen, der Überstand kommt dann obendrauf.
-    expect(block).toMatch(/padding-top:\s*calc\(/);
+    // Der Überstand ist ein Kandidat IM max(), keine Addition darauf: er ist
+    // ein Mindestabstand von der Viewport-Kante. Addiert stand der Titel 8px
+    // tiefer als nötig. Das Inset bleibt im Ausdruck, falls es je wiederkommt.
+    expect(block).toMatch(/padding-top:\s*max\(/);
     expect(block).toContain('env(safe-area-inset-top)');
   });
 
@@ -59,7 +60,7 @@ describe('Abstand zum iOS-Statusband', () => {
     expect(block, '@supports-Block fehlt in UpdateBannerView.module.css').toBeDefined();
     expect(block).toContain('display-mode: standalone');
     expect(block).toContain(`var(${VAR})`);
-    expect(block).toMatch(/top:\s*calc\(/);
+    expect(block).toMatch(/top:\s*max\(/);
   });
 
   it('lässt den Abstand außerhalb der installierten iOS-PWA weg', () => {
