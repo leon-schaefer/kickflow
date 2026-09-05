@@ -9,10 +9,16 @@ import layout from '@/theme/layout.module.css';
 import styles from './OptimizerBar.module.css';
 import { Checkbox } from './Checkbox';
 
+/**
+ * Reihenfolge = Rangfolge der Zielwerte (siehe utils/lineupOptimizer.ts):
+ * Punkte zuerst, weil die Aufstellung nichts kostet und am Spieltag nur die
+ * Summe über die Elf ausgezahlt wird. Ø-Punkte/Mio steht bewusst hinten — es
+ * ist ein Transfer-Signal (Kaufen/Verkaufen-Liste), kein Aufstellungsziel.
+ */
 const METRIC_OPTIONS: { key: OptimizerMetric; label: string }[] = [
-  { key: 'valuePerMillion', label: 'Ø-Punkte/Mio' },
   { key: 'points', label: 'Ø-Punkte' },
   { key: 'expectedPoints', label: 'Erwartete Punkte' },
+  { key: 'valuePerMillion', label: 'Ø-Punkte/Mio' },
 ];
 
 interface OptimizerBarProps {
@@ -148,9 +154,19 @@ export function OptimizerBar({
         </div>
       )}
 
+      {metric === 'points' && (
+        <p className={styles.hint}>
+          Maximiert die Punktsumme der Elf. Aufstellen kostet nichts, der Marktwert
+          spielt hier also keine Rolle — bei gleichen Ø-Punkten bekommt trotzdem der
+          günstigere Spieler den Platz.
+        </p>
+      )}
+
       {metric === 'valuePerMillion' && (
         <p className={styles.hint}>
-          Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig.
+          Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig und lässt
+          dafür Punkte liegen. Als Aufstellung nur sinnvoll, wenn du siehst, wo
+          Marktwert gebunden ist; zum Punktemaximieren nimm Ø-Punkte.
         </p>
       )}
 

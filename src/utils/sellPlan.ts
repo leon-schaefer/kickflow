@@ -37,6 +37,12 @@ import {
  * (bei Gleichstand) wer den Restfehlbetrag allein deckt bzw. der größere
  * Marktwert, um mit möglichst wenigen Verkäufen auszukommen.
  *
+ * Diese Auswahl ist greedy und schaut nicht zurück, deshalb räumt
+ * `dropRedundantSales` hinterher auf: deckt ein später gewählter Verkauf den
+ * Fehlbetrag allein, werden die vorher eingesammelten wieder gestrichen. Ohne
+ * den Schritt stünden Spieler als Pflichtverkauf in der Liste, deren Erlös
+ * niemand braucht.
+ *
  * Vom Nutzer vom Verkauf ausgeschlossene Spieler (`excludedIds`, siehe
  * src/lineup/excludedFromSale.ts) sind für den Plan unverkäuflich. Die
  * Rechnung oben bleibt dieselbe, nur zählt der ausgeschlossene Marktwert
@@ -113,6 +119,37 @@ function compareSaleCandidates(a: OptimizerPlayer, b: OptimizerPlayer, metric: O
   return byValue !== 0 ? byValue : a.id.localeCompare(b.id);
 }
 
+/**
+ * Streicht Verkäufe, die der Plan nicht braucht. `selectSales` greift immer
+ * zum sportlich billigsten Kandidaten und schaut nie zurück — deckt der
+ * NÄCHSTE Kandidat den Fehlbetrag dann allein, waren alle vorher gewählten
+ * umsonst. Sie bringen nur Überschuss, den niemand verlangt hat, und kosten
+ * dafür je einen Kaderspieler.
+ *
+ * Geprüft wird von hinten nach vorn, also vom zuletzt gewählten (sportlich
+ * teuersten) Verkauf zum ersten. Ein Verkauf fällt nur weg, wenn der Rest das
+ * Defizit weiterhin deckt. Damit wird zuerst versucht, den wertvollsten
+ * Spieler zu retten; erst wenn der unverzichtbar ist, fallen die davor
+ * eingesammelten Kleinigkeiten weg — nie umgekehrt.
+ *
+ * Ein Streichen macht den Plan nie schlechter: der Restkader wird größer, und
+ * `buildSellPlan` optimiert die Elf ohnehin auf dem, was übrig bleibt. Deckt
+ * der ganze Pool das Defizit nicht (`feasible === false`), streicht die
+ * Schleife nichts — jeder Teilerlös wird gebraucht.
+ */
+function dropRedundantSales(chosen: readonly OptimizerPlayer[], deficit: number): OptimizerPlayer[] {
+  const kept = [...chosen];
+  let proceeds = kept.reduce((sum, player) => sum + player.marketValue, 0);
+  // Rückwärts, damit ein Splice die noch zu prüfenden Indizes nicht verschiebt.
+  for (let i = kept.length - 1; i >= 0; i--) {
+    if (proceeds - kept[i]!.marketValue >= deficit) {
+      proceeds -= kept[i]!.marketValue;
+      kept.splice(i, 1);
+    }
+  }
+  return kept;
+}
+
 /** Verkauft aus `pool` der Reihe nach (siehe compareSaleCandidates), bis proceeds ≥ deficit oder der Pool leer ist. */
 function selectSales(pool: readonly OptimizerPlayer[], metric: OptimizerMetric, deficit: number): OptimizerPlayer[] {
   let remaining = [...pool];
@@ -179,7 +216,7 @@ export function buildSellPlan(
 
   const keepIds = new Set(keep?.playerIds ?? []);
   const pool = players.filter((p) => !keepIds.has(p.id) && p.marketValue > 0 && !excludedIds.has(p.id));
-  const chosen = selectSales(pool, metric, deficit);
+  const chosen = dropRedundantSales(selectSales(pool, metric, deficit), deficit);
 
   const unconstrainedBestIds = new Set(unconstrained.best?.playerIds ?? []);
   const sell: SellPlanEntry[] = chosen.map((player) => ({

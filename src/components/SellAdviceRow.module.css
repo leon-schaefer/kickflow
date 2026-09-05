@@ -78,6 +78,29 @@
   color: var(--color-text-secondary);
 }
 
+/*
+ * Kaufpreis + Differenz zum heutigen Marktwert, eine Zeile unter dem
+ * Marktwert. Eigene Zeile statt in .subRow: dort steht schon das Status-Badge,
+ * und auf schmalen Geräten liefen vier Angaben nebeneinander um.
+ */
+.purchase {
+  composes: h from '@/theme/layout.module.css';
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+/* Grün/rot wie die Marktwert-Kurve (MarketValueSparkline) — dieselbe Aussage. */
+.purchaseDelta[data-trend='up'] {
+  color: var(--color-positive);
+}
+
+.purchaseDelta[data-trend='down'] {
+  color: var(--color-negative);
+}
+
 .badgeColumn {
   composes: v from '@/theme/layout.module.css';
   align-items: flex-end;
