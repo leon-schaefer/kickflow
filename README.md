@@ -25,6 +25,12 @@ npm run probe        # Kickbase-API-Explorer, braucht .env.local
 `scripts/.probe-output/` (git-ignoriert). Zugangsdaten dafür in `.env.local`,
 Vorlage in `.env.local.example`.
 
+Ohne Flag liest der Probe nur. Die Flags `--save-lineup`, `--offers` und
+`--list-player` SCHREIBEN dagegen in der echten Liga (Aufstellung speichern,
+Gebot abgeben, Spieler auf den Markt stellen) — jeweils so, dass der
+Ausgangszustand danach wiederhergestellt ist. Scheitert das Aufräumen, sagt
+der Probe das laut; dann in der Kickbase-App nachsehen.
+
 ## Branches
 
 `main` ist der Default-Branch und damit das, was Vercel nach Production

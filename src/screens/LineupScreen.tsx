@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { Position, SquadPlayer } from '@/api/kickbase';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
+import { MarketListingModal } from '@/components/MarketListingModal';
 import { OptimizerBar } from '@/components/OptimizerBar';
 import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
@@ -76,6 +77,10 @@ export function LineupScreen() {
   const [, forceTick] = useState(0);
 
   const [editing, setEditing] = useState(false);
+  // „Auf den Markt stellen" für die Pflichtverkäufe — der Dialog hängt an der
+  // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
+  // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
+  const [listingOpen, setListingOpen] = useState(false);
   const [formation, setFormation] = useState<string>('');
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const [selectedBenchId, setSelectedBenchId] = useState<string | null>(null);
@@ -549,6 +554,17 @@ export function LineupScreen() {
                 budget={league?.budget ?? null}
                 onSelectPlayer={openPlayer}
                 onToggleExcluded={(player) => toggleExcluded(player.id)}
+                onListOnMarket={() => setListingOpen(true)}
+              />
+
+              {/* Portal nach document.body (siehe Modal.tsx) — liegt hier nur
+                  im Baum, nicht im Refreshable-Wisch. */}
+              <MarketListingModal
+                open={listingOpen}
+                onClose={() => setListingOpen(false)}
+                players={data.players}
+                plan={optimizer.budgetPlan}
+                budget={league?.budget ?? 0}
               />
 
               {editing && (
