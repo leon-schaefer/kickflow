@@ -20,7 +20,7 @@ const LEAGUES: LeagueSummary[] = [
 ] as LeagueSummary[];
 
 /** `loading: true` = die Liste ist noch nicht da (`useLeagues().data === undefined`). */
-function setup({ loading = false }: { loading?: boolean } = {}) {
+function setup({ loading = false, at = '/1/lineup' }: { loading?: boolean; at?: string } = {}) {
   leagues.data = loading ? undefined : LEAGUES;
   const router = createMemoryRouter(
     [
@@ -34,7 +34,7 @@ function setup({ loading = false }: { loading?: boolean } = {}) {
       },
       { path: '*', element: <span>anderswo</span> },
     ],
-    { initialEntries: ['/1/lineup'] },
+    { initialEntries: [at] },
   );
   render(<RouterProvider router={router} />);
   return { router };
@@ -126,5 +126,20 @@ describe('LeagueSwitcher', () => {
 
     expect(router.state.location.pathname).toBe(path);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  // Ohne die Herkunft zeigte der Zurück-Pfeil der Einstellungen immer auf
+  // „Aufstellung", egal aus welchem Tab der Dialog geöffnet wurde.
+  it.each([
+    ['/1/market', 'Markt'],
+    ['/1/league', 'Liga'],
+  ])('gibt den verlassenen Tab (%s) als Herkunft mit', async (from, title) => {
+    const { router } = setup({ at: from });
+    await userEvent.click(screen.getByRole('button', { name: 'Kickerrunde' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Einstellungen' }),
+    );
+
+    expect(router.state.location.state).toEqual({ fromPath: from, fromTitle: title });
   });
 });
