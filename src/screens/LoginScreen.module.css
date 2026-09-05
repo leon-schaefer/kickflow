@@ -7,6 +7,10 @@
   /* Auf kleinen Geräten mit offener Tastatur passt das zentrierte Formular
      nicht mehr — dann darf es scrollen statt abgeschnitten zu werden. */
   overflow-y: auto;
+  /* Der einzige Screen ohne AppHeader: das obere Inset muss er selbst
+     tragen, sonst scrollt der Titel in der installierten iOS-PWA unter die
+     Statusleiste, sobald das Formular überläuft. */
+  padding-top: env(safe-area-inset-top);
 }
 
 .title {

@@ -17,7 +17,15 @@
   /*
    * Wie bei der Tab-Leiste unten: das obere Inset kam bisher gratis vom
    * SafeAreaProvider. Ohne diese Zeile liegt der Header in der installierten
-   * iOS-PWA unter der Notch. Braucht `viewport-fit=cover` in index.html.
+   * iOS-PWA unter der Notch.
+   *
+   * Braucht in der index.html BEIDES: `viewport-fit=cover` UND
+   * `apple-mobile-web-app-status-bar-style=black-translucent`. Fehlt das
+   * zweite, meldet `env(safe-area-inset-top)` null, `max()` fällt auf die
+   * 8px zurück — und weil iOS die Statusleiste trotzdem als durchscheinende
+   * Schicht über den Content legt, sehen Titel und Zurück-Weg dann
+   * verschwommen aus. Der deckende `background` oben ist das Gegenstück
+   * dazu: unter der Leiste liegt damit Hintergrund und kein Text.
    */
   padding-top: max(var(--space-sm), env(safe-area-inset-top));
 }

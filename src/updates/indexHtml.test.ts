@@ -10,9 +10,10 @@ import { colors } from '@/theme/tokens';
  * Begründungskommentar in der Datei stehen und alle drei stumm brechen, wenn
  * sie verschwinden:
  *
- *   1. `viewport-fit=cover` — ohne das melden die Safe-Area-Insets null, und
- *      das untere Padding der Tab-Bar verschwindet in der installierten
- *      iOS-PWA.
+ *   1. `viewport-fit=cover` plus `apple-mobile-web-app-status-bar-style=
+ *      black-translucent` — ohne das Paar melden die Safe-Area-Insets null:
+ *      unten verschwindet das Padding der Tab-Bar, oben rutscht die Kopfzeile
+ *      unter die durchscheinende Statusleiste.
  *   2. `maximum-scale=1, user-scalable=no` — Zoom bringt den Visual Viewport
  *      und das `100dvh`-Layout auseinander, sichtbar als weißer Balken unten.
  *   3. `100dvh` plus `background-color` auf html/body — Safari tönt seine
@@ -61,9 +62,13 @@ describe('index.html', () => {
     expect(html).toContain('apple-touch-icon');
     expect(html).toContain('apple-mobile-web-app-capable');
     expect(html).toContain('apple-mobile-web-app-title');
-    // `black`, nicht `black-translucent`: eine solide Statusleiste statt eines
-    // Scrims über dem Inhalt.
-    expect(html).toMatch(/apple-mobile-web-app-status-bar-style"?\s+content="black"/);
+    // `black-translucent`, nicht `black`: nur damit meldet `env(safe-area-inset-top)`
+    // in der installierten iOS-PWA überhaupt einen Wert. Mit `black` bleibt der Inset
+    // null, die Kopfzeile rutscht unter die durchscheinende Statusleiste und Titel wie
+    // Zurück-Weg wirken verschwommen. Begründung steht ausführlich in der index.html.
+    expect(html).toMatch(
+      /apple-mobile-web-app-status-bar-style"?\s+content="black-translucent"/,
+    );
   });
 
   it('färbt html/body in der Hintergrundfarbe aus den Tokens', () => {
