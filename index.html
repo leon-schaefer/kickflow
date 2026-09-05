@@ -24,9 +24,20 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- `black` statt `black-translucent`: eine solide Statusleiste, kein Scrim/Gradient
-         über dem Content — passt fast nahtlos zu colors.background (#0B0F0C). -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <!-- `black-translucent`, NICHT `black`. Das ist der Wert, der `env(safe-area-inset-top)`
+         in der installierten iOS-PWA überhaupt einen Wert melden lässt; mit `black` (oder
+         `default`) meldet der Inset oben NULL. Das Versprechen von `black` — eine solide
+         Leiste, unter der der Content erst anfängt — hält iOS für Home-Screen-Web-Apps mit
+         `viewport-fit=cover` nicht mehr ein: die Statusleiste liegt als durchscheinende
+         Schicht ÜBER dem Content. Mit Inset 0 sass die Kopfzeile also 8px unter der
+         Bildschirmkante und damit unter dieser Schicht — Titel und Zurück-Weg sahen
+         verschwommen aus, als läge etwas darüber.
+         Mit `black-translucent` schiebt `AppHeader`s `padding-top:
+         max(--space-sm, env(safe-area-inset-top))` den Titel unter die Leiste, und was
+         durchscheint, ist der eigene deckende Header-Hintergrund
+         (colors.background, #0B0F0C) — kein Text. Wer hier auf `black` zurückgeht, holt den
+         Blur zurück, ohne dass der Desktop-Browser ein Symptom zeigt. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="kickflow" />
     <!-- Nur die Handvoll Regeln, die kein CSS-Modul tragen kann, weil sie html/body/#root
          betreffen. Alles andere liegt in src/theme/. Bewacht von
