@@ -32,6 +32,44 @@
   padding-top: max(var(--space-sm), env(safe-area-inset-top));
 }
 
+/*
+ * Der zweite Teil des Abstands nach oben — und der Grund, warum er nicht
+ * einfach in der Regel darüber steht.
+ *
+ * Aus dem Band, das iOS in der installierten PWA über den oberen Rand legt,
+ * holt der Verzicht auf `viewport-fit=cover` die App nur zum Teil heraus: der
+ * Viewport beginnt danach unter der Statusleiste (~62pt), das Band reicht aber
+ * bis 101pt hinunter. Die verbleibenden rund 40pt liegen IM Viewport — die
+ * Kopfzeile fängt mit ihren 8px Padding also immer noch mitten im Band an, und
+ * Titel wie Zurück-Label werden weiter verschmiert. Die Messung samt Hergang
+ * steht in der index.html, der Wert als `iosStatusBandOverhang` in tokens.ts.
+ *
+ * Also einmal um die Länge des Überstands nach unten. Der Hintergrund der
+ * Kopfzeile bleibt darunter liegen und darf das auch: eine Fläche in einer
+ * Farbe verschmiert nicht sichtbar, nur Text und Icons müssen heraus.
+ *
+ * Beide Bedingungen sind nötig, keine genügt allein:
+ * `display-mode: standalone` trifft nur die vom Homescreen gestartete PWA —
+ * im Safari-Tab gibt es das Band nicht, dort wäre der Abstand eine Delle.
+ * `@supports (-webkit-touch-callout: none)` ist der übliche iOS-Test (die
+ * Eigenschaft kennt nur WebKit auf iOS) und hält installierte PWAs auf Android
+ * und Desktop heraus, wo die Systemleiste sauber über dem Viewport endet.
+ *
+ * Nicht über `env(safe-area-inset-top)` zu lösen: das Inset meldet hier null
+ * (kein `viewport-fit=cover`) und wäre selbst mit Wert um genau diese 40pt zu
+ * kurz. Genau daran ist der erste Anlauf gescheitert.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .header {
+      padding-top: calc(
+        max(var(--space-sm), env(safe-area-inset-top)) +
+          var(--layout-ios-status-band-overhang)
+      );
+    }
+  }
+}
+
 /* Kein border-bottom: `headerShadowVisible: false` war Absicht. */
 
 .side {

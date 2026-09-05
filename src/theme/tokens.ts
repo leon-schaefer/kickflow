@@ -91,6 +91,23 @@ export const radius = {
 
 export const layout = {
   maxContentWidth: 480,
+
+  /**
+   * Wie weit die verschmierende iOS-Schicht IN den Viewport hineinragt.
+   *
+   * Am Screenshot der installierten PWA ausgemessen; der ganze Hergang steht
+   * in der index.html. Kurz: das Band reicht von der Bildschirmkante bis
+   * 101pt hinunter, der Viewport beginnt ohne `viewport-fit=cover` erst unter
+   * der Statusleiste bei rund 62pt. Die Differenz von rund 40pt liegt damit
+   * innerhalb der App — wer dort zeichnet, wird weiter verschmiert, auch wenn
+   * er `env(safe-area-inset-top)` korrekt respektiert (das Inset endet genau
+   * da, wo das Band noch 40pt weitergeht).
+   *
+   * Angewendet wird der Wert nur in der installierten iOS-PWA, siehe
+   * `AppHeader.module.css` und `UpdateBannerView.module.css`. Wer ihn ändert,
+   * misst ihn am Gerät neu — geraten hilft hier niemandem.
+   */
+  iosStatusBandOverhang: 40,
 } as const;
 
 /**

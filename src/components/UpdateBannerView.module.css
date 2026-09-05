@@ -8,6 +8,24 @@
   z-index: 1000;
 }
 
+/*
+ * Gleiche Verschiebung wie in der Kopfzeile, aus demselben Grund: das Banner
+ * schwebt über dem oberen Rand und läge sonst als einziges Element wieder in
+ * dem Band, das iOS in der installierten PWA darüber legt. Begründung,
+ * Bedingungen und Messung stehen in `AppHeader.module.css`; der Abstand zur
+ * Kopfzeile bleibt dabei derselbe, weil beide um denselben Wert wandern.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .frame {
+      top: calc(
+        env(safe-area-inset-top) + var(--space-sm) +
+          var(--layout-ios-status-band-overhang)
+      );
+    }
+  }
+}
+
 .banner {
   composes: pressableV from '@/theme/layout.module.css';
   align-items: center;
