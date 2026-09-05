@@ -176,7 +176,7 @@ export function optimizeLineup(
     const required = requiredCountsForFormation(formation);
     const requiredTotal = required.GK + required.DEF + required.MID + required.FWD;
     // requiredCountsForFormation degradiert bei unparsbarem Input auf {GK:1,...:0}
-    // (Summe 1) statt 11 — kann mit den 8 AVAILABLE_FORMATIONS nicht auftreten,
+    // (Summe 1) statt 11 — kann mit den AVAILABLE_FORMATIONS nicht auftreten,
     // schützt aber davor, dass ein fehlerhafter Formationsstring in einer
     // benutzerdefinierten `formations`-Liste eine kurze "Optimalelf" erzeugt.
     if (requiredTotal !== 11) {
