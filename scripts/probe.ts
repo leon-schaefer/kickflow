@@ -12,6 +12,9 @@
  *      und probeOwnerSources() unten)
  *   4. npm run probe -- --transfers  (verifiziert die Transferhistorie eines
  *      Spielers — Quelle des Kaufdatums, siehe probeTransfers() unten)
+ *   5. npm run probe -- --list-player  (stellt EINEN eigenen Spieler auf den
+ *      Transfermarkt und nimmt ihn direkt wieder herunter — verifiziert
+ *      listPlayerOnMarket/removePlayerFromMarket, siehe probeListPlayer())
  *
  * Schreibt Rohantworten nach scripts/.probe-output/ (git-ignored) und eine
  * Zusammenfassung der auffälligen Felder auf die Konsole.
@@ -29,6 +32,7 @@ const SAVE_LINEUP = process.argv.includes('--save-lineup');
 const PROBE_OFFERS = process.argv.includes('--offers');
 const PROBE_PLAYERS = process.argv.includes('--players');
 const PROBE_TRANSFERS = process.argv.includes('--transfers');
+const PROBE_LIST_PLAYER = process.argv.includes('--list-player');
 
 async function main() {
   const email = process.env.KICKBASE_EMAIL;
@@ -312,6 +316,10 @@ async function main() {
   if (PROBE_TRANSFERS) {
     const ownUserId = loginBody.u?.id ?? loginBody.user?.id;
     await probeTransfers(token, leagueId, squad.it ?? [], ownUserId ? String(ownUserId) : undefined);
+  }
+
+  if (PROBE_LIST_PLAYER) {
+    await probeListPlayer(token, leagueId, squad.it ?? []);
   }
 
   console.log(`\nAlle Rohantworten liegen in ${OUTPUT_DIR}`);
@@ -769,6 +777,92 @@ async function probeOffers(token: string, leagueId: string, marketItems: any[]):
       `✗ ACHTUNG: Das Gebot auf ${target.fn ?? ''} ${target.n} scheint noch offen zu sein! ` +
         'Bitte manuell in der Kickbase-App zurückziehen.',
     );
+  }
+}
+
+/**
+ * NUR mit --list-player: stellt einen echten eigenen Kaderspieler auf den
+ * Transfermarkt und nimmt ihn sofort wieder herunter. Zweck wie bei
+ * probeOffers(): Pfad und Body-Feldnamen von `listPlayerOnMarket` /
+ * `removePlayerFromMarket` (src/api/kickbase/endpoints.ts) gegen ein echtes
+ * Konto verifizieren, statt der inoffiziellen Swagger-Datei zu vertrauen.
+ *
+ * Zielspieler: der GÜNSTIGSTE eigene Spieler, der noch nicht am Markt steht
+ * (`iotm` nicht true) — im schlimmsten Fall (das Zurücknehmen scheitert) steht
+ * damit der Spieler zum Verkauf, den man am ehesten verschmerzt. Als Preis
+ * bewusst der Marktwert: kein Schnäppchen, das ein Mitspieler in der einen
+ * Sekunde wegschnappt.
+ *
+ * Der POST wird mit UND ohne abschließenden Slash probiert: die Spezifikation
+ * führt ihn als `/v4/leagues/{leagueId}/market/`, und ob der Slash die Route
+ * vom GET der Marktliste unterscheidet, ist genau die offene Frage.
+ */
+async function probeListPlayer(token: string, leagueId: string, squadItems: any[]): Promise<void> {
+  console.log('\n=== --list-player: Spieler auf den Markt stellen/zurücknehmen verifizieren ===');
+
+  const candidates = squadItems.filter((p) => p.iotm !== true && typeof p.mv === 'number');
+  if (candidates.length === 0) {
+    console.warn('Kein eigener Spieler abseits des Markts gefunden — --list-player übersprungen.');
+    return;
+  }
+  const target = candidates.sort((a, b) => a.mv - b.mv)[0];
+  console.log(`Zielspieler: ${target.fn ?? ''} ${target.n} (${target.i}), Marktwert ${target.mv}`);
+
+  console.log('\n-- 1. Auf den Markt stellen --');
+  const body = { playerId: String(target.i), price: target.mv };
+  let listed = await tryRequest(
+    'POST',
+    `/v4/leagues/${leagueId}/market/`,
+    token,
+    body,
+    'POST /market/ {playerId, price} (mit Slash, wie in der Spezifikation)',
+  );
+  if (!listed.ok) {
+    listed = await tryRequest(
+      'POST',
+      `/v4/leagues/${leagueId}/market`,
+      token,
+      body,
+      'POST /market {playerId, price} (ohne Slash)',
+    );
+  }
+  if (!listed.ok) {
+    console.error('Kein Pfad hat das Listing angenommen — es wurde nichts eingestellt.');
+    return;
+  }
+
+  const afterList = await getJson(`/v4/leagues/${leagueId}/market`, token);
+  await dump('market-after-list-player', afterList);
+  const listedItem = (afterList.it ?? []).find((p: any) => p.i === target.i);
+  console.log('Zielspieler auf dem Markt (prc/u/exs/ofc):', {
+    prc: listedItem?.prc,
+    u: listedItem?.u,
+    exs: listedItem?.exs,
+    ofc: listedItem?.ofc,
+  });
+  if (!listedItem) {
+    console.warn('Antwort war 200, der Spieler steht aber nicht in der Marktliste — Rohantwort prüfen.');
+  }
+
+  console.log('\n-- 2. Wieder vom Markt nehmen --');
+  await tryRequest(
+    'DELETE',
+    `/v4/leagues/${leagueId}/market/${target.i}`,
+    token,
+    undefined,
+    'DELETE /market/{playerId}',
+  );
+
+  const afterRemove = await getJson(`/v4/leagues/${leagueId}/market`, token);
+  await dump('market-after-unlist-player', afterRemove);
+  const stillListed = (afterRemove.it ?? []).some((p: any) => p.i === target.i);
+  if (stillListed) {
+    console.error(
+      `✗ ACHTUNG: ${target.fn ?? ''} ${target.n} steht weiterhin am Markt! ` +
+        'Bitte manuell in der Kickbase-App zurücknehmen.',
+    );
+  } else {
+    console.log('✓ Listing erfolgreich zurückgenommen — Ausgangszustand wiederhergestellt.');
   }
 }
 

@@ -39,6 +39,10 @@ const saveLineup = vi.hoisted(() => ({
   mutateAsync: vi.fn().mockResolvedValue(undefined),
   isPending: false,
 }));
+const listPlayer = vi.hoisted(() => ({
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+}));
 
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
@@ -46,6 +50,10 @@ vi.mock('@/queries/hooks', () => ({
   useMarket: () => market,
   useLeagues: () => leagues,
   useSaveLineup: () => saveLineup,
+  // Der Screen hält den „Auf den Markt stellen"-Dialog dauerhaft im Baum
+  // (er rendert erst bei `open` etwas, siehe MarketListingModal) — sein
+  // Mutations-Hook läuft damit in jedem Render mit.
+  useListPlayerOnMarket: () => listPlayer,
 }));
 vi.mock('@/leagues/useCompetitionId', () => ({ useCompetitionId: () => '1' }));
 const currentLeague = vi.hoisted(() => ({ id: '42', name: 'Kickerrunde', budget: 5_000_000 }));

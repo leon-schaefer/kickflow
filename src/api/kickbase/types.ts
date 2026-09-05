@@ -79,6 +79,15 @@ export interface PlaceOfferInput {
   price: number;
 }
 
+/**
+ * Eingabe für `listPlayerOnMarket` — einen EIGENEN Spieler zum Verkauf
+ * anbieten. `price` ist der Angebotspreis, nicht der Marktwert.
+ */
+export interface ListPlayerInput {
+  playerId: string;
+  price: number;
+}
+
 /** Ein auf dem Transfermarkt der Liga gelisteter Spieler. */
 export interface MarketPlayer {
   id: string;

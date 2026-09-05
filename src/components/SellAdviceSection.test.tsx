@@ -143,6 +143,53 @@ describe('SellAdviceSection', () => {
     expect(onSelectPlayer).toHaveBeenCalledWith(players[0]);
   });
 
+  it('bietet die Pflichtverkäufe zum Listen an, auch zugeklappt', async () => {
+    const onListOnMarket = vi.fn();
+    render(
+      <SellAdviceSection
+        players={players}
+        advice={advice}
+        budget={-10_000_000}
+        plan={makePlan()}
+        onListOnMarket={onListOnMarket}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: '1 Pflichtverkauf auf den Markt stellen' });
+    // Die Sektion ist zu — der Knopf steht trotzdem, siehe Kommentar dort.
+    expect(screen.getByRole('button', { name: /Kaufen & Verkaufen/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await userEvent.click(button);
+
+    expect(onListOnMarket).toHaveBeenCalledTimes(1);
+  });
+
+  it('zählt nur die Pflichtverkäufe, die noch nicht am Markt stehen', () => {
+    const listed = { ...players[0]!, onMarket: true };
+    render(
+      <SellAdviceSection
+        players={[listed, players[1]!]}
+        advice={advice}
+        budget={-10_000_000}
+        plan={makePlan()}
+        onListOnMarket={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Alle Pflichtverkäufe stehen am Markt.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /auf den Markt stellen/ })).not.toBeInTheDocument();
+  });
+
+  it('bleibt ohne Handler reine Analyse', () => {
+    render(
+      <SellAdviceSection players={players} advice={advice} budget={null} plan={makePlan()} />,
+    );
+
+    expect(screen.queryByRole('button', { name: /auf den Markt stellen/ })).not.toBeInTheDocument();
+  });
+
   it('überspringt Empfehlungen ohne Kaderspieler', async () => {
     render(
       <SellAdviceSection
