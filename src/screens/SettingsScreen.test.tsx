@@ -34,9 +34,11 @@ describe('SettingsScreen', () => {
     expect(router.state.historyAction).toBe('REPLACE');
   });
 
-  it('führt ohne Herkunft zurück in die Aufstellung — der Screen liegt außerhalb einer Liga', () => {
+  // `//lineup` — der Fallback auf den ersten Liga-Tab ohne Liga-Id — ist für
+  // den Browser eine protokollrelative URL und landete auf https://lineup/.
+  it('führt ohne Herkunft in die Ligenliste — der Screen liegt außerhalb einer Liga', () => {
     setup();
-    expect(screen.getByRole('link', { name: /Aufstellung/ })).toHaveAttribute('href', '//lineup');
+    expect(screen.getByRole('link', { name: /Meine Ligen/ })).toHaveAttribute('href', '/leagues');
   });
 
   it('nimmt die mitgegebene Herkunft', () => {
