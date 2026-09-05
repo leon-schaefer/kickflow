@@ -38,8 +38,23 @@
   position: relative;
 }
 
+/*
+ * `--slots` ist die Anzahl Karten in dieser Reihe und kommt als Inline-Style
+ * aus Pitch.tsx (echt dynamischer Wert — siehe AGENTS.md zu style-src).
+ * Daraus wird die Kartenbreite: höchstens 68px (die Wunschbreite aus
+ * PlayerCard), sonst der gleiche Anteil der Reihenbreite. Ohne die Schranke
+ * ragten die sechs Mittelfeldspieler einer 3-6-1 über den Rasen hinaus —
+ * 6 × 68px + Abstände sind auf jedem Telefon breiter als das Feld.
+ *
+ * Die 1 als Vorgabe ist nur der Schutz vor einer Division durch nichts, falls
+ * das Inline-Style je fehlt; gesetzt wird es immer.
+ */
 .row {
   composes: h from '@/theme/layout.module.css';
   justify-content: space-evenly;
   align-items: center;
+  gap: var(--space-xs);
+  padding-inline: var(--space-xs);
+  --slots: 1;
+  --card-width: min(68px, calc((100% - (var(--slots) - 1) * var(--space-xs)) / var(--slots)));
 }
