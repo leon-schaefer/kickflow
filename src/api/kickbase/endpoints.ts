@@ -43,6 +43,7 @@ import type {
   LeagueRanking,
   LeagueSummary,
   LineupData,
+  ListPlayerInput,
   MarketData,
   MatchdaySchedule,
   PlaceOfferInput,
@@ -406,6 +407,56 @@ export async function placeOffer(
     method: 'POST',
     body: { price: input.price },
   });
+}
+
+/**
+ * Einen EIGENEN Kaderspieler zum Verkauf auf den Transfermarkt stellen —
+ * bzw. den Angebotspreis eines schon gelisteten Spielers ändern; die Swagger-
+ * Beschreibung des Endpoints heißt bezeichnenderweise "Set Player Transfer
+ * Price". Gegenstück ist `removePlayerFromMarket`.
+ *
+ * Der Pfad hat einen abschließenden Slash — SO steht er in
+ * simonsagstetter/kickbase-api-v4-docs (`POST /v4/leagues/{leagueId}/market/`,
+ * operationId `setPlayerTransferPrice`), und zwar als einziger Marktpfad der
+ * ganzen Spezifikation. Das ist keine Schlamperei beim Abtippen: ein Server,
+ * der auf `/market` das GET der Marktliste routet, unterscheidet die beiden
+ * Routen unter Umständen genau daran. Nicht "aufräumen", ohne es vorher
+ * gemessen zu haben.
+ *
+ * Pfad und Feldnamen stammen damit aus derselben inoffiziellen Quelle wie
+ * `getPlayerTransferHistory` und sind NICHT gegen ein eigenes Konto
+ * verifiziert — das tut `npm run probe -- --list-player` (siehe
+ * probeListPlayer() in scripts/probe.ts): der Probe listet einen echten
+ * Kaderspieler und nimmt ihn direkt wieder herunter.
+ */
+export async function listPlayerOnMarket(
+  token: string,
+  leagueId: string,
+  input: ListPlayerInput,
+): Promise<void> {
+  await kbFetch(`/v4/leagues/${leagueId}/market/`, {
+    token,
+    method: 'POST',
+    body: { playerId: input.playerId, price: input.price },
+  });
+}
+
+/**
+ * Einen eigenen Spieler wieder vom Transfermarkt nehmen. Quelle wie bei
+ * `listPlayerOnMarket` (`DELETE /v4/leagues/{leagueId}/market/{playerId}`,
+ * operationId `removePlayerFromMarket`) — hier ohne abschließenden Slash,
+ * weil die Spieler-ID den Pfad ohnehin eindeutig macht.
+ *
+ * NICHT zu verwechseln mit `DELETE .../market/{playerId}/sell`: das nimmt laut
+ * Spezifikation das Kickbase-Gebot AN, verkauft den Spieler also, statt das
+ * Listing zurückzunehmen.
+ */
+export async function removePlayerFromMarket(
+  token: string,
+  leagueId: string,
+  playerId: string,
+): Promise<void> {
+  await kbFetch(`/v4/leagues/${leagueId}/market/${playerId}`, { token, method: 'DELETE' });
 }
 
 /**

@@ -63,3 +63,32 @@
 .rowWrap:not(:last-child) {
   border-bottom: 1px solid var(--color-border);
 }
+
+/*
+ * Die Handlungszeile unter der Kopfzeile — sichtbar auch im zugeklappten
+ * Zustand, weil ein Pflichtverkauf keine Fußnote ist.
+ */
+.action {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.actionButton {
+  align-items: center;
+  padding-block: var(--space-sm);
+  text-align: center;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.actionDone {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}

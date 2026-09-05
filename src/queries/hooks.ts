@@ -13,11 +13,13 @@ import {
   getPlayerBasic,
   getPlayerPerformance,
   getPlayerTransferHistory,
+  listPlayerOnMarket,
   placeOffer,
   removeOffer,
+  removePlayerFromMarket,
   saveLineup,
 } from '@/api/kickbase';
-import type { PlaceOfferInput, PlayerDetail, SaveLineupInput } from '@/api/kickbase';
+import type { ListPlayerInput, PlaceOfferInput, PlayerDetail, SaveLineupInput } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import type { PlaytimeTotals } from '@/utils/playtime';
@@ -302,6 +304,41 @@ export function usePlaceOffer(leagueId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.leagues() });
+    },
+  });
+}
+
+/**
+ * Eigenen Spieler auf den Transfermarkt stellen (bzw. seinen Angebotspreis
+ * ändern, siehe listPlayerOnMarket in endpoints.ts).
+ *
+ * Invalidiert `lineup` mit: `SquadPlayer.onMarket` kommt aus der Kader-Antwort
+ * (`iotm`), und genau daran erkennt der Aufstellungs-Screen, welche
+ * Verkaufskandidaten schon stehen. Anders als beim Bieten bleibt `leagues`
+ * unangetastet — ein Listing bewegt den Kontostand nicht, das tut erst der
+ * Verkauf.
+ */
+export function useListPlayerOnMarket(leagueId: string) {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ListPlayerInput) => listPlayerOnMarket(token!, leagueId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.lineup(leagueId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
+    },
+  });
+}
+
+/** Eigenen Spieler wieder vom Transfermarkt nehmen — Gegenstück zu useListPlayerOnMarket. */
+export function useRemovePlayerFromMarket(leagueId: string) {
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (playerId: string) => removePlayerFromMarket(token!, leagueId, playerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.lineup(leagueId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.market(leagueId) });
     },
   });
 }

@@ -17,6 +17,11 @@ interface SellAdviceSectionProps {
   onSelectPlayer?: (player: SquadPlayer) => void;
   /** Spieler vom Verkauf ausschließen/freigeben — ohne Handler bleiben die Zeilen ohne Umschalter. */
   onToggleExcluded?: (player: SquadPlayer) => void;
+  /**
+   * Öffnet den „Auf den Markt stellen"-Dialog für die Pflichtverkäufe. Ohne
+   * Handler bleibt die Sektion wie bisher reine Analyse.
+   */
+  onListOnMarket?: () => void;
 }
 
 /** "1 Pflichtverkauf" / "2 Pflichtverkäufe" — der Plural ändert hier den Stamm. */
@@ -38,6 +43,7 @@ export function SellAdviceSection({
   plan,
   onSelectPlayer,
   onToggleExcluded,
+  onListOnMarket,
 }: SellAdviceSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -53,6 +59,11 @@ export function SellAdviceSection({
   );
   const excludedCount = advice.filter((a) => a.excluded).length;
   const forcedCount = plan?.sell.length ?? 0;
+  // Was vom Plan noch offen ist: schon gelistete Pflichtverkäufe sind erledigt
+  // (`SquadPlayer.onMarket` aus der Kader-Antwort) und dürfen den Knopf nicht
+  // weiter zu einer Handlung auffordern, die nichts mehr tut.
+  const openForcedCount =
+    plan?.sell.filter((entry) => !playersById.get(entry.playerId)?.onMarket).length ?? 0;
   const showBalanceLine = plan !== null && (forcedCount > 0 || !plan.feasible);
 
   // SellAdviceRow kennt nur die strukturelle SellAdviceRowPlayer-Teilmenge —
@@ -116,6 +127,28 @@ export function SellAdviceSection({
           )}
         </span>
       </button>
+
+      {/*
+        Bewusst AUSSERHALB der Kopfzeile: die ist selbst ein Button (auf/zu),
+        und ein Button darin wäre ungültiges HTML. Bewusst auch außerhalb der
+        Liste: der Kontoausgleich ist die dringende Handlung und soll nicht
+        erst nach dem Aufklappen erreichbar sein.
+      */}
+      {onListOnMarket && forcedCount > 0 && (
+        <div className={styles.action}>
+          {openForcedCount > 0 ? (
+            <button
+              type="button"
+              className={cx(layout.pressable, styles.actionButton)}
+              onClick={onListOnMarket}
+            >
+              {forcedLabel(openForcedCount)} auf den Markt stellen
+            </button>
+          ) : (
+            <p className={styles.actionDone}>Alle Pflichtverkäufe stehen am Markt.</p>
+          )}
+        </div>
+      )}
 
       {expanded && (
         <div className={styles.list} id={listId}>
