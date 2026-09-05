@@ -55,6 +55,13 @@ abgewichen wird.
   „Systemleisten überlappen uns nie“ und stimmt in beiden Welten. Wer ihn als
   toten Code streicht, nimmt der nächsten Runde das Netz — im Desktop-Browser
   zeigt keine der beiden Welten ein Symptom.
+  Weil das Band rund 40pt tiefer reicht als die Safe Area, ragt es auch in den
+  so beschnittenen Viewport hinein. Kopfzeile und Update-Banner schieben ihren
+  Inhalt deshalb zusätzlich um `--layout-ios-status-band-overhang` nach unten —
+  aber nur unter `@supports (-webkit-touch-callout: none)` und
+  `@media (display-mode: standalone)`, also ausschließlich in der installierten
+  iOS-PWA. Im Tab und auf anderen Plattformen gibt es das Band nicht, dort wäre
+  der Abstand eine Delle.
 - **CSP**: `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` trägt die
   Argumentation für den Token im localStorage. Nichts einbauen, was Inline-
   Scripts oder `eval` braucht — siehe `vite.config.ts`
