@@ -1,12 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LAST_LEAGUE_KEY } from '@/storage/keys';
+import localStore from '@/storage/local';
 
-const LAST_LEAGUE_KEY = 'kickflow.lastLeagueId';
-
-/** Zuletzt gewählte Liga — nur für das "Zuletzt genutzt"-Badge im Picker, kein Auto-Resume. */
-export function getLastLeagueId(): Promise<string | null> {
-  return AsyncStorage.getItem(LAST_LEAGUE_KEY);
+/**
+ * Zuletzt gewählte Liga — nur für das "Zuletzt genutzt"-Badge im Picker, kein
+ * Auto-Resume.
+ *
+ * Synchron, anders als der Rest des Speichers: hier hängt keine
+ * `loaded`-Semantik dran (Begründung in src/storage/local.ts), und der
+ * Ligen-Picker liest den Wert im useState-Initializer. Über ein Promise
+ * bräuchte er dafür einen Effect und ein zweites Rendern.
+ */
+export function getLastLeagueId(): string | null {
+  return localStore.getItemSync(LAST_LEAGUE_KEY);
 }
 
 export function setLastLeagueId(id: string): Promise<void> {
-  return AsyncStorage.setItem(LAST_LEAGUE_KEY, id);
+  return localStore.setItem(LAST_LEAGUE_KEY, id);
 }

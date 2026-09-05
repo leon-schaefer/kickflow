@@ -3,14 +3,12 @@
 # dependencies
 node_modules/
 
-# Expo
-.expo/
+# build output
 dist/
-web-build/
-expo-env.d.ts
 
-# Metro
-.metro-health-check*
+# Vite
+.vite/
+node_modules/.vite/
 
 # debug
 npm-debug.*

@@ -13,7 +13,7 @@ interface AuthState {
    * `userName` NICHT persistiert (tokenStore speichert nur token/refreshToken).
    * Nach einem App-Neustart also wieder `null`, bis erneut eingeloggt wird.
    * Gebraucht, um die eigene Zeile in der Liga-Tabelle zu markieren (siehe
-   * app/(app)/[leagueId]/(tabs)/league.tsx).
+   * src/screens/LeagueScreen.tsx).
    */
   userId: string | null;
   login: (email: string, password: string) => Promise<void>;

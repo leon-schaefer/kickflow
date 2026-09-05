@@ -1,0 +1,41 @@
+/*
+ * Die eine globale Regel, die kein CSS-Modul und kein `composes` tragen kann.
+ *
+ * React Native rechnet Rahmen und Innenabstände IMMER in die angegebene Breite
+ * ein — es kennt nur border-box. CSS' Default ist content-box, und damit ist
+ * das die vierte Divergenz neben display/flex-direction/flex-shrink (die drei
+ * stehen in layout.module.css).
+ *
+ * Sie ist die einzige der vier, die sich global setzen lässt, ohne etwas
+ * kaputtzumachen: sie ändert weder den Textfluss noch die Formatierungskontexte,
+ * sondern nur, wo eine Breitenangabe endet. Über `composes` wäre sie an jeder
+ * einzelnen Regel zu wiederholen, und ein Vergessen fiele nicht auf — es
+ * verschiebt eine Kante um zwei Pixel.
+ *
+ * Konkreter Fall aus der Portierung: der Avatar-Platzhalter in PlayerRowFrame
+ * und SellAdviceRow ist 36x36 MIT 1px Rahmen. In content-box wäre er 38x38 und
+ * damit zwei Pixel größer als das echte Bild daneben.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/*
+ * Schrift. Auch das kam bis zum Umzug gratis: react-native-webs `<Text>` trug
+ * `font: '14px System'`, jedes gerenderte Textstück hatte damit Familie und
+ * Größe, ohne dass eine Regel im Projekt sie nennen musste — im ganzen
+ * RN-Code gab es kein einziges `fontFamily`. Ohne RNW fällt der Browser auf
+ * seinen Default zurück, und der ist eine SERIFENSCHRIFT. Die Werte stehen in
+ * tokens.ts (`baseFont`) und sind der Stack, den RNW für `System` einsetzte.
+ *
+ * Am `body` und nicht am `#app-reset`-Block in der index.html: dort kämen die
+ * Custom Properties noch nicht an. Und nicht per `composes` in jeder Regel —
+ * Vererbung ist hier genau das richtige Werkzeug, die Rollen überschreiben
+ * ohnehin ihre Größe.
+ */
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+}

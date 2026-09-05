@@ -1,0 +1,68 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.card {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-md);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.cardBody {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.supportButton {
+  /* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-danger);
+}
+
+.version {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}

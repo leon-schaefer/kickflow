@@ -1,0 +1,45 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+  background: var(--color-background);
+}
+
+.center {
+  composes: v from '@/theme/layout.module.css';
+  /* `flexGrow: 1` der ScrollView: der Inhalt füllt die Höhe, damit die
+     Zentrierung auch bei wenig Inhalt greift. */
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.errorText {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-danger);
+  text-align: center;
+}
+
+.retryButton {
+  composes: pressable from '@/theme/layout.module.css';
+  padding-inline: var(--space-lg);
+  padding-block: var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+@media (hover: hover) {
+  .retryButton:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.retryButton:active {
+  opacity: 0.7;
+}

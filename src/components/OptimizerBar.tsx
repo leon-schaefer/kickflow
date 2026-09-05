@@ -1,10 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Position } from '@/api/kickbase';
 import { describeRule, type LineupRule } from '@/lineup/rules';
 import type { OptimizerDiff } from '@/lineup/useLineupOptimizer';
-import { colors, positionLabels, radius, spacing, typography } from '@/theme/tokens';
+import { positionLabels } from '@/theme/tokens';
 import { formatCurrency, formatPoints, formatValueScore } from '@/utils/format';
 import type { OptimizationResult, OptimizerMetric } from '@/utils/lineupOptimizer';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './OptimizerBar.module.css';
 import { Checkbox } from './Checkbox';
 
 const METRIC_OPTIONS: { key: OptimizerMetric; label: string }[] = [
@@ -36,7 +38,9 @@ interface OptimizerBarProps {
 }
 
 function formatScore(score: number, metric: OptimizerMetric): string {
-  return metric === 'valuePerMillion' ? `Ø ${formatValueScore(score)} Pkt/Mio` : `Ø ${formatPoints(Math.round(score))} Pkt`;
+  return metric === 'valuePerMillion'
+    ? `Ø ${formatValueScore(score)} Pkt/Mio`
+    : `Ø ${formatPoints(Math.round(score))} Pkt`;
 }
 
 /** Formationswahl + Zielmetrik + "Konto ausgleichen" für den Aufstellungs-Optimizer. Nur im Edit-Modus sichtbar. */
@@ -60,13 +64,17 @@ export function OptimizerBar({
   const blockedRules = rules.filter((rule) => result.blockedRuleIds.includes(rule.id));
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.rulesRow} onPress={onOpenRules}>
-        <Text style={styles.rulesText}>
-          {activeRules.length > 0 ? `Regeln: ${activeRules.map(describeRule).join(', ')}` : 'Keine Regeln aktiv'}
-        </Text>
-        <Text style={styles.rulesChevron}>›</Text>
-      </Pressable>
+    <div className={styles.container}>
+      <button type="button" className={cx(layout.pressableH, styles.rulesRow)} onClick={onOpenRules}>
+        <span className={styles.rulesText}>
+          {activeRules.length > 0
+            ? `Regeln: ${activeRules.map(describeRule).join(', ')}`
+            : 'Keine Regeln aktiv'}
+        </span>
+        <span className={styles.rulesChevron} aria-hidden="true">
+          ›
+        </span>
+      </button>
 
       <Checkbox
         label="Konto ausgleichen"
@@ -80,88 +88,103 @@ export function OptimizerBar({
         }
       />
 
-      <View style={styles.metricRow}>
+      <div className={styles.metricRow} role="group" aria-label="Zielmetrik">
         {METRIC_OPTIONS.map((option) => (
-          <Pressable
+          <button
             key={option.key}
-            style={[styles.metricChip, metric === option.key && styles.metricChipActive]}
-            onPress={() => onChangeMetric(option.key)}
+            type="button"
+            aria-pressed={metric === option.key}
+            className={cx(layout.pressable, styles.metricChip)}
+            onClick={() => onChangeMetric(option.key)}
           >
-            <Text style={[styles.metricChipText, metric === option.key && styles.metricChipTextActive]}>
-              {option.label}
-            </Text>
-          </Pressable>
+            {option.label}
+          </button>
         ))}
-      </View>
+      </div>
 
-      <View style={styles.actionRow}>
-        <Pressable
-          style={[styles.applyButton, !best && styles.applyButtonDisabled]}
-          onPress={onApply}
+      <div className={styles.actionRow}>
+        <button
+          type="button"
+          className={cx(layout.pressable, styles.applyButton)}
+          onClick={onApply}
           disabled={!best}
         >
-          <Text style={styles.applyButtonText}>Optimieren</Text>
-        </Pressable>
-        <View style={styles.resultInfo}>
+          Optimieren
+        </button>
+        <div className={styles.resultInfo}>
           {best ? (
-            <Text style={styles.resultText}>
+            <span className={styles.resultText}>
               Beste Formation {best.formation} · {formatScore(best.score!, metric)}
-            </Text>
+            </span>
           ) : blockedRules.length === 0 ? (
             <>
-              <Text style={styles.resultTextMuted}>Keine Formation besetzbar.</Text>
+              <span className={styles.resultTextMuted}>Keine Formation besetzbar.</span>
               {result.ranking[0] && (
-                <Text style={styles.resultTextMuted}>{missingLabel(result.ranking[0].missing)}</Text>
+                <span className={styles.resultTextMuted}>
+                  {missingLabel(result.ranking[0].missing)}
+                </span>
               )}
             </>
           ) : null}
-        </View>
-      </View>
+        </div>
+      </div>
 
       {!best && blockedRules.length > 0 && (
-        <View style={styles.blockerBox}>
+        <div className={styles.blockerBox}>
           {blockedRules.map((rule) => (
-            <View key={rule.id} style={styles.blockerRow}>
-              <Text style={styles.blockerText}>⚠ Blockiert von: {describeRule(rule)}</Text>
-              <Pressable style={styles.ignoreButton} onPress={() => onIgnoreRule(rule.id)}>
-                <Text style={styles.ignoreButtonText}>Regel für diese Optimierung ignorieren</Text>
-              </Pressable>
-            </View>
+            <div key={rule.id} className={styles.blockerRow}>
+              <span className={styles.blockerText}>
+                <span aria-hidden="true">⚠</span> Blockiert von: {describeRule(rule)}
+              </span>
+              <button
+                type="button"
+                className={cx(layout.pressable, styles.ignoreButton)}
+                onClick={() => onIgnoreRule(rule.id)}
+              >
+                Regel für diese Optimierung ignorieren
+              </button>
+            </div>
           ))}
-        </View>
+        </div>
       )}
 
       {metric === 'valuePerMillion' && (
-        <Text style={styles.hint}>Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig.</Text>
+        <p className={styles.hint}>
+          Maximiert Effizienz, nicht Punkte — die Elf ist bewusst günstig.
+        </p>
       )}
 
       {metric === 'expectedPoints' && (
-        <Text style={styles.hint}>
+        <p className={styles.hint}>
           Ø-Punkte gewichtet mit der Gegner-Härte der nächsten Spiele — Angreifer/Mittelfeld nach
           gegnerischer Abwehr, Abwehr/Torwart nach gegnerischem Angriff. Grobe Tendenz, kein
           kalibriertes Vorhersagemodell.
-        </Text>
+        </p>
       )}
 
       {draftViolations.length > 0 && (
-        <Text style={styles.violationHint}>
+        <p className={styles.violationHint}>
           Deine aktuelle Elf verletzt: {draftViolations.map(describeRule).join(', ')}
-        </Text>
+        </p>
       )}
 
       {appliedDiff && (
-        <View style={styles.diffRow}>
-          <Text style={styles.diffText}>
+        <div className={styles.diffRow}>
+          <span className={styles.diffText}>
             {appliedDiff.changeCount > 0
               ? `${appliedDiff.changeCount} Wechsel gegenüber deiner Elf.`
               : 'Keine Änderung — deine Elf ist bereits optimal.'}
-          </Text>
-          <Pressable style={styles.resetButton} onPress={onReset}>
-            <Text style={styles.resetButtonText}>Zurücksetzen</Text>
-          </Pressable>
-        </View>
+          </span>
+          <button
+            type="button"
+            className={cx(layout.pressable, styles.resetButton)}
+            onClick={onReset}
+          >
+            Zurücksetzen
+          </button>
+        </div>
       )}
-    </View>
+    </div>
   );
 }
 
@@ -171,147 +194,3 @@ function missingLabel(missing: Partial<Record<Position, number>>): string {
   );
   return parts.length > 0 ? `Es fehlen ${parts.join(', ')}.` : '';
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  rulesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rulesText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  rulesChevron: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  blockerBox: {
-    gap: spacing.xs,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  blockerRow: {
-    gap: spacing.xs,
-  },
-  blockerText: {
-    ...typography.caption,
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  ignoreButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  ignoreButtonText: {
-    ...typography.small,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  violationHint: {
-    ...typography.small,
-    color: colors.danger,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  metricChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metricChipActive: {
-    backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-  },
-  metricChipText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  metricChipTextActive: {
-    color: colors.accent,
-    fontWeight: '600',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  applyButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentMuted,
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  applyButtonDisabled: {
-    opacity: 0.5,
-  },
-  applyButtonText: {
-    ...typography.body,
-    color: colors.accent,
-    fontWeight: '600',
-  },
-  resultInfo: {
-    flex: 1,
-  },
-  resultText: {
-    ...typography.caption,
-    color: colors.textPrimary,
-  },
-  resultTextMuted: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  hint: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  diffRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  diffText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  resetButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  resetButtonText: {
-    ...typography.small,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-});

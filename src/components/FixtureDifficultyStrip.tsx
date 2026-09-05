@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import type { CSSProperties } from 'react';
 import type { FixtureDifficultyRating } from '@/utils/fixtureDifficulty';
+import styles from './FixtureDifficultyStrip.module.css';
 import { TeamLogo } from './TeamLogo';
 
 interface FixtureDifficultyStripProps {
@@ -20,77 +20,44 @@ interface FixtureDifficultyStripProps {
 
 /**
  * Reihe farbcodierter Spiele — je Partie H/A + Härte. Geteilt zwischen dem
- * Restprogramm-Screen (app/(app)/[leagueId]/fixtures.tsx) und dem "Nächste
- * Gegner"-Streifen auf dem Spieler-Detail, damit die Farbstufen an beiden
- * Stellen garantiert gleich aussehen.
+ * Restprogramm-Screen und dem "Nächste Gegner"-Streifen auf dem
+ * Spieler-Detail, damit die Farbstufen an beiden Stellen garantiert gleich
+ * aussehen.
+ *
+ * Die Farbe kommt über `data-difficulty` aus theme/positions.css. Vorher
+ * lieferten zwei Hilfsfunktionen Hex-Strings, einer davon per
+ * `${colors.positive}26` zusammengesetzt.
  */
-export function FixtureDifficultyStrip({ ratings, lens, size = 24, showOpponentLogos = false }: FixtureDifficultyStripProps) {
+export function FixtureDifficultyStrip({
+  ratings,
+  lens,
+  size = 24,
+  showOpponentLogos = false,
+}: FixtureDifficultyStripProps) {
   return (
-    <View style={styles.row}>
+    <div className={styles.row} style={{ '--cell-size': `${size}px` } as CSSProperties}>
       {ratings.map((rating, index) => {
         const value = lens === 'attack' ? rating.attackDifficulty : rating.defenseDifficulty;
         return (
-          <View
-            key={index}
-            style={[
-              styles.cell,
-              { width: size, height: size, backgroundColor: difficultyBackground(value), borderColor: difficultyBorder(value) },
-            ]}
-          >
+          <span key={index} className={styles.cell} data-difficulty={difficultyStep(value)}>
             {showOpponentLogos ? (
               <>
                 <TeamLogo uri={rating.opponentLogoUrl} size={Math.round(size * 0.8)} />
-                <Text style={[styles.cellText, styles.venueBadge]}>{rating.isHome ? 'H' : 'A'}</Text>
+                <span className={styles.venueBadge}>{rating.isHome ? 'H' : 'A'}</span>
               </>
             ) : (
-              <Text style={styles.cellText}>{rating.isHome ? 'H' : 'A'}</Text>
+              <span className={styles.venue}>{rating.isHome ? 'H' : 'A'}</span>
             )}
-          </View>
+          </span>
         );
       })}
-    </View>
+    </div>
   );
 }
 
-/** Drei feste Stufen statt eines Farbverlaufs — dieselbe Diskret-statt-Gradient-Sprache wie StatusBadge/positionColors. */
-function difficultyBackground(value: number): string {
-  if (value < 0.4) return `${colors.positive}26`;
-  if (value > 0.6) return `${colors.negative}26`;
-  return colors.surfaceRaised;
+/** Drei feste Stufen statt eines Farbverlaufs — die Schwellen sind unverändert. */
+export function difficultyStep(value: number): 'easy' | 'neutral' | 'hard' {
+  if (value < 0.4) return 'easy';
+  if (value > 0.6) return 'hard';
+  return 'neutral';
 }
-
-function difficultyBorder(value: number): string {
-  if (value < 0.4) return colors.positive;
-  if (value > 0.6) return colors.negative;
-  return colors.border;
-}
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  cell: {
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellText: {
-    ...typography.small,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  /** Mit Logo ist das H/A nur noch Beiwerk: klein oben rechts über die Ecke gelegt. */
-  venueBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 1,
-    fontSize: 9,
-    lineHeight: 11,
-    paddingHorizontal: 1,
-    borderRadius: radius.sm,
-    // Eigener Hintergrund, damit das H/A auch über einem hellen Logo lesbar bleibt.
-    backgroundColor: colors.background,
-  },
-});

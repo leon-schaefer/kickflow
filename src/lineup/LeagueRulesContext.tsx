@@ -35,7 +35,7 @@ export function LeagueRulesProvider({
   return <LeagueRulesContext.Provider value={leagueId ? value : null}>{children}</LeagueRulesContext.Provider>;
 }
 
-/** Der Provider sitzt in app/(app)/[leagueId]/_layout.tsx — Vorbild: useLeagueId(). */
+/** Der Provider sitzt in src/routes/LeagueLayout.tsx — Vorbild: useLeagueId(). */
 export function useLeagueRulesContext(): LeagueRules {
   const value = use(LeagueRulesContext);
   if (!value) throw new Error('useLeagueRulesContext() muss innerhalb von [leagueId] aufgerufen werden.');

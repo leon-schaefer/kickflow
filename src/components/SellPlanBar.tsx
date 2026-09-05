@@ -1,9 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
 import type { SquadPlayer } from '@/api/kickbase';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { formatCurrency, formatPoints, formatValueScore } from '@/utils/format';
 import type { OptimizerMetric } from '@/utils/lineupOptimizer';
 import type { SellPlan } from '@/utils/sellPlan';
+import styles from './SellPlanBar.module.css';
 
 interface SellPlanBarProps {
   players: readonly SquadPlayer[];
@@ -30,97 +29,49 @@ export function SellPlanBar({ players, plan, metric }: SellPlanBarProps) {
   const playersById = new Map(players.map((p) => [p.id, p]));
 
   return (
-    <View style={styles.container}>
+    <div className={styles.container}>
       {plan.sell.length > 0 && (
-        <View style={styles.list}>
+        <ul className={styles.list}>
           {plan.sell.map((entry) => {
             const player = playersById.get(entry.playerId);
             return (
-              <View key={entry.playerId} style={styles.row}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                  {player?.name ?? entry.playerId}
-                </Text>
-                <Text style={styles.rowValue}>{formatCurrency(entry.marketValue)}</Text>
-                <Text style={styles.rowTag}>{entry.wasInBestXi ? 'aus der Elf' : 'Bank'}</Text>
-              </View>
+              <li key={entry.playerId} className={styles.row}>
+                <span className={styles.rowName}>{player?.name ?? entry.playerId}</span>
+                <span className={styles.rowValue}>{formatCurrency(entry.marketValue)}</span>
+                <span className={styles.rowTag}>{entry.wasInBestXi ? 'aus der Elf' : 'Bank'}</span>
+              </li>
             );
           })}
-        </View>
+        </ul>
       )}
 
       {plan.feasible ? (
         <>
-          <Text style={styles.summary}>
+          <p className={styles.summary}>
             Erlös {formatCurrency(plan.proceeds)} → Konto {formatCurrency(plan.balanceAfter)}
-          </Text>
-          <Text style={styles.hint}>Kosten: {formatScoreLoss(plan.scoreLoss, metric)}</Text>
+          </p>
+          <p className={styles.hint}>Kosten: {formatScoreLoss(plan.scoreLoss, metric)}</p>
         </>
       ) : plan.shortfall > 0 ? (
         <>
-          <Text style={styles.warning}>Kader deckt den Fehlbetrag nicht — es fehlen {formatCurrency(plan.shortfall)}.</Text>
+          <p className={styles.warning}>
+            Kader deckt den Fehlbetrag nicht — es fehlen {formatCurrency(plan.shortfall)}.
+          </p>
           {plan.excludedValue > 0 && (
-            <Text style={styles.hint}>
+            <p className={styles.hint}>
               {plan.excludedCount === 1
                 ? `1 ausgeschlossener Spieler mit ${formatCurrency(plan.excludedValue)} bleibt unangetastet.`
                 : `${plan.excludedCount} ausgeschlossene Spieler mit ${formatCurrency(plan.excludedValue)} bleiben unangetastet.`}
-            </Text>
+            </p>
           )}
         </>
       ) : (
-        <Text style={styles.warning}>Nach den nötigen Verkäufen steht keine Elf mehr.</Text>
+        <p className={styles.warning}>Nach den nötigen Verkäufen steht keine Elf mehr.</p>
       )}
 
-      <Text style={styles.disclaimer}>Erlös geschätzt zum Marktwert — ein Verkauf an Mitspieler kann darüber liegen.</Text>
-    </View>
+      <p className={styles.disclaimer}>
+        Erlös geschätzt zum Marktwert — ein Verkauf an Mitspieler kann darüber liegen.
+      </p>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.xs,
-  },
-  list: {
-    gap: 2,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  rowName: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  rowValue: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  rowTag: {
-    ...typography.small,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surfaceRaised,
-  },
-  summary: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  hint: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  warning: {
-    ...typography.caption,
-    color: colors.danger,
-    fontWeight: '600',
-  },
-  disclaimer: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-});

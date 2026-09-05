@@ -1,37 +1,25 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import styles from './UpdateBannerView.module.css';
 
 /**
  * Rein präsentational: der Banner selbst, ohne die Erkennung. Die steckt in
  * UpdateBanner.tsx, das auf das Event aus public/register-sw.js lauscht.
+ *
+ * Der Abstand nach oben kam vorher aus `useSafeAreaInsets().top` von
+ * react-native-safe-area-context — jetzt aus `env(safe-area-inset-top)` im
+ * CSS. Das funktioniert nur mit `viewport-fit=cover` in der index.html; ohne
+ * das meldet der Browser alle Insets als 0 (Kommentar steht dort).
+ *
+ * Der `role="alert"` sitzt am Rahmen und nicht am Button: an ihm würde er die
+ * Button-Rolle verdrängen, und der Banner wäre nicht mehr als Schaltfläche
+ * angekündigt. Er erscheint unangekündigt mitten in der App — ohne die
+ * Live-Region wäre die Meldung nur sehend wahrnehmbar.
  */
-export function UpdateBannerView({ onPress }: { onPress: () => void }) {
-  const insets = useSafeAreaInsets();
-
+export function UpdateBannerView({ onClick }: { onClick: () => void }) {
   return (
-    <Pressable style={[styles.banner, { top: insets.top + spacing.sm }]} onPress={onPress}>
-      <Text style={styles.text}>Neue Version verfügbar — antippen zum Aktualisieren</Text>
-    </Pressable>
+    <div className={styles.frame} role="alert">
+      <button type="button" className={styles.banner} onClick={onClick}>
+        Neue Version verfügbar — antippen zum Aktualisieren
+      </button>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: 1000,
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-  },
-  text: {
-    ...typography.caption,
-    color: colors.background,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBuildId, isBuildId } from './buildId';
+import { formatBuildId, isBuildId, shortSha } from './buildId';
 
 const NOW = Date.parse('2026-09-01T18:42:27.512Z');
 
@@ -47,5 +47,25 @@ describe('isBuildId', () => {
     expect(isBuildId('bc0c043ab1e910595181a5b467c1f21b7bd00000')).toBe(false);
     expect(isBuildId('')).toBe(false);
     expect(isBuildId(null)).toBe(false);
+  });
+});
+
+describe('shortSha', () => {
+  it('kürzt eine Hex-SHA auf sieben Zeichen in Kleinschreibung', () => {
+    expect(shortSha('bc0c043ab1e910595181a5b467c1f21b7bd00000')).toBe('bc0c043');
+    expect(shortSha('BC0C043AB1E910595181A5B467C1F21B7BD00000')).toBe('bc0c043');
+    expect(shortSha('  bc0c043  ')).toBe('bc0c043');
+  });
+
+  it('verwirft alles, was keine SHA ist', () => {
+    // Die realen Fehlerformen: Vercel setzt VERCEL_GIT_COMMIT_SHA in manchen
+    // Preview-Deploys leer oder mit einem Platzhalter.
+    expect(shortSha(null)).toBeNull();
+    expect(shortSha(undefined)).toBeNull();
+    expect(shortSha('')).toBeNull();
+    expect(shortSha('   ')).toBeNull();
+    expect(shortSha('unknown')).toBeNull();
+    // Zu kurz für eine abgekürzte SHA.
+    expect(shortSha('bc0c04')).toBeNull();
   });
 });

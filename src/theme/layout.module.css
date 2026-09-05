@@ -1,0 +1,157 @@
+/*
+ * Basisklassen, die die React-Native-Defaults nach CSS übersetzen.
+ *
+ * RN und DOM gehen in DREI Defaults auseinander:
+ *
+ *              RN <View>            DOM <div>
+ *   display    immer flex           block
+ *   direction  column               row
+ *   shrink     0                    1
+ *
+ * 110 der 446 portierten Style-Regeln haben Layout-Props (flex, align-items,
+ * justify-content, gap, flex-wrap, align-self) OHNE flexDirection und
+ * verlassen sich damit auf RNs implizites `column`. Übersetzt man sie naiv,
+ * wird aus jeder Spalte eine Zeile.
+ *
+ * Deshalb trägt JEDE portierte Container-Regel `composes: v` (Spalte) oder
+ * `composes: h` (Zeile) als erste Zeile. Kein globaler `div`-Reset: der wäre
+ * billiger, würde aber auch Fremdcode und künftige Elemente erfassen, den
+ * Textfluss brechen (mehrere Inline-Kinder werden zu je eigenen Flex-Items)
+ * und wäre später nicht mehr auffindbar. So steht die Entscheidung neben den
+ * Regeln, die sie betrifft, und ein fehlendes `composes` fällt im Diff auf.
+ *
+ * KONVENTION: `flex-direction` kommt in Komponenten-Modulen nie vor. Nur
+ * `composes: v`/`h` bestimmt die Richtung. Eine Richtung, die an zwei Stellen
+ * stehen kann, ist ein Rätsel und kein Feature.
+ *
+ * WARUM ALLES IN `:where()` STEHT — die Regel dieser Datei
+ *
+ * Vite emittiert die komponierte Klasse NACH der Regel, die sie einbindet
+ * (am gebauten CSS nachgemessen: `._button_1` bei Byte 27966, das von ihr
+ * komponierte `._pressable_1` bei 53133). Bei gleicher Spezifität gewinnt
+ * damit die BASISKLASSE — die Komponente kann nichts überschreiben, was hier
+ * steht. Das war kein Theoriefall: `.pressable` hat mit `font: inherit;
+ * background: none; padding: 0` jeden Button der App entstellt (der
+ * Anmelde-Button rechnete 14px/400 ohne Hintergrund und ohne Padding), und
+ * `flex-shrink: 0` aus `.v`/`.h` schlug jedes `flex: 1 1 0`.
+ *
+ * `:where()` hat Spezifität 0. Damit gewinnt jede Komponentenregel gegen die
+ * Basis, unabhängig von der Emissionsreihenfolge — und die Basisklassen
+ * dürfen alles setzen, was RN implizit hatte, nicht nur Unstrittiges.
+ *
+ * Die drei Regeln ohne `:where()` (`.pressableV`, `.pressableH`,
+ * `.hitSlopSm`) sind Absicht: CSS Modules erlaubt `composes` nur, wenn der
+ * Selektor ein einzelner lokaler Klassenname ist. Sie deklarieren deshalb
+ * NICHTS selbst — was sie weitergeben, kommt aus den `:where()`-Regeln und
+ * bleibt überschreibbar. Wer hier eine Eigenschaft neben ein `composes`
+ * schreibt, nimmt sie den Komponenten weg.
+ *
+ * Die typography-Rollen liegen aus verwandtem Grund als Var-Paare in
+ * tokens.css und nicht als `composes`-Klassen: die 179 Fundstellen
+ * überschreiben oft das font-weight. Mit `:where()` ginge auch das, aber ein
+ * Var-Paar ist an der Fundstelle lesbar, ohne diese Datei zu kennen.
+ */
+
+/* min-width/min-height: 0 hat RN implizit. Ohne sie brechen Ellipsen
+   (.line1) und Scroller, sobald sie in einer Flex-Spalte liegen. */
+:where(.v) {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+:where(.h) {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* StyleSheet.absoluteFill */
+:where(.absoluteFill) {
+  position: absolute;
+  inset: 0;
+}
+
+/*
+ * Ersatz für <Pressable>. Element ist <button type="button">, nicht
+ * <div role="button">: Tastaturbedienung, Fokusring, :active und
+ * aria-pressed/aria-expanded kommen dann gratis — das Repo setzte mit
+ * accessibilityRole/accessibilityState schon vorher die Absicht dafür.
+ *
+ * Die 6 `style={({pressed}) => …}`-Callbacks wurden zu :active. Verlustfrei,
+ * weil `pressed` nirgends in Logik einfloss und es kein
+ * onPressIn/onPressOut/onLongPress gab.
+ */
+:where(.pressable) {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pressableV {
+  composes: v;
+  composes: pressable;
+}
+
+.pressableH {
+  composes: h;
+  composes: pressable;
+}
+
+/* numberOfLines={1} — alle 13 Fundstellen waren ={1}, kein Mehrzeilen-Clamp. */
+:where(.line1) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* hitSlop: vergrößert die Trefferfläche ohne Layout-Effekt.
+   Braucht `position: relative` am Button — steckt hier mit drin. */
+:where(.hitSlop) {
+  position: relative;
+}
+
+:where(.hitSlop)::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.hitSlopSm {
+  composes: hitSlop;
+}
+
+:where(.hitSlopSm)::after {
+  inset: -4px;
+}
+
+/* Ersatz für <ScrollView>. contentContainerStyle braucht einen zweiten
+   Knoten darin — der Scroller trägt nur das Scrollen. */
+:where(.scroller) {
+  flex: 1 1 0;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* showsHorizontalScrollIndicator={false} */
+:where(.noScrollbar) {
+  scrollbar-width: none;
+}
+
+:where(.noScrollbar)::-webkit-scrollbar {
+  display: none;
+}

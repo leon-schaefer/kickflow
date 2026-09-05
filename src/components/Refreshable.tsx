@@ -1,55 +1,85 @@
+import type { CSSProperties, UIEvent } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, View } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { colors, spacing } from '@/theme/tokens';
+import { Spinner } from './Spinner';
 import type { RefreshableProps } from './Refreshable.types';
+import styles from './Refreshable.module.css';
 
 const RESISTANCE = 0.5;
 const THRESHOLD = 64;
+/** Höhe, auf der der Inhalt während des Ladens stehen bleibt. */
 const PARKED = 48;
 const MAX_PULL = 96;
 const SNAP_DURATION = 200;
 
 /**
- * Pull-to-Refresh per Touch-Handler nachgebaut. `RefreshControl` aus
- * react-native ist auf react-native-web ein reines No-op (rendert nur ein
- * leeres `View`, verwirft `onRefresh` — siehe
- * node_modules/react-native-web/dist/exports/RefreshControl/index.js), und
- * die PWA-Shell setzt `body { overflow: hidden; overscroll-behavior: none }`
- * (public/index.html), sodass auch kein natives Browser-Pull-to-Refresh
- * greift.
+ * Pull-to-Refresh per Touch-Handler nachgebaut.
+ *
+ * Warum überhaupt selbst gebaut: die PWA-Shell setzt
+ * `body { overflow: hidden; overscroll-behavior: none }` (index.html), weil
+ * die App in ihren eigenen Containern scrollt — damit greift das native
+ * Browser-Pull-to-Refresh nicht.
  *
  * Nur Touch (kein Wheel/Trackpad) — deckt den eigentlichen PWA-Anwendungsfall
  * ab, ohne Trackpad-Scrollmomentum versehentlich als Pull zu interpretieren.
  *
- * Modals (OfferModal, LeagueSwitcher) portalt react-native-web nach
- * `document.body` (siehe ModalPortal.js) — Touches darin landen nie beim
- * Wrapper-Listener hier, ein Pull im Hintergrund ist also ausgeschlossen.
+ * Die Auslenkung läuft über die CSS-Custom-Property `--pull` am Wrapper und
+ * NICHT über React-State: ein `setState` pro `touchmove` wäre ein Rerender pro
+ * Frame. Das entspricht dem, was die React-Native-Fassung mit
+ * `Animated.Value` und `useNativeDriver: false` tat.
+ *
+ * WICHTIG: Modals müssen nach `document.body` portaliert bleiben. Die Listener
+ * hier hängen nativ mit `capture` am Wrapper, und native Events laufen
+ * ausschließlich die DOM-Vorfahrenkette hoch. Läge ein Dialog im Baum
+ * darunter, würde ein Wisch darin einen Pull im Hintergrund auslösen — ein
+ * `<dialog>` im Top Layer ändert daran nichts, Top-Layer-Rendering betrifft
+ * nicht die Event-Propagation.
  */
 export function Refreshable({ refreshing, onRefresh, children }: RefreshableProps) {
-  const wrapperRef = useRef<View | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollTopRef = useRef(0);
   const startYRef = useRef<number | null>(null);
   const pullingRef = useRef(false);
   const pullValueRef = useRef(0);
-  const pull = useRef(new Animated.Value(0)).current;
+  const snapTimerRef = useRef<number | null>(null);
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollTopRef.current = event.nativeEvent.contentOffset.y;
+  const handleScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    scrollTopRef.current = event.currentTarget.scrollTop;
   }, []);
 
-  const setPull = useCallback(
+  const setPull = useCallback((value: number) => {
+    pullValueRef.current = value;
+    wrapperRef.current?.style.setProperty('--pull', String(value));
+  }, []);
+
+  /**
+   * Fährt die Auslenkung animiert auf einen Wert. Die Transition ist nur
+   * während des Snaps aktiv — eine dauerhafte würde den 1:1-Zug am Finger um
+   * die Snap-Dauer verschleppen.
+   */
+  const snapTo = useCallback(
     (value: number) => {
-      pullValueRef.current = value;
-      pull.setValue(value);
+      const node = wrapperRef.current;
+      if (!node) return;
+      node.dataset.snap = 'true';
+      setPull(value);
+      if (snapTimerRef.current !== null) window.clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = window.setTimeout(() => {
+        snapTimerRef.current = null;
+        wrapperRef.current?.removeAttribute('data-snap');
+      }, SNAP_DURATION);
     },
-    [pull],
+    [setPull],
+  );
+
+  useEffect(
+    () => () => {
+      if (snapTimerRef.current !== null) window.clearTimeout(snapTimerRef.current);
+    },
+    [],
   );
 
   useEffect(() => {
-    // rn-web forwardet den Ref eines `View` direkt auf den zugrunde liegenden
-    // DOM-Knoten (ein `div`) — kein `getScrollableNode()` o.ä. nötig.
-    const node = wrapperRef.current as unknown as HTMLElement | null;
+    const node = wrapperRef.current;
     if (!node) return;
 
     function onTouchStart(e: TouchEvent) {
@@ -57,13 +87,13 @@ export function Refreshable({ refreshing, onRefresh, children }: RefreshableProp
         startYRef.current = null;
         return;
       }
-      startYRef.current = e.touches[0].clientY;
+      startYRef.current = e.touches[0]!.clientY;
       pullingRef.current = false;
     }
 
     function onTouchMove(e: TouchEvent) {
       if (startYRef.current === null) return;
-      const dy = e.touches[0].clientY - startYRef.current;
+      const dy = e.touches[0]!.clientY - startYRef.current;
       if (dy <= 0) {
         // Kein Pull (mehr) — normales Scrollen/diagonale Geste, Browser übernimmt.
         startYRef.current = null;
@@ -80,12 +110,10 @@ export function Refreshable({ refreshing, onRefresh, children }: RefreshableProp
       if (!pullingRef.current) return;
       pullingRef.current = false;
       if (pullValueRef.current >= THRESHOLD) {
-        setPull(PARKED);
-        Animated.timing(pull, { toValue: PARKED, duration: SNAP_DURATION, useNativeDriver: false }).start();
+        snapTo(PARKED);
         onRefresh();
       } else {
-        setPull(0);
-        Animated.timing(pull, { toValue: 0, duration: SNAP_DURATION, useNativeDriver: false }).start();
+        snapTo(0);
       }
     }
 
@@ -101,44 +129,34 @@ export function Refreshable({ refreshing, onRefresh, children }: RefreshableProp
       node.removeEventListener('touchend', onTouchEnd, true);
       node.removeEventListener('touchcancel', onTouchEnd, true);
     };
-  }, [onRefresh, pull, refreshing, setPull]);
+  }, [onRefresh, refreshing, setPull, snapTo]);
 
   // Query(s) fertig -> zurück auf 0 fahren (deckt sowohl den geparkten Zustand
   // nach eigenem Pull als auch ein von außen gesetztes `refreshing` ab).
+  //
+  // Die Prüfung auf eine tatsächliche Auslenkung ist nicht Sparsamkeit: ohne
+  // sie liefe der Effekt schon beim Mount, setzte `data-snap` und ließe es
+  // 200 ms stehen. Ein Zug in diesem Fenster würde von der Transition
+  // verschleppt — genau das, was sie vermeiden soll.
   useEffect(() => {
-    if (!refreshing) {
-      setPull(0);
-      Animated.timing(pull, { toValue: 0, duration: SNAP_DURATION, useNativeDriver: false }).start();
-    }
-  }, [refreshing, pull, setPull]);
-
-  const opacity = pull.interpolate({ inputRange: [0, PARKED], outputRange: [0, 1], extrapolate: 'clamp' });
+    if (!refreshing && pullValueRef.current !== 0) snapTo(0);
+  }, [refreshing, snapTo]);
 
   return (
-    <View ref={wrapperRef} style={styles.wrapper}>
-      <Animated.View style={[styles.indicator, { opacity }]} pointerEvents="none">
-        <ActivityIndicator color={colors.accent} />
-      </Animated.View>
-      <Animated.View style={[styles.content, { transform: [{ translateY: pull }] }]}>
-        {children({ onScroll: handleScroll, scrollEventThrottle: 16 })}
-      </Animated.View>
-    </View>
+    <div
+      ref={wrapperRef}
+      className={styles.wrapper}
+      // Der Parkwert kommt aus der Konstante oben, damit die Deckkraft des
+      // Indikators in CSS nicht dieselbe Zahl ein zweites Mal führt.
+      style={{ '--pull-parked': PARKED } as CSSProperties}
+    >
+      <div className={styles.indicator}>
+        {/* Steht dauerhaft im DOM und wird nur per Deckkraft eingeblendet —
+            deshalb aus der Barrierefreiheit heraus. Den Ladezustand meldet
+            der Inhalt, nicht dieser Zeiger. */}
+        <Spinner decorative />
+      </div>
+      <div className={styles.content}>{children({ onScroll: handleScroll })}</div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  indicator: {
-    position: 'absolute',
-    top: spacing.lg,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-});

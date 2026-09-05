@@ -1,7 +1,9 @@
-import type { ColorValue } from 'react-native';
-
 export interface TabIconProps {
-  /** Kommt von React Navigation: aktiv = accent, inaktiv = textMuted. */
-  color: ColorValue;
+  /**
+   * Default `currentColor`: die Farbe kommt dann aus CSS und muss nicht durch
+   * Props wandern — die Tab-Leiste setzt sie über `aria-current` am Link.
+   * Explizit übergeben wird sie nur noch, wo kein passender CSS-Kontext ist.
+   */
+  color?: string;
   size?: number;
 }

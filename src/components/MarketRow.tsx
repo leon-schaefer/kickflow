@@ -1,19 +1,19 @@
-import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { MarketPlayer } from "@/api/kickbase";
-import { colors, radius, spacing, typography } from "@/theme/tokens";
+import type { MarketPlayer } from '@/api/kickbase';
 import {
   formatCountdown,
   formatCurrency,
   formatMinutes,
   formatPercentDelta,
-} from "@/utils/format";
-import { formatMetric, metricLabels, type PlayerMetric } from "@/utils/playerMetric";
-import type { PlaytimeTotals } from "@/utils/playtime";
-import type { StatCell } from "./PlayerRowFrame";
-import { PlayerRowFrame, PlayerStatColumn } from "./PlayerRowFrame";
-import { StatusBadge } from "./StatusBadge";
-import { marketMarkupPercent } from "@/utils/marketList";
+} from '@/utils/format';
+import { marketMarkupPercent } from '@/utils/marketList';
+import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
+import type { PlaytimeTotals } from '@/utils/playtime';
+import { cx } from '@/utils/cx';
+import layout from '@/theme/layout.module.css';
+import styles from './MarketRow.module.css';
+import type { StatCell } from './PlayerRowFrame';
+import { PlayerRowFrame, PlayerStatColumn } from './PlayerRowFrame';
+import { StatusBadge } from './StatusBadge';
 
 interface MarketRowProps {
   player: MarketPlayer;
@@ -21,12 +21,12 @@ interface MarketRowProps {
   playtime?: PlaytimeTotals;
   /** Kennzahl unter dem Preis — folgt der aktiven Sortierung im Markt-Tab. */
   metric: PlayerMetric;
-  onPress?: (player: MarketPlayer) => void;
+  onClick?: (player: MarketPlayer) => void;
   onBid: (player: MarketPlayer) => void;
 }
 
 /** Zeile für den Transfermarkt: Preis + Aufschlag auf den Marktwert, die aktive Wert-Kennzahl, Gebotslage. */
-export function MarketRow({ player, playtime, metric, onPress, onBid }: MarketRowProps) {
+export function MarketRow({ player, playtime, metric, onClick, onBid }: MarketRowProps) {
   // Der nackte Marktwert daneben wäre nur eine zweite Zahl ohne Aussage — der
   // Aufschlag sagt direkt, wie weit die Forderung darüber liegt.
   const markupPercent = marketMarkupPercent(player.price, player.marketValue);
@@ -36,147 +36,70 @@ export function MarketRow({ player, playtime, metric, onPress, onBid }: MarketRo
     player.expiresInSeconds != null ? formatCountdown(player.expiresInSeconds * 1000) : null;
 
   const cells: StatCell[] = [
-    { value: formatMetric(player, metric, playtime), label: metricLabels[metric].cell, tone: "accent", emphasis: true },
-    { value: formatMetric(player, "avgPoints", undefined), label: metricLabels.avgPoints.cell },
+    {
+      value: formatMetric(player, metric, playtime),
+      label: metricLabels[metric].cell,
+      tone: 'accent',
+      emphasis: true,
+    },
+    { value: formatMetric(player, 'avgPoints', undefined), label: metricLabels.avgPoints.cell },
   ];
 
   return (
     <PlayerRowFrame
       position={player.position}
       imageUrl={player.imageUrl}
-      onPress={() => onPress?.(player)}
+      onClick={onClick && (() => onClick(player))}
       right={
         <PlayerStatColumn
           cells={cells}
           footer={
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
+            <button
+              type="button"
+              // Die Zeile darüber ist selbst klickbar (role="button") und würde
+              // sonst zusätzlich das Spieler-Detail öffnen. Genau dasselbe
+              // stopPropagation stand in der Pressable-Fassung.
+              onClick={(event) => {
+                event.stopPropagation();
                 onBid(player);
               }}
-              hitSlop={spacing.sm}
-              style={({ pressed }) => [
+              className={cx(
+                layout.pressable,
+                layout.hitSlop,
                 styles.bidPill,
                 hasOwnOffer && styles.bidPillActive,
-                pressed && styles.bidPillPressed,
-              ]}
+              )}
             >
-              <Text style={[styles.bidPillText, hasOwnOffer && styles.bidPillTextActive]}>
-                {hasOwnOffer ? "Ändern" : "Bieten"}
-              </Text>
-            </Pressable>
+              {hasOwnOffer ? 'Ändern' : 'Bieten'}
+            </button>
           }
         />
       }
     >
-      <Text style={styles.name} numberOfLines={1}>
-        {player.name}
-      </Text>
-      <View style={styles.subRow}>
-        <Text style={styles.marketValue}>{formatCurrency(player.price)}</Text>
+      <span className={styles.name}>{player.name}</span>
+      <span className={styles.subRow}>
+        <span className={styles.marketValue}>{formatCurrency(player.price)}</span>
         {markupPercent !== null && (
-          <Text style={[styles.markup, markupPercent < 0 && styles.markupDiscount]}>
+          <span className={cx(styles.markup, markupPercent < 0 && styles.markupDiscount)}>
             {formatPercentDelta(markupPercent)}
-          </Text>
+          </span>
         )}
         {/* Spielzeit als Einordnung neben P/Min — 2,45 P/Min aus 8' ist Rauschen, aus 500' nicht. */}
-        {playtime && <Text style={styles.playtimeText}>{formatMinutes(playtime.minutes)}</Text>}
+        {playtime && <span className={styles.playtimeText}>{formatMinutes(playtime.minutes)}</span>}
         <StatusBadge status={player.status} />
-      </View>
+      </span>
       {hasOwnOffer && (
-        <View style={styles.ownOfferRow}>
-          <SymbolView
-            name={{ ios: "hammer.fill", android: "gavel", web: "gavel" }}
-            tintColor={colors.accent}
-            size={12}
-            style={{ width: 12, height: 12 }}
-            fallback={
-              <View
-                style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }}
-              />
-            }
-          />
-          <Text style={styles.ownOfferText} numberOfLines={1}>
-            {formatCurrency(player.ownOfferPrice!)}
-          </Text>
-        </View>
+        <span className={styles.ownOfferRow}>
+          {/*
+            Vorher ein SymbolView (Hammer) mit genau diesem Punkt als
+            `fallback`. Auf Web waren die Symbol-Fonts nie geladen, es rendert
+            dort also seit immer der Punkt — hier steht jetzt direkt er.
+          */}
+          <span className={styles.ownOfferDot} />
+          <span className={styles.ownOfferText}>{formatCurrency(player.ownOfferPrice!)}</span>
+        </span>
       )}
-      {countdownLabel && (
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText} numberOfLines={1}>
-            {countdownLabel}
-          </Text>
-        </View>
-      )}
+      {countdownLabel && <span className={styles.metaText}>{countdownLabel}</span>}
     </PlayerRowFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  name: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  subRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  marketValue: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  markup: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  // Ein Aufschlag ist der Normalfall und bleibt unauffällig; unter Marktwert
-  // gelistet ist selten und genau die Zeile, die man sehen will.
-  markupDiscount: {
-    color: colors.positive,
-    fontWeight: "700",
-  },
-  playtimeText: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  metaText: {
-    ...typography.small,
-    color: colors.textMuted,
-  },
-  ownOfferRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  ownOfferText: {
-    ...typography.small,
-    color: colors.accent,
-    fontWeight: "600",
-  },
-  bidPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    backgroundColor: colors.accentMuted,
-  },
-  bidPillActive: {
-    backgroundColor: colors.accent,
-  },
-  bidPillPressed: {
-    opacity: 0.7,
-  },
-  bidPillText: {
-    ...typography.small,
-    color: colors.accent,
-    fontWeight: "700",
-  },
-  bidPillTextActive: {
-    color: colors.background,
-  },
-});

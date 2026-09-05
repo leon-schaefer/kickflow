@@ -1,10 +1,12 @@
 /**
  * Ziel des „kickflow unterstützen"-Buttons im Mehr-Tab.
  *
- * Der Zugriff muss wörtlich `process.env.EXPO_PUBLIC_SUPPORT_URL` lauten:
- * Metro ersetzt `EXPO_PUBLIC_*` beim Bundling textuell durch den Wert. Ein
- * dynamischer Zugriff (`process.env[name]`) bleibt stehen und wäre zur
- * Laufzeit `undefined`.
+ * Der Zugriff muss wörtlich `import.meta.env.VITE_SUPPORT_URL` lauten: Vite
+ * ersetzt `VITE_*` beim Bundling textuell durch den Wert. Ein dynamischer
+ * Zugriff (`import.meta.env[name]`) bleibt stehen und wäre im Produktions-
+ * Bundle `undefined`. `process.env` gibt es hier NICHT — Vite baut keinen
+ * process-Shim ins Browser-Bundle, und weil dieser Zugriff auf Modulebene
+ * steht, knallte es schon beim Import.
  *
  * Nicht gesetzt = die Unterstützen-Karte rendert gar nicht. Das ist Absicht:
  * ein Spenden-Button, der ins Leere zeigt, ist schlechter als keiner. Neben-
@@ -14,17 +16,17 @@
  */
 
 /**
- * Bewusst eine String-Prüfung statt `new URL(url).protocol`: React Native
- * polyfillt `URL` global mit einer eigenen Minimalklasse
- * (react-native/Libraries/Blob/URL.js), die zwar `new URL()` versteht, aber
- * keine `protocol`-Property besitzt. Ein Protokollvergleich wäre dort immer
- * `undefined !== 'https:'` — der Button verschwände auf iOS/Android still,
- * während er im Web funktioniert.
+ * Eine String-Prüfung und nicht `new URL(url).protocol`. Der ursprüngliche
+ * Grund ist mit React Native weg (dessen URL-Polyfill kannte keine
+ * `protocol`-Property, ein Protokollvergleich war dort immer
+ * `undefined !== 'https:'`). Sie bleibt trotzdem, weil sie mehr prüft als ein
+ * Protokollvergleich: kein Whitespace, kein zweites Schema, ein Host muss da
+ * sein.
  *
- * Kein Whitespace, kein zweites Schema: `window.open` und `Linking.openURL`
- * öffnen bereitwillig, was man ihnen gibt (`javascript:`, `file:` …). Die
- * URL kommt zwar aus der eigenen Build-Konfiguration und nicht von außen,
- * aber ein Tippfehler soll hier auffallen und nicht durchgereicht werden.
+ * `window.open` öffnet bereitwillig, was man ihm gibt (`javascript:`,
+ * `file:` …). Die URL kommt zwar aus der eigenen Build-Konfiguration und
+ * nicht von außen, aber ein Tippfehler soll hier auffallen und nicht
+ * durchgereicht werden.
  */
 const HTTPS_URL_PATTERN = /^https:\/\/[^\s/?#]+(?:[/?#]\S*)?$/i;
 
@@ -35,4 +37,4 @@ export function resolveSupportUrl(raw: string | undefined | null): string | null
   return trimmed;
 }
 
-export const SUPPORT_URL = resolveSupportUrl(process.env.EXPO_PUBLIC_SUPPORT_URL);
+export const SUPPORT_URL = resolveSupportUrl(import.meta.env.VITE_SUPPORT_URL);

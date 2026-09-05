@@ -1,0 +1,12 @@
+.frame {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Der Tab-Inhalt scrollt, die Leiste darunter bleibt stehen. */
+.content {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  min-height: 0;
+}

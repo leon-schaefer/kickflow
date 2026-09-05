@@ -1,0 +1,51 @@
+.field {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/*
+ * Ersetzt das `focused`-useState der RN-Fassung samt onFocus/onBlur. Steht
+ * bewusst NACH .field, damit ein Aufrufer die Feldfarbe (`className`)
+ * überschreiben kann, ohne den Fokusrahmen mitzunehmen.
+ */
+.field:focus-within {
+  border-color: var(--color-accent);
+}
+
+.input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-block: var(--space-md);
+  border: 0;
+  background: none;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  /*
+   * Der Rahmen sitzt am Container, nicht am <input> — den Fokusring würde der
+   * Browser deshalb als eckigen Kasten INS Feld zeichnen. Den Fokus zeigt
+   * stattdessen `:focus-within` am ganzen Feldrahmen.
+   */
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+  /* Safari blasst Platzhalter zusätzlich ab. */
+  opacity: 1;
+}
+
+.clearButton {
+  composes: pressableH from '@/theme/layout.module.css';
+  composes: hitSlop from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  margin-left: var(--space-xs);
+  color: var(--color-text-muted);
+}
