@@ -326,14 +326,19 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * "Gekauft am 12.08.2026" — wann der Spieler in den eigenen Kader gewechselt
- * ist, aus seiner Transferhistorie abgeleitet (siehe resolveOwnPurchase).
- * Steht nur bei eigenen Spielern.
+ * "Gekauft am 12.08.2026 für 12,5 Mio €" — wann der Spieler in den eigenen
+ * Kader gewechselt ist und was er gekostet hat, aus seiner Transferhistorie
+ * abgeleitet (siehe resolveOwnPurchase). Steht nur bei eigenen Spielern.
  *
  * Ohne belegbaren Kauf bleibt die Zeile WEG statt „unbekannt" anzuzeigen:
  * Kickbase führt nicht zu jedem Spieler eine Transferhistorie (ein von Beginn
  * an gehaltener Spieler hat schlicht keine), und ein Zusatzrequest, der
  * ausfällt, soll auf dem Screen keine Fehlermeldung hinterlassen.
+ *
+ * Der Preis hängt aus demselben Grund an einem eigenen `null`-Check und nicht
+ * am Datum: `PlayerTransfer.price` ist `null`, wenn die Antwort zu DIESEM
+ * Transfer keinen Preis nennt (laut Doku kommt das vor). Dann bleibt es beim
+ * Datum allein — "für 0 €" wäre eine erfundene Zahl.
  */
 function PurchaseLine({ purchase, pending }: { purchase: PlayerTransfer | null; pending: boolean }) {
   if (pending) {
@@ -341,7 +346,13 @@ function PurchaseLine({ purchase, pending }: { purchase: PlayerTransfer | null; 
   }
   const date = purchase ? formatIsoDate(purchase.date) : null;
   if (!date) return null;
-  return <p className={styles.purchase}>Gekauft am {date}</p>;
+  const price = purchase?.price ?? null;
+  return (
+    <p className={styles.purchase}>
+      Gekauft am {date}
+      {price !== null && ` für ${formatCurrency(price)}`}
+    </p>
+  );
 }
 
 /**

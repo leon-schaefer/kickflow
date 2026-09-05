@@ -17,10 +17,32 @@ import { AVAILABLE_FORMATIONS, requiredCountsForFormation } from './formations';
  */
 
 /**
- * 'valuePerMillion' = Ø-Punkte/Mio (Effizienz), 'points' = Ø-Punkte (Rohertrag),
- * 'expectedPoints' = Ø-Punkte gewichtet mit der Gegner-Härte der nächsten
- * Spiele (siehe src/utils/fixtureDifficulty.ts) — ein grober, transparent
- * kommunizierter Faktor um 1,0, kein kalibriertes Vorhersagemodell.
+ * 'points' = Ø-Punkte (Rohertrag), 'expectedPoints' = Ø-Punkte gewichtet mit
+ * der Gegner-Härte der nächsten Spiele (siehe src/utils/fixtureDifficulty.ts)
+ * — ein grober, transparent kommunizierter Faktor um 1,0, kein kalibriertes
+ * Vorhersagemodell —, 'valuePerMillion' = Ø-Punkte/Mio (Effizienz).
+ *
+ * Rangfolge der Werte, absichtlich in dieser Reihenfolge (die Voreinstellung
+ * ist 'points', siehe useLineupOptimizer.ts):
+ *
+ * 1. PUNKTE sind die Zielfunktion. Am Spieltag zählt die Summe über die Elf,
+ *    nicht die Effizienz, mit der sie zustande kam. Eine Elf aufzustellen
+ *    kostet nichts — der Kader ist gekauft, das Budget ist bereits ausgegeben.
+ * 2. EFFIZIENZ ist ein Transfer-Signal, kein Aufstellungsziel. Ø-Punkte/Mio
+ *    beantwortet "wen kaufe/verkaufe ich", nicht "wen stelle ich auf". Ein
+ *    Optimierer, der die Summe der Quotienten maximiert, maximiert eine Größe,
+ *    die kein Spieltag auszahlt: er lässt bewusst Punkte liegen, um teure
+ *    Spieler zu meiden, deren Preis längst bezahlt ist. Deshalb speist die
+ *    Metrik in sellAdvice.ts die Kaufen/Verkaufen-Liste, wo sie hingehört.
+ * 3. GELD wird zur harten NEBENBEDINGUNG, nie zum Ziel. Ist das Konto im
+ *    Minus, deckelt der Kontoausgleich (utils/sellPlan.ts) den Marktwert der
+ *    behaltenen Elf und maximiert die Punkte DARUNTER (Pareto-DP in
+ *    cappedLineup.ts, global optimal). Auch dort bleibt 'points' die richtige
+ *    Zielfunktion — Ø-Punkte/Mio wäre für dieses Rucksackproblem nur die
+ *    greedy Heuristik, die es exakt zu ersetzen gilt.
+ *
+ * Innerhalb einer Metrik ist die Effizienz das Tie-Break (siehe
+ * compareByMetric): bei gleichen Ø-Punkten gewinnt der günstigere Spieler.
  */
 export type OptimizerMetric = 'valuePerMillion' | 'points' | 'expectedPoints';
 

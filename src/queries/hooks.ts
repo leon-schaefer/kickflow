@@ -19,9 +19,16 @@ import {
   removePlayerFromMarket,
   saveLineup,
 } from '@/api/kickbase';
-import type { ListPlayerInput, PlaceOfferInput, PlayerDetail, SaveLineupInput } from '@/api/kickbase';
+import type {
+  ListPlayerInput,
+  PlaceOfferInput,
+  PlayerDetail,
+  PlayerTransfer,
+  SaveLineupInput,
+} from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
+import { resolveOwnPurchase } from '@/utils/playerPurchase';
 import type { PlaytimeTotals } from '@/utils/playtime';
 import { latestSeason, sumPlaytime } from '@/utils/playtime';
 import { queryKeys } from './keys';
@@ -179,6 +186,78 @@ export function usePlayerTransfers(
     enabled: !!token && !!leagueId && !!playerId && (options.enabled ?? true),
     staleTime: 15 * 60_000,
   });
+}
+
+export interface PurchaseState {
+  /** playerId → eigener Kauf. Eintrag fehlt, solange der Request läuft, scheitert oder sich kein Kauf belegen lässt. */
+  purchases: Map<string, PlayerTransfer>;
+  /** Noch laufende Requests — für den Lade-Hinweis in der Kaufen/Verkaufen-Liste. */
+  pending: number;
+  /** Gesamtzahl der Spieler, für die die Historie abgefragt wird. */
+  total: number;
+}
+
+/**
+ * "Für wie viel habe ich den gekauft?" für eine ganze Spielerliste — dieselbe
+ * Quelle wie die Kaufdatum-Zeile im Spieler-Screen (getPlayerTransferHistory,
+ * ausgewertet von resolveOwnPurchase), nur für den Kader auf einmal.
+ *
+ * Ein Request PRO Spieler, weil Kickbase in der Kaderantwort weder Kaufpreis
+ * noch Kaufdatum liefert (siehe rawSquadPlayerSchema). Deshalb zwei Bremsen:
+ * das Gate in src/api/kickbase/limiter.ts hält den Burst von Cloudflare fern,
+ * und der Aufrufer schaltet die Abfrage über `enabled` erst frei, wenn die
+ * Liste wirklich aufgeklappt ist (siehe SellAdviceSection). Der Cache-Key ist
+ * derselbe wie in usePlayerTransfers — wer vorher im Spieler-Screen war,
+ * bezahlt den Request kein zweites Mal.
+ *
+ * `inOwnSquad: true` ist hier korrekt und keine Annahme: aufgerufen wird das
+ * nur mit den eigenen Kaderspielern. Fällt ein Request aus, fehlt schlicht der
+ * Eintrag — die Liste zeigt den Spieler dann ohne Kaufpreis.
+ *
+ * `playerIds` muss stabil sein (useMemo beim Aufrufer), sonst baut useQueries
+ * die Query-Liste bei jedem Render neu auf.
+ */
+export function usePurchases(
+  leagueId: string,
+  playerIds: string[],
+  options: { enabled?: boolean } = {},
+): PurchaseState {
+  // `userId` von hier statt als Parameter: der Hook hängt für den Token
+  // ohnehin an useAuth, und so braucht der aufrufende Screen den
+  // Auth-Kontext nicht selbst.
+  const { token, userId } = useAuth();
+  const enabled = options.enabled ?? true;
+  const results = useQueries({
+    queries: playerIds.map((playerId) => ({
+      queryKey: queryKeys.playerTransfers(leagueId, playerId),
+      queryFn: () => getPlayerTransferHistory(token!, leagueId, playerId),
+      enabled: enabled && !!token && !!leagueId && !!playerId,
+      staleTime: 15 * 60_000,
+    })),
+  });
+
+  const purchases = useMemo(() => {
+    const map = new Map<string, PlayerTransfer>();
+    results.forEach((result, index) => {
+      const playerId = playerIds[index];
+      if (!playerId || !result.data) return;
+      const purchase = resolveOwnPurchase({
+        transfers: result.data,
+        ownUserId: userId,
+        inOwnSquad: true,
+      });
+      if (purchase) map.set(playerId, purchase);
+    });
+    return map;
+  }, [results, playerIds, userId]);
+
+  // isPending statt "erwartet minus geladen": ein fehlgeschlagener Request wäre
+  // sonst dauerhaft "pending" (Vorbild usePlaytimes unten). Ist die Abfrage gar
+  // nicht freigeschaltet, meldet useQueries die Einträge ebenfalls als pending —
+  // ohne laufende Requests soll die Liste aber keinen Ladehinweis zeigen.
+  const pending = enabled ? results.reduce((count, r) => (r.isPending ? count + 1 : count), 0) : 0;
+
+  return { purchases, pending, total: playerIds.length };
 }
 
 export interface PlaytimeState {
