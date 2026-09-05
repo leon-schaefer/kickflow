@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import type { LeagueSummary } from '@/api/kickbase';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
+import { leagueTabTitleForPath } from '@/leagues/leagueTabs';
 import { setLastLeagueId } from '@/leagues/lastLeague';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useLeagues } from '@/queries/hooks';
+import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
 import styles from './LeagueSwitcher.module.css';
@@ -23,6 +25,8 @@ export function LeagueSwitcher() {
   const { data: leagues } = useLeagues();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const leagueName = currentLeague?.name ?? 'Liga';
 
   async function selectLeague(league: LeagueSummary) {
     setOpen(false);
@@ -33,9 +37,19 @@ export function LeagueSwitcher() {
     navigate(`/${league.id}/lineup`, { replace: true });
   }
 
+  /**
+   * Beide Fußwege verlassen die Liga. Die Herkunft geht deshalb explizit mit:
+   * ohne sie zeigte der Zurück-Pfeil der Einstellungen über den Fallback von
+   * `useBackTarget` immer auf „Aufstellung", auch wenn der Dialog aus dem
+   * Markt heraus geöffnet wurde. (Die Ligenliste hat keinen Zurück-Pfeil, der
+   * state schadet dort aber nicht.)
+   *
+   * Das Label ist der Tab-Titel, nicht der Liga-Name: der Pfeil soll die
+   * verlassene Seite benennen, so wie in den Detail-Screens auch.
+   */
   function go(path: string) {
     setOpen(false);
-    navigate(path);
+    navigate(path, withOrigin(pathname, leagueTabTitleForPath(pathname) ?? leagueName));
   }
 
   return (
@@ -47,7 +61,7 @@ export function LeagueSwitcher() {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className={styles.triggerText}>{currentLeague?.name ?? 'Liga'}</span>
+        <span className={styles.triggerText}>{leagueName}</span>
         <span className={styles.chevron} aria-hidden="true">
           ▾
         </span>

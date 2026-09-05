@@ -40,6 +40,13 @@ describe('useBackTarget', () => {
     expect(screen.getByRole('status')).toHaveTextContent('/7/lineup|Aufstellung');
   });
 
+  it('fällt ohne Liga-Kontext auf die Ligenliste zurück', () => {
+    // `/${''}/lineup` ergäbe `//lineup` — protokollrelativ, also ein Sprung
+    // auf den Host `lineup` statt in die App.
+    renderWithState(null, '');
+    expect(screen.getByRole('status')).toHaveTextContent('/leagues|Meine Ligen');
+  });
+
   it('ergänzt ein fehlendes Ziel', () => {
     renderWithState({ fromTitle: 'Markt' });
     expect(screen.getByRole('status')).toHaveTextContent('/42/lineup|Markt');
