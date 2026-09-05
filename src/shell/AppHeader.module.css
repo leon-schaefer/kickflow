@@ -15,17 +15,19 @@
   color: var(--color-text-primary);
 
   /*
-   * Wie bei der Tab-Leiste unten: das obere Inset kam bisher gratis vom
-   * SafeAreaProvider. Ohne diese Zeile liegt der Header in der installierten
-   * iOS-PWA unter der Notch.
+   * Mindestens die 8px, mehr nur wenn die Plattform ein Inset meldet.
    *
-   * Braucht in der index.html BEIDES: `viewport-fit=cover` UND
-   * `apple-mobile-web-app-status-bar-style=black-translucent`. Fehlt das
-   * zweite, meldet `env(safe-area-inset-top)` null, `max()` fällt auf die
-   * 8px zurück — und weil iOS die Statusleiste trotzdem als durchscheinende
-   * Schicht über den Content legt, sehen Titel und Zurück-Weg dann
-   * verschwommen aus. Der deckende `background` oben ist das Gegenstück
-   * dazu: unter der Leiste liegt damit Hintergrund und kein Text.
+   * Heute meldet keine: die index.html setzt bewusst KEIN `viewport-fit=cover`
+   * mehr, damit die App gar nicht erst unter die Statusleiste zeichnet — dort
+   * legt iOS in der installierten PWA eine Schicht darüber, die alles darin
+   * verschmiert, und zwar rund 40pt TIEFER als die Safe Area reicht. Der Weg
+   * über `env()` konnte das deshalb nie lösen; die ganze Begründung samt
+   * gemessener Zahlen steht in der index.html.
+   *
+   * Der Ausdruck bleibt als `max()` stehen, weil er die Absicht trägt und
+   * nicht die Plattform: Systemleisten überlappen die Kopfzeile nie. Kommt
+   * `viewport-fit=cover` je zurück, hält er von selbst — verschwindet er,
+   * bricht es dann still.
    */
   padding-top: max(var(--space-sm), env(safe-area-inset-top));
 }

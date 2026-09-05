@@ -10,10 +10,11 @@ import { colors } from '@/theme/tokens';
  * Begründungskommentar in der Datei stehen und alle drei stumm brechen, wenn
  * sie verschwinden:
  *
- *   1. `viewport-fit=cover` plus `apple-mobile-web-app-status-bar-style=
- *      black-translucent` — ohne das Paar melden die Safe-Area-Insets null:
- *      unten verschwindet das Padding der Tab-Bar, oben rutscht die Kopfzeile
- *      unter die durchscheinende Statusleiste.
+ *   1. KEIN `viewport-fit=cover` plus `apple-mobile-web-app-status-bar-style=
+ *      black` — dieses Paar hält die App aus dem Bereich heraus, den iOS in
+ *      der installierten PWA mit einer eigenen, verschmierenden Schicht
+ *      belegt. Beide Werte sind schon einmal andersherum dagewesen; deshalb
+ *      prüft der Test hier eine ABWESENHEIT, was er sonst nirgends tut.
  *   2. `maximum-scale=1, user-scalable=no` — Zoom bringt den Visual Viewport
  *      und das `100dvh`-Layout auseinander, sichtbar als weißer Balken unten.
  *   3. `100dvh` plus `background-color` auf html/body — Safari tönt seine
@@ -46,13 +47,30 @@ describe('index.html', () => {
 
   const html = readFileSync(existsSync(AT_ROOT) ? AT_ROOT : IN_PUBLIC, 'utf8');
 
-  it('lässt die App unter Notch und Home-Indicator zeichnen', () => {
-    expect(html).toContain('viewport-fit=cover');
+  /**
+   * Nur der `content`-Wert des viewport-Metas, nicht die ganze Datei.
+   *
+   * Nötig, seit die Prüfung darunter eine Abwesenheit ist: die Begründung für
+   * das fehlende `viewport-fit=cover` steht als Kommentar direkt über dem Tag
+   * und nennt den Wert mehrfach beim Namen. Ein `not.toContain` über das
+   * Dokument fiele darüber und wäre nur noch grün, solange niemand die
+   * Begründung aufschreibt.
+   */
+  const viewportMeta = /<meta\s+name="viewport"\s+content="([^"]*)"/.exec(html)?.[1] ?? '';
+
+  it('zeichnet NICHT unter Notch und Home-Indicator', () => {
+    expect(viewportMeta).not.toBe('');
+    // Absichtlich eine Abwesenheit: `viewport-fit=cover` schiebt die App unter
+    // die Statusleiste, und dort legt iOS in der installierten PWA eine
+    // gerasterte Schicht über den oberen Rand — rund 40pt tiefer, als die Safe
+    // Area reicht. Alles darin wird verschmiert, auch was das Inset korrekt
+    // respektiert. Die ausgemessene Begründung steht in der index.html.
+    expect(viewportMeta).not.toContain('viewport-fit');
   });
 
   it('sperrt den Zoom, der das 100dvh-Layout zerreißt', () => {
-    expect(html).toContain('maximum-scale=1');
-    expect(html).toContain('user-scalable=no');
+    expect(viewportMeta).toContain('maximum-scale=1');
+    expect(viewportMeta).toContain('user-scalable=no');
     expect(html).toContain('touch-action: manipulation');
   });
 
@@ -62,13 +80,11 @@ describe('index.html', () => {
     expect(html).toContain('apple-touch-icon');
     expect(html).toContain('apple-mobile-web-app-capable');
     expect(html).toContain('apple-mobile-web-app-title');
-    // `black-translucent`, nicht `black`: nur damit meldet `env(safe-area-inset-top)`
-    // in der installierten iOS-PWA überhaupt einen Wert. Mit `black` bleibt der Inset
-    // null, die Kopfzeile rutscht unter die durchscheinende Statusleiste und Titel wie
-    // Zurück-Weg wirken verschwommen. Begründung steht ausführlich in der index.html.
-    expect(html).toMatch(
-      /apple-mobile-web-app-status-bar-style"?\s+content="black-translucent"/,
-    );
+    // `black`, nicht `black-translucent`: der translucent-Wert zwingt den Inhalt unter
+    // die Statusleiste, unabhängig vom viewport-fit oben — und damit unter die Schicht,
+    // die ihn verschmiert. Gehört mit der Prüfung auf das fehlende `viewport-fit=cover`
+    // zusammen; einer der beiden allein genügt nicht.
+    expect(html).toMatch(/apple-mobile-web-app-status-bar-style"?\s+content="black"/);
   });
 
   it('färbt html/body in der Hintergrundfarbe aus den Tokens', () => {
