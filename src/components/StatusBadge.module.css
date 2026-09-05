@@ -1,13 +1,18 @@
 /*
- * Der Punkt ist halb so groß wie die angefragte Größe — so war es schon im
- * `fallback` der expo-symbols-Fassung, damit er im Platz eines Icons sitzt,
- * ohne ihn zu füllen.
+ * Das Icon nimmt die Statusfarbe über `color`, nicht über eine Prop: die
+ * SVGs zeichnen mit `currentColor`, und damit greift dieselbe Kette wie beim
+ * Punkt vorher — `--badge-color` (von außen gesetzt, z. B. der Ring in
+ * PlayerCard) vor `--status` (aus theme/positions.css am data-status).
+ *
+ * --badge-size setzt die Komponente zusätzlich als Variable, obwohl das SVG
+ * seine Größe schon als Attribut trägt: so kann eine Umgebung (der Ring)
+ * ihren Platz an derselben Zahl ausrichten.
  */
-.dot {
-  display: block;
-  width: calc(var(--badge-size, 16px) / 2);
-  aspect-ratio: 1;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--badge-color, var(--status, var(--color-text-muted)));
+.badge {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  width: var(--badge-size, 14px);
+  height: var(--badge-size, 14px);
+  color: var(--badge-color, var(--status, var(--color-text-muted)));
 }

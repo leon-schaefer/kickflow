@@ -43,8 +43,8 @@ export function PlayerCard({
         )}
         {player.status !== 'fit' && (
           // Der Ring nimmt seine Farbe aus data-status, seinen Rahmen aus
-          // --card-bg (Rasen vs. Bank) und setzt --badge-color für den Punkt
-          // darin — der erbt sie, ohne dass StatusBadge eine Farbe als Prop
+          // --card-bg (Rasen vs. Bank) und setzt --badge-color für das Icon
+          // darin — das erbt sie, ohne dass StatusBadge eine Farbe als Prop
           // bekommt. Vorher liefen alle drei Werte durch JavaScript, --card-bg
           // sogar als `backgroundColor`-Prop von außen.
           <span className={styles.statusRing} data-status={player.status}>
@@ -66,4 +66,11 @@ export function PlayerCard({
   );
 }
 
-const STATUS_ICON_SIZE = 11;
+/*
+ * Passt in den 18-px-Ring: 2 px Rand auf jeder Seite lassen 14 px innen, und
+ * die Icons zeichnen selbst nur ~75 % ihrer Box (Rand im viewBox), sodass ein
+ * 12-px-Icon dort als knapp 9 px Tinte sitzt — sichtbar, ohne den Ring zu
+ * sprengen. Der frühere Wert war 11 und stammt aus der Punkt-Fassung, die
+ * davon nur die Hälfte zeichnete.
+ */
+const STATUS_ICON_SIZE = 12;
