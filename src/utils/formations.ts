@@ -2,10 +2,25 @@ import type { Position } from '@/api/kickbase';
 import { parseFormation } from '@/api/kickbase';
 
 /**
- * Bei Kickbase übliche Formationen. Jede besteht aus genau drei Zahlen
- * (ABW-MF-ANG) — der Torwart ist immer genau einer und taucht im String
- * nicht auf. Nicht durch scripts/probe.ts verifiziert, welche Formationen
- * der jeweilige Liga-Modus tatsächlich zulässt.
+ * Die zehn Formationen, die Kickbase zur Wahl stellt — vollständig, nicht nur
+ * die üblichen. Jede besteht aus genau drei Zahlen (ABW-MF-ANG); der Torwart
+ * ist immer genau einer und taucht im String nicht auf.
+ *
+ * Kickbase nennt als Untergrenze 1 TW, 3 ABW, 2 MF, 1 ANG. Mit den vier frei
+ * verteilbaren Restplätzen wären zwölf Kombinationen denkbar; 3-2-5 (fünf
+ * Stürmer) und 3-3-4 bietet die App aber nicht an, die Liste ist also eine
+ * feste Auswahl und nicht aus der Regel ableitbar — deshalb steht sie hier
+ * ausgeschrieben und wird nicht berechnet.
+ *
+ * Quelle ist die Kickbase-Hilfe bzw. die App selbst, nicht scripts/probe.ts:
+ * `POST /v4/leagues/{id}/lineup` nimmt den Formationsstring als freies `type`
+ * entgegen (siehe endpoints.ts), die API gibt die erlaubte Menge also nicht her.
+ * Ob ein einzelner Liga-Modus die Auswahl weiter einschränkt, ist unverifiziert.
+ *
+ * Gruppiert nach Abwehrreihe; die Reihenfolge innerhalb einer Gruppe ist
+ * gewachsen und folgt keiner Regel. Kosmetisch ist sie trotzdem nicht: bei
+ * punktgleichen Formationen gewinnt die frühere (siehe formationFor() und
+ * optimizeLineup()), Umsortieren ändert also Ergebnisse.
  */
 export const AVAILABLE_FORMATIONS = [
   '3-4-3',
@@ -15,6 +30,7 @@ export const AVAILABLE_FORMATIONS = [
   '4-3-3',
   '4-2-4',
   '4-5-1',
+  '5-2-3',
   '5-3-2',
   '5-4-1',
 ];
