@@ -38,6 +38,21 @@ describe('Pitch', () => {
     expect(container.querySelectorAll(`.${pitchStyles.row}`)).toHaveLength(3);
   });
 
+  it('gibt jeder Reihe ihre Kartenzahl mit, damit sie nicht breiter wird als das Feld', () => {
+    // Sechs Mittelfeldspieler (3-6-1) passen nur nebeneinander, wenn die Reihe
+    // ihre Breite durch --slots teilt — mit fester Kartenbreite ragten sie
+    // über den Rasen hinaus.
+    const midfield = Array.from({ length: 6 }, (_, i) =>
+      squadPlayer({ id: `m${i}`, name: `Mittelfeld ${i}`, position: 'MID', lineupSlot: 10 + i }),
+    );
+    const { container } = render(<Pitch players={[...lineup, ...midfield]} />);
+
+    const rows = [...container.querySelectorAll<HTMLElement>(`.${pitchStyles.row}`)];
+    const slots = rows.map((row) => row.style.getPropertyValue('--slots'));
+    // FWD 1, MID 6, DEF 2, GK 1 — von vorn nach hinten.
+    expect(slots).toEqual(['1', '6', '2', '1']);
+  });
+
   it('gibt eine Auswahl nach oben durch', async () => {
     const onSelectPlayer = vi.fn();
     render(<Pitch players={lineup} onSelectPlayer={onSelectPlayer} />);

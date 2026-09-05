@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { Position, SquadPlayer } from '@/api/kickbase';
 import styles from './Pitch.module.css';
 import { PlayerCard } from './PlayerCard';
@@ -49,7 +50,14 @@ export function Pitch({ players, onSelectPlayer, changedIds }: PitchProps) {
 
       <div className={styles.rows}>
         {rows.map((row) => (
-          <div key={row.position} className={styles.row}>
+          <div
+            key={row.position}
+            className={styles.row}
+            // Die Reihe teilt ihre Breite durch die Zahl der Karten, damit
+            // sechs Mittelfeldspieler (3-6-1) nicht über den Rasen
+            // hinausragen — siehe --card-width in Pitch.module.css.
+            style={{ '--slots': row.players.length } as CSSProperties}
+          >
             {row.players.map((player) => (
               <PlayerCard
                 key={player.id}

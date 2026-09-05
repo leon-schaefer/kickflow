@@ -1,5 +1,11 @@
+/*
+ * 68px ist die Wunschbreite; auf dem Rasen setzt Pitch `--card-width` auf den
+ * Anteil, der in einer Reihe tatsächlich Platz hat (bei einer 3-6-1 sind das
+ * sechs Karten nebeneinander). Auf der Bank bleibt es beim Default, dort
+ * bricht die Reihe um.
+ */
 .card {
-  width: 68px;
+  width: var(--card-width, 68px);
   align-items: center;
   padding: var(--space-xs);
   border-radius: var(--radius-md);
@@ -26,14 +32,16 @@
   composes: v from '@/theme/layout.module.css';
   /* Trägt Statusring und Kapitäns-Badge, die absolut darüber sitzen. */
   position: relative;
-  width: 48px;
-  height: 48px;
+  /* Schrumpft mit der Karte mit, statt aus ihr herauszuragen, sobald
+     `--card-width` unter die 48px + Padding fällt. */
+  width: min(48px, 100%);
+  aspect-ratio: 1;
   margin-bottom: var(--space-xs);
 }
 
 .image {
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: var(--radius-full);
   background: var(--color-surface-raised);
   object-fit: cover;
