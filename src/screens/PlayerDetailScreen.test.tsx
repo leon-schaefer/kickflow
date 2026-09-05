@@ -15,6 +15,7 @@ import { fakeLayout } from '@/test/fakeLayout';
 import { lineupData } from '@/test/lineupData';
 import { playerDetail } from '@/test/playerDetail';
 import { squadPlayer } from '@/test/squadPlayer';
+import { formatCurrency } from '@/utils/format';
 import { PlayerDetailScreen } from './PlayerDetailScreen';
 
 const auth = vi.hoisted(() => ({ userId: 'me' as string | null }));
@@ -201,6 +202,27 @@ describe('PlayerDetailScreen', () => {
     ];
     setup();
     expect(screen.getByText(/Gekauft am 12\.08\.2026/)).toBeInTheDocument();
+  });
+
+  it('nennt neben dem Kaufdatum den gezahlten Preis', () => {
+    lineup.data = lineupData([squadPlayer({ id: '1' })]);
+    transfers.data = [
+      { date: '2026-08-12T10:00:00Z', buyerId: 'me', buyerName: 'Ich', price: 9_000_000 },
+    ];
+    setup();
+    expect(screen.getByText(/Gekauft am 12\.08\.2026 für/)).toHaveTextContent(
+      formatCurrency(9_000_000),
+    );
+  });
+
+  it('zeigt nur das Datum, wenn die Historie keinen Preis nennt', () => {
+    lineup.data = lineupData([squadPlayer({ id: '1' })]);
+    // `price: null` heißt "die Antwort nennt keinen" — "für 0 €" wäre erfunden.
+    transfers.data = [
+      { date: '2026-08-12T10:00:00Z', buyerId: 'me', buyerName: 'Ich', price: null },
+    ];
+    setup();
+    expect(screen.getByText('Gekauft am 12.08.2026')).toBeInTheDocument();
   });
 
   it('lässt die Kaufzeile weg, wenn kein Kauf belegbar ist', () => {

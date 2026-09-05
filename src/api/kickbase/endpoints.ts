@@ -3,7 +3,12 @@
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
 import { kbFetch } from './client';
-import { withCompetitionPlayersLimit, withPerformanceLimit, withPlayerLookupLimit } from './limiter';
+import {
+  withCompetitionPlayersLimit,
+  withPerformanceLimit,
+  withPlayerLookupLimit,
+  withTransferHistoryLimit,
+} from './limiter';
 import {
   toAuthSession,
   toCompetitionPlayers,
@@ -339,15 +344,19 @@ export async function getPlayerBasic(token: string, leagueId: string, playerId: 
  * verifiziert — das tut `npm run probe -- --transfers`. Fällt der Aufruf
  * aus, bleibt auf dem Screen nur die Kaufdatum-Zeile weg; der Rest hängt
  * nicht daran.
+ *
+ * Hinter dem Concurrency-Gate, seit die Kaufen/Verkaufen-Liste das für den
+ * ganzen Kader auf einmal abfragt (siehe usePurchases in queries/hooks.ts) —
+ * sonst landen 20–25 Requests als Burst bei Cloudflare.
  */
 export async function getPlayerTransferHistory(
   token: string,
   leagueId: string,
   playerId: string,
 ): Promise<PlayerTransfer[]> {
-  const raw = await kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/transferHistory?start=0`, {
-    token,
-  });
+  const raw = await withTransferHistoryLimit(() =>
+    kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/transferHistory?start=0`, { token }),
+  );
   return toPlayerTransfers(rawPlayerTransferHistorySchema.parse(raw));
 }
 
