@@ -1,0 +1,129 @@
+.intro {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.chipRow {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+/* Wie die Schnellwahl im OfferModal — aktiv ist hier aber eine echte Auswahl
+   (aria-pressed) und kein einmaliger Sprung, deshalb der markierte Zustand. */
+.chip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.row {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Der Name darf schrumpfen, das Preisfeld nicht — sonst frisst ein langer
+   Name die Eingabe auf schmalen Geräten auf. */
+.rowLabel {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+}
+
+.priceField {
+  flex: 0 0 8.5rem;
+  /* Das Panel ist selbst `surface` — das Feld setzt sich mit `background` ab. */
+  background: var(--color-background);
+}
+
+.inputSuffix {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.summaryNegative {
+  color: var(--color-danger);
+}
+
+.hint {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-danger);
+}
+
+.actions {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* text-align statt Flex: der Knopf trägt nur Text — siehe OfferModal. */
+.cancelButton {
+  flex: 1 1 0;
+  padding-block: var(--space-md);
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.submitButton {
+  composes: h from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  color: var(--color-background);
+}
+
+.submitButton:disabled,
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
