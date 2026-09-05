@@ -187,6 +187,78 @@ describe('buildSellPlan', () => {
     expect(plan.sell[0]!.playerId).toBe('BenchBig');
   });
 
+  it('streicht einen Verkauf wieder, den ein späterer allein überflüssig macht (Regression)', () => {
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 4_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 4_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 4_000_000 }),
+      // Sportlich der schwächste, deckt die 10 Mio aber nicht allein — die
+      // Greedy-Auswahl greift trotzdem zuerst zu ihm.
+      makePlayer({ id: 'BenchWeakSmall', position: 'FWD', averagePoints: -100, marketValue: 2_000_000 }),
+      // Der nächste Kandidat deckt allein: der erste Verkauf bringt damit nur
+      // Überschuss und muss wieder rausfallen.
+      makePlayer({ id: 'BenchBig', position: 'FWD', averagePoints: -50, marketValue: 30_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 10_000_000, ['4-4-2']);
+    expect(plan.sell.map((entry) => entry.playerId)).toEqual(['BenchBig']);
+    expect(plan.proceeds).toBe(30_000_000);
+    expect(plan.balanceAfter).toBe(20_000_000);
+    expect(plan.feasible).toBe(true);
+  });
+
+  it('behält beide Verkäufe, wenn keiner allein deckt', () => {
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 4_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 4_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'BenchA', position: 'FWD', averagePoints: -100, marketValue: 6_000_000 }),
+      makePlayer({ id: 'BenchB', position: 'FWD', averagePoints: -50, marketValue: 6_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 10_000_000, ['4-4-2']);
+    expect(plan.sell.map((entry) => entry.playerId)).toEqual(['BenchA', 'BenchB']);
+    expect(plan.feasible).toBe(true);
+  });
+
+  it('streicht den großen Verkauf, wenn die kleinen zusammen reichen', () => {
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 4_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 4_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 4_000_000 }),
+      // Zwei schwache Bankspieler decken die 10 Mio exakt — der dritte, sportlich
+      // wertvollste Verkauf ist damit überflüssig und wird gestrichen.
+      makePlayer({ id: 'BenchA', position: 'FWD', averagePoints: -100, marketValue: 5_000_000 }),
+      makePlayer({ id: 'BenchB', position: 'FWD', averagePoints: -90, marketValue: 5_000_000 }),
+      makePlayer({ id: 'BenchC', position: 'FWD', averagePoints: -10, marketValue: 20_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 10_000_000, ['4-4-2']);
+    expect(plan.sell.map((entry) => entry.playerId)).toEqual(['BenchA', 'BenchB']);
+    expect(plan.proceeds).toBe(10_000_000);
+  });
+
+  it('streicht nichts, wenn der Kader das Defizit ohnehin nicht deckt', () => {
+    const players: OptimizerPlayer[] = [
+      makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id) => makePlayer({ id, position: 'DEF', marketValue: 4_000_000 })),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id) => makePlayer({ id, position: 'MID', marketValue: 4_000_000 })),
+      makePlayer({ id: 'FWD0', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', marketValue: 4_000_000 }),
+      makePlayer({ id: 'BenchA', position: 'FWD', averagePoints: -100, marketValue: 3_000_000 }),
+      makePlayer({ id: 'BenchB', position: 'FWD', averagePoints: -90, marketValue: 3_000_000 }),
+      makePlayer({ id: 'BenchC', position: 'FWD', averagePoints: -80, marketValue: 3_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 500_000_000, ['4-4-2']);
+    expect(plan.feasible).toBe(false);
+    // Jeder Teilerlös wird gebraucht — der Ausverkauf bleibt vollständig.
+    expect(plan.sell.length).toBeGreaterThan(1);
+    expect(plan.proceeds).toBe(plan.sell.reduce((sum, entry) => sum + entry.marketValue, 0));
+  });
+
   it('ist bei identischen Marktwerten deterministisch (id aufsteigend)', () => {
     const players: OptimizerPlayer[] = [
       makePlayer({ id: 'GK0', position: 'GK', marketValue: 4_000_000 }),
