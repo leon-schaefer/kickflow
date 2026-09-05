@@ -12,15 +12,16 @@
  * Gleiche Verschiebung wie in der Kopfzeile, aus demselben Grund: das Banner
  * schwebt über dem oberen Rand und läge sonst als einziges Element wieder in
  * dem Band, das iOS in der installierten PWA darüber legt. Begründung,
- * Bedingungen und Messung stehen in `AppHeader.module.css`; der Abstand zur
- * Kopfzeile bleibt dabei derselbe, weil beide um denselben Wert wandern.
+ * Bedingungen und Messung stehen in `AppHeader.module.css`; das Banner nimmt
+ * dieselbe Untergrenze wie die Kopfzeile, damit beide auf derselben Höhe
+ * anfangen.
  */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     .frame {
-      top: calc(
-        env(safe-area-inset-top) + var(--space-sm) +
-          var(--layout-ios-status-band-overhang)
+      top: max(
+        calc(env(safe-area-inset-top) + var(--space-sm)),
+        var(--layout-ios-status-band-overhang)
       );
     }
   }

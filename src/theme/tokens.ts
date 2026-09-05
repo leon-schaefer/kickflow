@@ -103,7 +103,8 @@ export const layout = {
    * er `env(safe-area-inset-top)` korrekt respektiert (das Inset endet genau
    * da, wo das Band noch 40pt weitergeht).
    *
-   * Angewendet wird der Wert nur in der installierten iOS-PWA, siehe
+   * Angewendet als Mindestabstand von der Viewport-Kante (ein Kandidat im
+   * `max()`, kein Aufschlag), und nur in der installierten iOS-PWA — siehe
    * `AppHeader.module.css` und `UpdateBannerView.module.css`. Wer ihn ändert,
    * misst ihn am Gerät neu — geraten hilft hier niemandem.
    */
