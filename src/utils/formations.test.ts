@@ -16,6 +16,11 @@ describe('requiredCountsForFormation', () => {
     }
   });
 
+  it('kennt 3-6-1 — sechs Mittelfeldspieler sind bei Kickbase erlaubt', () => {
+    expect(AVAILABLE_FORMATIONS).toContain('3-6-1');
+    expect(requiredCountsForFormation('3-6-1')).toEqual({ GK: 1, DEF: 3, MID: 6, FWD: 1 });
+  });
+
   it('liefert bei unparsbarem Input den dokumentierten Fallback', () => {
     const fallback = { GK: 1, DEF: 0, MID: 0, FWD: 0 };
     expect(requiredCountsForFormation('')).toEqual(fallback);
@@ -56,6 +61,12 @@ describe('formationFor', () => {
     const counts = { GK: 1, DEF: 3, MID: 3, FWD: 2 };
     expect(formationFor(counts, { formations: ['4-4-2', '3-4-3'] })).toBe('4-4-2');
     expect(formationFor(counts, { formations: ['3-4-3', '4-4-2'] })).toBe('3-4-3');
+  });
+
+  it('wählt 3-6-1 als einzige Formation mit sechs Mittelfeldplätzen', () => {
+    // Der sechste Mittelfeldspieler passt sonst nirgends — 4-5-1 und 3-5-2
+    // haben nur fünf.
+    expect(formationFor({ GK: 1, DEF: 3, MID: 6, FWD: 1 }, { current: '4-5-1' })).toBe('3-6-1');
   });
 
   it('liefert null, wenn keine Formation die Verteilung aufnimmt', () => {
