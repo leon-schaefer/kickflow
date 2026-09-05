@@ -5,14 +5,18 @@
   background: var(--color-background);
 
   /*
-   * WICHTIG. Das untere Padding kam bisher GRATIS von React Navigation, das
-   * die Safe-Area-Insets intern konsumiert hat. Die selbstgebaute Leiste
-   * verliert das lautlos — ohne diese Zeile liegen die Tabs in der
-   * installierten iOS-PWA unter dem Home-Indicator und sind nicht antippbar.
+   * Gegenstück zum `padding-top` im AppHeader: mindestens die 4px, mehr nur
+   * wenn die Plattform ein Inset meldet.
    *
-   * `max()` statt einer Addition, damit die Leiste auf Geräten ohne Inset
-   * nicht unnötig hoch wird. Funktioniert nur, weil public/index.html
-   * `viewport-fit=cover` setzt — ohne das melden alle env() null.
+   * Das untere Padding kam bis zum Umzug GRATIS von React Navigation, das die
+   * Safe-Area-Insets intern konsumiert hat; die selbstgebaute Leiste verliert
+   * das lautlos. Seit die index.html kein `viewport-fit=cover` mehr setzt,
+   * reserviert iOS den Streifen über dem Home-Indicator aber selbst und legt
+   * ihn außerhalb des Viewports — das Inset meldet null und muss es auch,
+   * sonst käme das Padding ein zweites Mal oben auf den reservierten Streifen.
+   *
+   * `max()` statt einer Addition ist genau deshalb richtig: der Ausdruck
+   * stimmt in beiden Welten, ohne zu wissen, in welcher er läuft.
    */
   padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
 }
