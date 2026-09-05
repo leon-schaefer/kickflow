@@ -43,10 +43,18 @@ abgewichen wird.
   Attribut-Selektoren, wo ein echtes Attribut passt (`aria-pressed`,
   `disabled`, `aria-current`). Für rein visuelle Varianten `cx` aus
   `src/utils/cx.ts`.
-- **Safe-Area**: Header und Tab-Leiste brauchen `env(safe-area-inset-*)`
-  explizit. Unter React Navigation kam das gratis; ohne die Regeln liegen sie in
-  der installierten iOS-PWA unter Notch und Home-Indicator, ohne jedes Symptom
-  im Desktop-Browser.
+- **Safe-Area**: Die App zeichnet bewusst NICHT randlos — die `index.html` setzt
+  kein `viewport-fit=cover` und `apple-mobile-web-app-status-bar-style=black`.
+  Randlos legt iOS in der installierten PWA eine eigene Schicht über den oberen
+  Rand, die alles darin verschmiert, und zwar rund 40pt tiefer als
+  `env(safe-area-inset-top)` reicht — das Inset zu respektieren genügt dagegen
+  nicht. Die ausgemessene Begründung steht in der `index.html`, bewacht von
+  `indexHtml.test.ts`, das dort ausnahmsweise eine Abwesenheit prüft.
+  Damit melden alle `env(safe-area-inset-*)` null. Header und Tab-Leiste tragen
+  sie trotzdem weiter als `max(Design-Wert, env(…))`: der Ausdruck sagt
+  „Systemleisten überlappen uns nie“ und stimmt in beiden Welten. Wer ihn als
+  toten Code streicht, nimmt der nächsten Runde das Netz — im Desktop-Browser
+  zeigt keine der beiden Welten ein Symptom.
 - **CSP**: `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` trägt die
   Argumentation für den Token im localStorage. Nichts einbauen, was Inline-
   Scripts oder `eval` braucht — siehe `vite.config.ts`

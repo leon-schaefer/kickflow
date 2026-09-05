@@ -6,8 +6,11 @@ import styles from './UpdateBannerView.module.css';
  *
  * Der Abstand nach oben kam vorher aus `useSafeAreaInsets().top` von
  * react-native-safe-area-context — jetzt aus `env(safe-area-inset-top)` im
- * CSS. Das funktioniert nur mit `viewport-fit=cover` in der index.html; ohne
- * das meldet der Browser alle Insets als 0 (Kommentar steht dort).
+ * CSS, addiert statt `max()`, weil der Banner schwebt und keine Kante füllt.
+ * Ohne `viewport-fit=cover` in der index.html (dort steht, warum es fehlt)
+ * meldet der Browser alle Insets als 0; dann bleiben die --space-sm stehen,
+ * gemessen ab der Oberkante des sicheren Bereichs — und genau da gehört er
+ * hin.
  *
  * Der `role="alert"` sitzt am Rahmen und nicht am Button: an ihm würde er die
  * Button-Rolle verdrängen, und der Banner wäre nicht mehr als Schaltfläche
