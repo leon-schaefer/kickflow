@@ -290,8 +290,12 @@ export interface PlayerTransfer {
    */
   buyerId: string | null;
   buyerName: string | null;
-  /** Gezahlter Preis (Rohfeld `trp`); 0, wenn die Antwort keinen liefert. */
-  price: number;
+  /**
+   * Gezahlter Preis (Rohfeld `trp`) — `null`, wenn die Antwort keinen nennt.
+   * Bewusst nicht 0: der Preis wird angezeigt ("Gekauft am ... für ..."), und
+   * "für 0 €" wäre eine Behauptung, die die Antwort nicht hergibt.
+   */
+  price: number | null;
 }
 
 /** Ein Manager in der Liga-Tabelle (`/v4/leagues/{id}/ranking`), siehe getLeagueRanking(). */

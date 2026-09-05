@@ -50,6 +50,9 @@ vi.mock('@/queries/hooks', () => ({
   useMarket: () => market,
   useLeagues: () => leagues,
   useSaveLineup: () => saveLineup,
+  // Kaufpreise der Kaufen/Verkaufen-Liste: hier leer, der Screen zeigt die
+  // Zeilen dann wie bisher ohne Kaufpreis (siehe usePurchases).
+  usePurchases: () => ({ purchases: new Map(), pending: 0, total: 0 }),
   // Der Screen hält den „Auf den Markt stellen"-Dialog dauerhaft im Baum
   // (er rendert erst bei `open` etwas, siehe MarketListingModal) — sein
   // Mutations-Hook läuft damit in jedem Render mit.

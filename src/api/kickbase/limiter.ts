@@ -58,6 +58,15 @@ export const withPerformanceLimit = createLimiter(4);
 export const withPlayerLookupLimit = createLimiter(4);
 
 /**
+ * Gate für die Transferhistorie (getPlayerTransferHistory): der Spieler-Screen
+ * holt sie für EINEN Spieler, die Kaufen/Verkaufen-Liste dagegen für den
+ * ganzen Kader auf einmal — also 20–25 Requests, sobald sie aufgeklappt wird.
+ * Eigenes Gate aus demselben Grund wie unten: die Warteschlange des Kaders
+ * soll den Spieler-Screen nicht ausbremsen.
+ */
+export const withTransferHistoryLimit = createLimiter(4);
+
+/**
  * Gate für den competition-weiten Spielerbestand (getCompetitionPlayers): ein
  * Request pro Verein, also 18 auf einmal beim ersten Öffnen des Spieler-Tabs.
  * Eigenes Gate aus demselben Grund wie oben — die Warteschlange des

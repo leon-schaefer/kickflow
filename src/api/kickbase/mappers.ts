@@ -465,7 +465,7 @@ export function toPlayerTransfers(raw: RawPlayerTransferHistory): PlayerTransfer
           date,
           buyerId: entry.u ?? null,
           buyerName: entry.unm ?? null,
-          price: entry.trp ?? 0,
+          price: entry.trp ?? null,
         },
       ];
     })

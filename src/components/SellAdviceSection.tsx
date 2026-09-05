@@ -22,6 +22,23 @@ interface SellAdviceSectionProps {
    * Handler bleibt die Sektion wie bisher reine Analyse.
    */
   onListOnMarket?: () => void;
+  /**
+   * playerId → eigener Kaufpreis (siehe usePurchases). Fehlender Eintrag heißt
+   * "nicht belegbar" — die Zeile bleibt dann ohne Kaufpreis.
+   *
+   * Kommt als Prop und wird NICHT hier geholt: die Sektion bleibt damit ein
+   * reines Anzeige-Bauteil ohne Query- und Auth-Kontext, so wie alle anderen
+   * Komponenten in diesem Ordner. Der Screen entscheidet über `onExpandedChange`
+   * unten, wann er die Requests überhaupt startet.
+   */
+  purchases?: ReadonlyMap<string, number | null>;
+  /** Noch laufende Kaufpreis-Requests, für den Ladehinweis über der Liste. */
+  purchasesPending?: number;
+  /**
+   * Meldet das Auf-/Zuklappen nach oben. Der Kaufpreis kostet einen Request pro
+   * Spieler — der Screen hängt daran, ob er sie überhaupt abschickt.
+   */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 /** "1 Pflichtverkauf" / "2 Pflichtverkäufe" — der Plural ändert hier den Stamm. */
@@ -30,7 +47,8 @@ function forcedLabel(count: number): string {
 }
 
 /**
- * Kaufen/Verkaufen-Einordnung des gesamten Kaders. Steht unabhängig vom
+ * Kaufen/Verkaufen-Einordnung des gesamten Kaders, je Zeile mit dem eigenen
+ * Kaufpreis und der Differenz zum heutigen Marktwert. Steht unabhängig vom
  * Edit-Modus zur Verfügung — die Analyse soll auch nach der Aufstellungs-
  * Deadline verfügbar sein. Standardmäßig zugeklappt, damit die Save-Bar im
  * Edit-Modus nicht aus dem Bild rutscht; die Kontoausgleichs-Zeile steht
@@ -44,10 +62,19 @@ export function SellAdviceSection({
   onSelectPlayer,
   onToggleExcluded,
   onListOnMarket,
+  purchases,
+  purchasesPending = 0,
+  onExpandedChange,
 }: SellAdviceSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
   const playersById = new Map(players.map((p) => [p.id, p]));
+
+  function toggleExpanded() {
+    const next = !expanded;
+    setExpanded(next);
+    onExpandedChange?.(next);
+  }
 
   // Bewusst weiter nur 'verkaufen': Pflichtverkäufe haben ihre eigene Zeile und
   // sollen den Zähler der sportlichen Verkaufskandidaten nicht still schrumpfen.
@@ -83,7 +110,7 @@ export function SellAdviceSection({
       <button
         type="button"
         className={cx(layout.pressableV, styles.header)}
-        onClick={() => setExpanded((e) => !e)}
+        onClick={toggleExpanded}
         aria-expanded={expanded}
         aria-controls={listId}
       >
@@ -158,6 +185,9 @@ export function SellAdviceSection({
               Erlös geschätzt zum Marktwert — ein Verkauf an Mitspieler kann darüber liegen.
             </p>
           )}
+          {purchasesPending > 0 && (
+            <p className={styles.disclaimer}>Kaufpreise werden geladen ({purchasesPending}) …</p>
+          )}
           {advice.map((entry) => {
             const player = playersById.get(entry.playerId);
             if (!player) return null;
@@ -168,6 +198,7 @@ export function SellAdviceSection({
                   advice={entry}
                   onClick={(p) => handleSelect(p.id)}
                   onToggleExcluded={onToggleExcluded ? (p) => handleToggleExcluded(p.id) : undefined}
+                  purchasePrice={purchases?.get(entry.playerId) ?? null}
                 />
               </div>
             );

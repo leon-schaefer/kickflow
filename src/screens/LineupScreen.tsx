@@ -19,7 +19,14 @@ import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
-import { useLeagues, useLineup, useMarket, useMatchdays, useSaveLineup } from '@/queries/hooks';
+import {
+  useLeagues,
+  useLineup,
+  useMarket,
+  useMatchdays,
+  usePurchases,
+  useSaveLineup,
+} from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
@@ -81,10 +88,27 @@ export function LineupScreen() {
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
   const [listingOpen, setListingOpen] = useState(false);
+  // Ob die Kaufen/Verkaufen-Sektion aufgeklappt ist. Hängt hier und nicht nur
+  // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
+  // (siehe usePurchases), also erst holen, wenn die Liste wirklich offen ist.
+  const [sellAdviceOpen, setSellAdviceOpen] = useState(false);
   const [formation, setFormation] = useState<string>('');
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const [selectedBenchId, setSelectedBenchId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Kaufpreise für die Kaufen/Verkaufen-Liste — ein Request PRO Kaderspieler
+  // (siehe usePurchases), deshalb erst wenn die Liste aufgeklappt ist.
+  // `useMemo` auf die ID-Liste ist Pflicht: useQueries baut sonst bei jedem
+  // Render eine neue Query-Liste auf.
+  const squadPlayerIds = useMemo(() => (data?.players ?? []).map((p) => p.id), [data]);
+  const purchases = usePurchases(leagueId, squadPlayerIds, { enabled: sellAdviceOpen });
+  // Die Sektion braucht nur den Preis, nicht den ganzen Transfer.
+  const purchasePrices = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const [playerId, transfer] of purchases.purchases) map.set(playerId, transfer.price);
+    return map;
+  }, [purchases.purchases]);
   // Rückmeldung zur automatischen Formationserkennung — lebt nur bis zum
   // nächsten Eingriff und ersetzt solange die Hinweiszeile unter dem Feld.
   const [autoNote, setAutoNote] = useState<string | null>(null);
@@ -555,6 +579,9 @@ export function LineupScreen() {
                 onSelectPlayer={openPlayer}
                 onToggleExcluded={(player) => toggleExcluded(player.id)}
                 onListOnMarket={() => setListingOpen(true)}
+                purchases={purchasePrices}
+                purchasesPending={purchases.pending}
+                onExpandedChange={setSellAdviceOpen}
               />
 
               {/* Portal nach document.body (siehe Modal.tsx) — liegt hier nur

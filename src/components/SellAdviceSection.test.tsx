@@ -71,6 +71,74 @@ describe('SellAdviceSection', () => {
     expect(screen.getAllByText('Begründung')).toHaveLength(2);
   });
 
+  it('zeigt den Kaufpreis und den Gewinn gegenüber dem heutigen Marktwert', async () => {
+    render(
+      <SellAdviceSection
+        players={players}
+        advice={advice}
+        budget={0}
+        plan={null}
+        purchases={new Map([['1', 6_000_000]])}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Kaufen & Verkaufen/ }));
+
+    expect(screen.getByText(/Gekauft für/)).toHaveTextContent(formatCurrency(6_000_000));
+    // 10 Mio Marktwert − 6 Mio Kaufpreis: der Verkauf realisiert 4 Mio Gewinn.
+    expect(screen.getByText(`+${formatCurrency(4_000_000)}`)).toBeInTheDocument();
+  });
+
+  it('zeigt einen Verlust mit Minuszeichen', async () => {
+    render(
+      <SellAdviceSection
+        players={players}
+        advice={advice}
+        budget={0}
+        plan={null}
+        purchases={new Map([['1', 13_000_000]])}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Kaufen & Verkaufen/ }));
+
+    expect(screen.getByText(`−${formatCurrency(3_000_000)}`)).toBeInTheDocument();
+  });
+
+  it('lässt die Kaufzeile weg, wo kein Kauf belegbar ist', async () => {
+    render(
+      <SellAdviceSection
+        players={players}
+        advice={advice}
+        budget={0}
+        plan={null}
+        purchases={new Map([['1', 6_000_000]])}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Kaufen & Verkaufen/ }));
+
+    // Nur Spieler 1 hat einen belegten Kauf — Spieler 2 bleibt ohne die Zeile.
+    expect(screen.getAllByText(/Gekauft für/)).toHaveLength(1);
+  });
+
+  it('meldet das Auf- und Zuklappen nach oben (daran hängen die Kaufpreis-Requests)', async () => {
+    const onExpandedChange = vi.fn();
+    render(
+      <SellAdviceSection
+        players={players}
+        advice={advice}
+        budget={0}
+        plan={null}
+        onExpandedChange={onExpandedChange}
+      />,
+    );
+    const header = screen.getByRole('button', { name: /Kaufen & Verkaufen/ });
+
+    await userEvent.click(header);
+    expect(onExpandedChange).toHaveBeenLastCalledWith(true);
+
+    await userEvent.click(header);
+    expect(onExpandedChange).toHaveBeenLastCalledWith(false);
+  });
+
   it('zählt nur „verkaufen" als Verkaufskandidat und summiert dessen Marktwert', () => {
     render(<SellAdviceSection players={players} advice={advice} budget={null} plan={null} />);
     // 'unverzichtbar' und 'ausgeschlossen' zählen absichtlich nicht mit.

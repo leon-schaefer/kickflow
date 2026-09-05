@@ -920,7 +920,7 @@ describe('toPlayerTransfers', () => {
       date: '2026-08-12T20:14:03Z',
       buyerId: null,
       buyerName: null,
-      price: 0,
+      price: null,
     });
   });
 

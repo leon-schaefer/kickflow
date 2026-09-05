@@ -23,11 +23,19 @@ interface SellAdviceRowProps {
   onClick?: (player: SellAdviceRowPlayer) => void;
   /** Ohne Handler bleibt die Zeile wie bisher ohne Umschalter (siehe utils/sellAdvice.ts). */
   onToggleExcluded?: (player: SellAdviceRowPlayer) => void;
+  /**
+   * Was der Spieler beim eigenen Kauf gekostet hat (siehe usePurchases). `null`
+   * heißt "nicht belegbar" — Historie fehlt, Request läuft noch oder ist
+   * ausgefallen; dann bleibt die Zeile wie bisher.
+   */
+  purchasePrice?: number | null;
 }
 
 /**
  * Zeile für die Kader-Empfehlung: Empfehlungs-Pill + Begründung statt
- * Punkte/Mio-Vergleich.
+ * Punkte/Mio-Vergleich. Dazu, wenn belegbar, der eigene Kaufpreis und die
+ * Differenz zum heutigen Marktwert — die Frage "verkaufe ich mit Gewinn?"
+ * gehört genau hierher.
  *
  * Wie PlayerRowFrame ein `div role="button"` und kein `<button>`, weil der
  * Ausschluss-Umschalter darin liegt. Das `stopPropagation` dort war in der
@@ -39,7 +47,13 @@ interface SellAdviceRowProps {
  * `data-recommendation` aus theme/positions.css — vorher zwei
  * `${farbe}26`-Konkatenationen und eine RECOMMENDATION_COLORS-Map.
  */
-export function SellAdviceRow({ player, advice, onClick, onToggleExcluded }: SellAdviceRowProps) {
+export function SellAdviceRow({
+  player,
+  advice,
+  onClick,
+  onToggleExcluded,
+  purchasePrice = null,
+}: SellAdviceRowProps) {
   // 'verkaufen' ist ebenfalls rot — zwei transluzente rote Pills wären nicht
   // unterscheidbar. Der Pflichtverkauf bekommt deshalb eine deckende Füllung.
   const urgent = advice.recommendation === 'pflichtverkauf';
@@ -78,6 +92,24 @@ export function SellAdviceRow({ player, advice, onClick, onToggleExcluded }: Sel
             <span className={styles.marketValue}>{formatCurrency(player.marketValue)}</span>
             <StatusBadge status={player.status} />
           </span>
+          {purchasePrice !== null && (
+            <span className={styles.purchase}>
+              Gekauft für {formatCurrency(purchasePrice)}
+              {/*
+                Die Differenz zum heutigen Marktwert ist der Grund, warum der
+                Kaufpreis hier überhaupt steht: sie sagt, ob ein Verkauf Gewinn
+                oder Verlust realisiert. Vorzeichen explizit, damit ein Plus
+                nicht mit dem Kaufpreis daneben verwechselt wird.
+              */}
+              <span
+                className={styles.purchaseDelta}
+                data-trend={player.marketValue >= purchasePrice ? 'up' : 'down'}
+              >
+                {player.marketValue >= purchasePrice ? '+' : '−'}
+                {formatCurrency(Math.abs(player.marketValue - purchasePrice))}
+              </span>
+            </span>
+          )}
         </span>
 
         <span className={styles.badgeColumn}>
