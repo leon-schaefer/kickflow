@@ -82,7 +82,17 @@ export function useLineupOptimizer(
    */
   excludedFromSaleIds: ReadonlySet<string> = NO_EXCLUSIONS,
 ): LineupOptimizer {
-  const [metric, setMetric] = useState<OptimizerMetric>('valuePerMillion');
+  // Voreinstellung 'points', nicht 'valuePerMillion': eine Elf aufzustellen
+  // kostet nichts — der Kader ist bereits gekauft. Ohne Budget-Nebenbedingung
+  // ist die Zielfunktion schlicht "möglichst viele Punkte", und Ø-Punkte/Mio
+  // maximiert stattdessen eine Summe von Quotienten, die niemand gutgeschrieben
+  // bekommt. Auch mit Nebenbedingung bleibt 'points' richtig: der Kontoausgleich
+  // (`sellPlan`) legt eine Marktwert-Obergrenze an und maximiert die Punkte
+  // DARUNTER (Pareto-DP in utils/cappedLineup.ts) — ein echtes Rucksackproblem,
+  // für das die Quotientensumme ebenfalls nur eine Heuristik wäre. Ø-Punkte/Mio
+  // bleibt als Chip erhalten, denn als TRANSFER-Signal ist die Effizienz genau
+  // richtig — sie treibt sellAdvice (`efficiencyResult` unten).
+  const [metric, setMetric] = useState<OptimizerMetric>('points');
   const [balanceBudget, setBalanceBudget] = useState(false);
   const [ignoredRuleIds, setIgnoredRuleIds] = useState<Set<LineupRule['id']>>(new Set());
 
