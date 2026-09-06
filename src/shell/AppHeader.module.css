@@ -42,18 +42,19 @@
  * bis 101pt hinunter. Die verbleibenden rund 40pt liegen IM Viewport — die
  * Kopfzeile fängt mit ihren 8px Padding also immer noch mitten im Band an, und
  * Titel wie Zurück-Label werden weiter verschmiert. Die Messung samt Hergang
- * steht in der index.html, der Wert als `iosStatusBandOverhang` in tokens.ts.
+ * steht in der index.html, der Wert als `iosTopClearance` in tokens.ts.
  *
  * Der Inhalt fängt deshalb erst unter dem Band an. Der Hintergrund der
  * Kopfzeile bleibt darunter liegen und darf das auch: eine Fläche in einer
  * Farbe verschmiert nicht sichtbar, nur Text und Icons müssen heraus.
  *
- * Der Überstand kommt als dritter Kandidat ins `max()` und wird NICHT auf die
+ * Der Abstand kommt als dritter Kandidat ins `max()` und wird NICHT auf die
  * 8px addiert: gebraucht wird ein Mindestabstand von der Viewport-Kante, kein
- * Aufschlag auf einen Wert, der dasselbe schon leistet. Addiert stand der
- * Titel 8px tiefer als nötig, und das war sichtbar. Weiter herunter geht es
- * nicht — 40px sind die gemessene Bandunterkante, alles darunter liegt wieder
- * darin.
+ * Aufschlag auf einen Wert, der dasselbe schon leistet.
+ *
+ * Der Wert selbst ist am Gerät eingegrenzt: 40px (die blanke Bandunterkante)
+ * sah gequetscht aus, 48px zu luftig. Die 40px sind dabei die harte Grenze
+ * nach unten — darunter liegt der Titel wieder im Band.
  *
  * Beide Bedingungen sind nötig, keine genügt allein:
  * `display-mode: standalone` trifft nur die vom Homescreen gestartete PWA —
@@ -63,8 +64,8 @@
  * und Desktop heraus, wo die Systemleiste sauber über dem Viewport endet.
  *
  * Nicht über `env(safe-area-inset-top)` zu lösen: das Inset meldet hier null
- * (kein `viewport-fit=cover`) und wäre selbst mit Wert um genau diese 40pt zu
- * kurz. Genau daran ist der erste Anlauf gescheitert.
+ * (kein `viewport-fit=cover`) und wäre selbst mit Wert um die 40pt des Bandes
+ * zu kurz. Genau daran ist der erste Anlauf gescheitert.
  */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
@@ -72,7 +73,7 @@
       padding-top: max(
         var(--space-sm),
         env(safe-area-inset-top),
-        var(--layout-ios-status-band-overhang)
+        var(--layout-ios-top-clearance)
       );
     }
   }

@@ -33,7 +33,9 @@
  * begründet; kurz: im Safari-Tab und auf anderen Plattformen gibt es weder
  * Band noch Home-Indicator, dort wäre der Abstand eine Delle.
  *
- * Der Wert steht als `iosHomeIndicatorClearance` in tokens.ts.
+ * Der Wert steht als `iosBottomClearance` in tokens.ts und ist derselbe wie
+ * oben in der Kopfzeile: die 34px der reinen Home-Indicator-Zone waren am
+ * Gerät zu wenig, und gleich viel Luft an beiden Kanten sieht ruhiger aus.
  */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
@@ -41,7 +43,7 @@
       padding-bottom: max(
         var(--space-xs),
         env(safe-area-inset-bottom),
-        var(--layout-ios-home-indicator-clearance)
+        var(--layout-ios-bottom-clearance)
       );
     }
   }

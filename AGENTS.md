@@ -57,11 +57,13 @@ abgewichen wird.
   zeigt keine der beiden Welten ein Symptom.
   Weil das Band rund 40pt tiefer reicht als die Safe Area, ragt es auch in den
   so beschnittenen Viewport hinein. Kopfzeile und Update-Banner halten deshalb
-  `--layout-ios-status-band-overhang` als Mindestabstand zur oberen
-  Viewport-Kante ein, die Tab-Leiste `--layout-ios-home-indicator-clearance`
-  zur unteren — jeweils als weiterer Kandidat IM `max()`, nicht als Aufschlag
-  darauf: gebraucht wird ein Mindestabstand, kein Zuschlag auf einen Wert, der
-  dasselbe schon leistet. Beides greift nur unter
+  `--layout-ios-top-clearance` als Mindestabstand zur oberen Viewport-Kante
+  ein, die Tab-Leiste `--layout-ios-bottom-clearance` zur unteren — jeweils als
+  weiterer Kandidat IM `max()`, nicht als Aufschlag darauf: gebraucht wird ein
+  Mindestabstand, kein Zuschlag auf einen Wert, der dasselbe schon leistet.
+  In beiden Werten steckt ein Pflicht-Minimum (40px Bandunterkante oben, 34px
+  Home-Indicator-Zone unten) plus Luft nach Augenmaß; `iosStatusBand.test.ts`
+  hält nur die Minima fest, alles darüber darf sich ändern. Beides greift nur unter
   `@supports (-webkit-touch-callout: none)` und
   `@media (display-mode: standalone)`, also ausschließlich in der installierten
   iOS-PWA. Im Tab und auf anderen Plattformen gibt es weder Band noch

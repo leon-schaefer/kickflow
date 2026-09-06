@@ -27,8 +27,18 @@ const BANNER = readFileSync(
 );
 const TABBAR = readFileSync(path.join(SRC, 'shell', 'TabBar.module.css'), 'utf8');
 
-const VAR = '--layout-ios-status-band-overhang';
-const BOTTOM_VAR = '--layout-ios-home-indicator-clearance';
+const VAR = '--layout-ios-top-clearance';
+const BOTTOM_VAR = '--layout-ios-bottom-clearance';
+
+/*
+ * Die harten Grenzen, unter die die Werte in tokens.ts nicht fallen dürfen.
+ * Oben die am Screenshot ausgemessene Unterkante des Bandes (101pt ab
+ * Bildschirmkante minus ~62pt Viewport-Beginn), unten die Zone, die Apple für
+ * den Home-Indicator frei sehen will. Was darüber liegt, ist Geschmack und
+ * darf sich ändern — das hier nicht.
+ */
+const MIN_TOP = 40;
+const MIN_BOTTOM = 34;
 
 /** Die beiden Bedingungen, die den Abstand auf die installierte iOS-PWA einengen. */
 function guardedBlocks(css: string): string[] {
@@ -38,29 +48,29 @@ function guardedBlocks(css: string): string[] {
   return start === -1 ? [] : [css.slice(start)];
 }
 
-describe('Abstand zum iOS-Statusband', () => {
-  it('kennt beide Abstände als Token', () => {
-    // Die Werte stehen in tokens.ts: oben am Gerät gemessen (101pt
-    // Bandunterkante minus ~62pt Viewport-Beginn), unten der Bereich, den
-    // Apple für den Home-Indicator frei sehen will. Hier nur festhalten, dass
-    // sie existieren und positiv bleiben — eine 0 wäre der stille Rückfall.
-    expect(layout.iosStatusBandOverhang).toBeGreaterThan(0);
-    expect(layout.iosHomeIndicatorClearance).toBeGreaterThan(0);
+describe('Abstände zu den iOS-Systemkanten', () => {
+  it('bleibt an beiden Kanten über dem Pflicht-Minimum', () => {
+    // Die Werte in tokens.ts sind am Gerät eingestellt und dürfen das weiter
+    // werden — aber nur nach oben. Wer sie unter diese Grenzen dreht, holt
+    // das Schmieren bzw. den Home-Indicator zurück, und zwar unsichtbar für
+    // jeden Desktop-Browser.
+    expect(layout.iosTopClearance).toBeGreaterThanOrEqual(MIN_TOP);
+    expect(layout.iosBottomClearance).toBeGreaterThanOrEqual(MIN_BOTTOM);
   });
 
-  it('schiebt die Kopfzeile um den Überstand nach unten', () => {
+  it('hält die Kopfzeile von der oberen Kante frei', () => {
     const [block] = guardedBlocks(HEADER);
     expect(block, '@supports-Block fehlt in AppHeader.module.css').toBeDefined();
     expect(block).toContain('display-mode: standalone');
     expect(block).toContain(`var(${VAR})`);
-    // Der Überstand ist ein Kandidat IM max(), keine Addition darauf: er ist
-    // ein Mindestabstand von der Viewport-Kante. Addiert stand der Titel 8px
+    // Der Abstand ist ein Kandidat IM max(), keine Addition darauf: er ist ein
+    // Mindestabstand von der Viewport-Kante. Addiert stand der Titel 8px
     // tiefer als nötig. Das Inset bleibt im Ausdruck, falls es je wiederkommt.
     expect(block).toMatch(/padding-top:\s*max\(/);
     expect(block).toContain('env(safe-area-inset-top)');
   });
 
-  it('schiebt das Update-Banner um denselben Wert mit', () => {
+  it('hält das Update-Banner auf derselben Höhe', () => {
     const [block] = guardedBlocks(BANNER);
     expect(block, '@supports-Block fehlt in UpdateBannerView.module.css').toBeDefined();
     expect(block).toContain('display-mode: standalone');
