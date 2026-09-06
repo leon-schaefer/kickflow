@@ -1,9 +1,10 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import type { CompetitionPlayer, LineupData, MarketData, Team } from '@/api/kickbase';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
+import { PlayerListViewProvider } from '@/players/PlayerListViewContext';
 import { fakeLayout } from '@/test/fakeLayout';
 import { squadPlayer } from '@/test/squadPlayer';
 import { PlayersScreen } from './PlayersScreen';
@@ -60,22 +61,27 @@ function makePlayer(id: string, name: string, marketValue: number): CompetitionP
   };
 }
 
+/**
+ * Die beiden Provider liegen ÜBER dem Router, so wie im echten Baum über dem
+ * `<Outlet />` des LeagueLayout. Für Filter und Sortierung ist das keine
+ * Kulisse, sondern der Punkt: nur so überleben sie den Weg aufs Spielerprofil
+ * und zurück (siehe PlayerListViewContext).
+ */
 function setup() {
   const router = createMemoryRouter(
     [
-      {
-        path: '/:leagueId/players',
-        element: (
-          <LeagueIdProvider id="42">
-            <PlayersScreen />
-          </LeagueIdProvider>
-        ),
-      },
+      { path: '/:leagueId/players', element: <PlayersScreen /> },
       { path: '/:leagueId/player/:playerId', element: <h1>Spieler</h1> },
     ],
     { initialEntries: ['/42/players'] },
   );
-  const view = render(<RouterProvider router={router} />);
+  const view = render(
+    <LeagueIdProvider id="42">
+      <PlayerListViewProvider>
+        <RouterProvider router={router} />
+      </PlayerListViewProvider>
+    </LeagueIdProvider>,
+  );
   return { router, ...view };
 }
 
@@ -216,6 +222,30 @@ describe('PlayersScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Mein Kader' }));
     // Die leere Liste ist dann nur ein Zwischenstand, kein Ergebnis.
     expect(screen.getByText('Kader wird geladen …')).toBeInTheDocument();
+  });
+
+  it('behält Filter, Sortierung und Kader-Chip nach dem Weg aufs Spielerprofil', async () => {
+    const { router } = setup();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mein Kader' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ø Punkte' }));
+    await userEvent.type(screen.getByRole('searchbox'), 'Wirtz');
+
+    await userEvent.click(screen.getByText('Wirtz'));
+    expect(router.state.location.pathname).toBe('/42/player/2');
+    await act(() => router.navigate(-1));
+
+    // Ohne den Provider über dem Router wäre die Rückkehr ein Neuanfang:
+    // Suchfeld leer, Sortierung zurück auf Marktwert, Kader-Chip aus.
+    expect(screen.getByRole('searchbox')).toHaveValue('Wirtz');
+    expect(screen.getByRole('button', { name: 'Ø Punkte' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Mein Kader' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('meldet nachladende Spielzeiten', () => {
