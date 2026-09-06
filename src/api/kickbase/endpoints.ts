@@ -418,37 +418,53 @@ export async function placeOffer(
   });
 }
 
+interface ListingRoute {
+  method: 'POST' | 'PUT';
+  path: (leagueId: string, playerId: string) => string;
+}
+
 /**
  * Kandidaten für „Spieler auf den Markt stellen" — der Reihe nach probiert,
- * siehe `listPlayerOnMarket`. Der Body ist überall derselbe; nur der Pfad
- * unterscheidet sich.
+ * siehe `listPlayerOnMarket`. Der Body ist überall derselbe, nur Pfad und
+ * Methode unterscheiden sich.
  *
- * Reihenfolge = absteigende Wahrscheinlichkeit, nicht Doku-Treue:
+ * Zwei Antworten sind inzwischen GEMESSEN, und zusammen sagen sie mehr als
+ * jede einzeln — Kickbase unterscheidet nämlich sauber zwischen beidem:
  *
- * 1. `/market/{playerId}` fügt sich in die Form der übrigen v4-Marktrouten
- *    (`DELETE /market/{playerId}`, `POST /market/{playerId}/offers`) und
- *    erklärt nebenbei den kuriosen Slash der Spezifikation: wer beim Abtippen
- *    die ID aus `/market/118` entfernt, behält genau `/market/` übrig — und
- *    genau diese ID steht in der dokumentierten Beispiel-Payload.
- * 2. `/market/` ist der Pfad, wie er in simonsagstetter/kickbase-api-v4-docs
- *    steht (operationId `setPlayerTransferPrice`).
- * 3. `/market` ohne Slash — falls der Server den Slash doch unterscheidet.
+ * - `POST /market/` → 404 „NotFound". Kein Route-Template passt.
+ * - `POST /market/{playerId}` → 405. Das Template gibt es (`DELETE` nimmt
+ *   dort vom Markt), nur diese Methode nicht.
+ *
+ * Da ein Methoden-Konflikt hier also 405 ergibt und nicht 404, kann der 404
+ * auf `/market/` nur am abschließenden Slash liegen: `/market` (ohne) ist ein
+ * Template, `/market/` keines. Genau dieser Slash steht in
+ * simonsagstetter/kickbase-api-v4-docs (operationId `setPlayerTransferPrice`)
+ * und war der ursprüngliche Fehler. Daher die Reihenfolge:
+ *
+ * 1. `POST /market` — die dokumentierte Operation ohne den Slash-Artefakt.
+ * 2. `PUT /market/{playerId}` — der 405 beweist, dass es dieses Template gibt;
+ *    PUT ist die naheliegende Methode für „Set Player Transfer Price" auf
+ *    einer Ressource, die DELETE schon kennt.
+ * 3. `POST /market/` — der Doku-Pfad wörtlich, als letzter Rückfall.
  *
  * Die ID steht in allen Varianten AUCH im Body: die Doku hat sie dort
  * beobachtet, und ein Feld zu viel ignoriert der Server, ein fehlendes nicht.
  */
-const LISTING_PATHS = [
-  (leagueId: string, playerId: string) => `/v4/leagues/${leagueId}/market/${playerId}`,
-  (leagueId: string, _playerId: string) => `/v4/leagues/${leagueId}/market/`,
-  (leagueId: string, _playerId: string) => `/v4/leagues/${leagueId}/market`,
+const LISTING_ROUTES: ListingRoute[] = [
+  { method: 'POST', path: (leagueId) => `/v4/leagues/${leagueId}/market` },
+  { method: 'PUT', path: (leagueId, playerId) => `/v4/leagues/${leagueId}/market/${playerId}` },
+  { method: 'POST', path: (leagueId) => `/v4/leagues/${leagueId}/market/` },
 ];
 
+/** 404 und 405 heißen beide „nicht dieser Aufruf" — und beide haben nichts eingestellt. */
+const ROUTE_MISS = [404, 405];
+
 /**
- * Der Pfad, der zuletzt funktioniert hat — damit der Dialog nur beim ERSTEN
+ * Der Aufruf, der zuletzt funktioniert hat — damit der Dialog nur beim ERSTEN
  * Spieler eines Durchlaufs probiert und die restlichen direkt treffen. Bewusst
  * modulweit und nicht pro Liga: die Routenform hängt nicht an der Liga.
  */
-let knownListingPath: (typeof LISTING_PATHS)[number] | null = null;
+let knownListingRoute: ListingRoute | null = null;
 
 /**
  * Einen EIGENEN Kaderspieler zum Verkauf auf den Transfermarkt stellen —
@@ -456,57 +472,62 @@ let knownListingPath: (typeof LISTING_PATHS)[number] | null = null;
  * Beschreibung des Endpoints heißt bezeichnenderweise "Set Player Transfer
  * Price". Gegenstück ist `removePlayerFromMarket`.
  *
- * Warum mehrere Pfade statt einem: der dokumentierte Pfad
+ * Warum mehrere Kandidaten statt einem: der dokumentierte Aufruf
  * (`POST /v4/leagues/{leagueId}/market/`) stammt aus derselben inoffiziellen
  * Quelle wie `getPlayerTransferHistory` und war nie gegen ein echtes Konto
- * verifiziert — in der Praxis antwortet Kickbase darauf mit 404 „NotFound",
- * und zwar für jeden Spieler. Ein 404 heißt hier „diese Route gibt es nicht",
- * also wird der nächste Kandidat probiert; jede andere Antwort (400 zu
- * niedriger Preis, 401, 409 …) kommt von einer existierenden Route und wird
- * unverändert durchgereicht, damit die Zeile im Dialog den echten Grund zeigt.
+ * verifiziert — in der Praxis antwortet Kickbase mit 404, für jeden Spieler.
+ * Welche Kandidaten es gibt und was an ihnen schon gemessen ist, steht an
+ * `LISTING_ROUTES`.
  *
- * Ein 404 kostet nichts: die Anfrage hat nichts eingestellt. Bleibt nach allen
- * Kandidaten nur 404 übrig, ist die Ursache nicht „Spieler unbekannt", sondern
- * eine geänderte API — die Meldung sagt das, statt Kickbases nacktes
- * „NotFound" durchzureichen.
+ * Weitergeprobiert wird bei 404 UND 405: beide sagen „diesen Aufruf gibt es
+ * so nicht" (Route unbekannt bzw. Methode nicht erlaubt) und beide haben
+ * nichts eingestellt. Jede andere Antwort (400 zu niedriger Preis, 401,
+ * 409 …) kommt von einem existierenden Aufruf und wird unverändert
+ * durchgereicht, damit die Zeile im Dialog den echten Grund zeigt statt
+ * blind weiterzuprobieren.
+ *
+ * Bleibt am Ende nur 404/405 übrig, ist die Ursache nicht „Spieler
+ * unbekannt", sondern eine geänderte API — die Meldung sagt das, statt
+ * Kickbases nacktes „NotFound" bzw. einen nackten Status durchzureichen.
  *
  * `npm run probe -- --list-player` (probeListPlayer() in scripts/probe.ts)
- * probiert dieselben Kandidaten gegen ein echtes Konto durch und nennt den
- * Treffer; sobald der feststeht, darf diese Liste auf einen Eintrag schrumpfen.
+ * probiert dieselben Kandidaten gegen ein echtes Konto durch, nennt den
+ * Treffer und liest bei 405 den `Allow`-Header aus — der beendet das Raten,
+ * und danach darf diese Liste auf einen Eintrag schrumpfen.
  */
 export async function listPlayerOnMarket(
   token: string,
   leagueId: string,
   input: ListPlayerInput,
 ): Promise<void> {
-  const candidates = knownListingPath
-    ? [knownListingPath, ...LISTING_PATHS.filter((path) => path !== knownListingPath)]
-    : LISTING_PATHS;
+  const candidates = knownListingRoute
+    ? [knownListingRoute, ...LISTING_ROUTES.filter((route) => route !== knownListingRoute)]
+    : LISTING_ROUTES;
 
-  let lastNotFound: KickbaseError | null = null;
-  for (const path of candidates) {
+  let lastMiss: KickbaseError | null = null;
+  for (const route of candidates) {
     try {
-      await kbFetch(path(leagueId, input.playerId), {
+      await kbFetch(route.path(leagueId, input.playerId), {
         token,
-        method: 'POST',
+        method: route.method,
         body: { playerId: input.playerId, price: input.price },
       });
-      knownListingPath = path;
+      knownListingRoute = route;
       return;
     } catch (err) {
-      if (err instanceof KickbaseError && err.status === 404) {
-        lastNotFound = err;
+      if (err instanceof KickbaseError && ROUTE_MISS.includes(err.status)) {
+        lastMiss = err;
         continue;
       }
       throw err;
     }
   }
 
-  knownListingPath = null;
+  knownListingRoute = null;
   throw new KickbaseError(
-    'Kickbase kennt keinen der bekannten „Auf den Markt stellen“-Pfade (404) — die API hat sich geändert.',
-    404,
-    lastNotFound?.body ?? null,
+    'Kickbase nimmt keinen der bekannten „Auf den Markt stellen“-Aufrufe an (404/405) — die API hat sich geändert.',
+    lastMiss?.status ?? 404,
+    lastMiss?.body ?? null,
   );
 }
 
