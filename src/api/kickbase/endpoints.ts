@@ -2,7 +2,7 @@
  * Zusammengesetzte Kickbase-Aufrufe: HTTP + Validierung + Mapping in einem.
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
-import { kbFetch } from './client';
+import { KickbaseError, kbFetch } from './client';
 import {
   withCompetitionPlayersLimit,
   withPerformanceLimit,
@@ -419,35 +419,95 @@ export async function placeOffer(
 }
 
 /**
+ * Kandidaten für „Spieler auf den Markt stellen" — der Reihe nach probiert,
+ * siehe `listPlayerOnMarket`. Der Body ist überall derselbe; nur der Pfad
+ * unterscheidet sich.
+ *
+ * Reihenfolge = absteigende Wahrscheinlichkeit, nicht Doku-Treue:
+ *
+ * 1. `/market/{playerId}` fügt sich in die Form der übrigen v4-Marktrouten
+ *    (`DELETE /market/{playerId}`, `POST /market/{playerId}/offers`) und
+ *    erklärt nebenbei den kuriosen Slash der Spezifikation: wer beim Abtippen
+ *    die ID aus `/market/118` entfernt, behält genau `/market/` übrig — und
+ *    genau diese ID steht in der dokumentierten Beispiel-Payload.
+ * 2. `/market/` ist der Pfad, wie er in simonsagstetter/kickbase-api-v4-docs
+ *    steht (operationId `setPlayerTransferPrice`).
+ * 3. `/market` ohne Slash — falls der Server den Slash doch unterscheidet.
+ *
+ * Die ID steht in allen Varianten AUCH im Body: die Doku hat sie dort
+ * beobachtet, und ein Feld zu viel ignoriert der Server, ein fehlendes nicht.
+ */
+const LISTING_PATHS = [
+  (leagueId: string, playerId: string) => `/v4/leagues/${leagueId}/market/${playerId}`,
+  (leagueId: string, _playerId: string) => `/v4/leagues/${leagueId}/market/`,
+  (leagueId: string, _playerId: string) => `/v4/leagues/${leagueId}/market`,
+];
+
+/**
+ * Der Pfad, der zuletzt funktioniert hat — damit der Dialog nur beim ERSTEN
+ * Spieler eines Durchlaufs probiert und die restlichen direkt treffen. Bewusst
+ * modulweit und nicht pro Liga: die Routenform hängt nicht an der Liga.
+ */
+let knownListingPath: (typeof LISTING_PATHS)[number] | null = null;
+
+/**
  * Einen EIGENEN Kaderspieler zum Verkauf auf den Transfermarkt stellen —
  * bzw. den Angebotspreis eines schon gelisteten Spielers ändern; die Swagger-
  * Beschreibung des Endpoints heißt bezeichnenderweise "Set Player Transfer
  * Price". Gegenstück ist `removePlayerFromMarket`.
  *
- * Der Pfad hat einen abschließenden Slash — SO steht er in
- * simonsagstetter/kickbase-api-v4-docs (`POST /v4/leagues/{leagueId}/market/`,
- * operationId `setPlayerTransferPrice`), und zwar als einziger Marktpfad der
- * ganzen Spezifikation. Das ist keine Schlamperei beim Abtippen: ein Server,
- * der auf `/market` das GET der Marktliste routet, unterscheidet die beiden
- * Routen unter Umständen genau daran. Nicht "aufräumen", ohne es vorher
- * gemessen zu haben.
+ * Warum mehrere Pfade statt einem: der dokumentierte Pfad
+ * (`POST /v4/leagues/{leagueId}/market/`) stammt aus derselben inoffiziellen
+ * Quelle wie `getPlayerTransferHistory` und war nie gegen ein echtes Konto
+ * verifiziert — in der Praxis antwortet Kickbase darauf mit 404 „NotFound",
+ * und zwar für jeden Spieler. Ein 404 heißt hier „diese Route gibt es nicht",
+ * also wird der nächste Kandidat probiert; jede andere Antwort (400 zu
+ * niedriger Preis, 401, 409 …) kommt von einer existierenden Route und wird
+ * unverändert durchgereicht, damit die Zeile im Dialog den echten Grund zeigt.
  *
- * Pfad und Feldnamen stammen damit aus derselben inoffiziellen Quelle wie
- * `getPlayerTransferHistory` und sind NICHT gegen ein eigenes Konto
- * verifiziert — das tut `npm run probe -- --list-player` (siehe
- * probeListPlayer() in scripts/probe.ts): der Probe listet einen echten
- * Kaderspieler und nimmt ihn direkt wieder herunter.
+ * Ein 404 kostet nichts: die Anfrage hat nichts eingestellt. Bleibt nach allen
+ * Kandidaten nur 404 übrig, ist die Ursache nicht „Spieler unbekannt", sondern
+ * eine geänderte API — die Meldung sagt das, statt Kickbases nacktes
+ * „NotFound" durchzureichen.
+ *
+ * `npm run probe -- --list-player` (probeListPlayer() in scripts/probe.ts)
+ * probiert dieselben Kandidaten gegen ein echtes Konto durch und nennt den
+ * Treffer; sobald der feststeht, darf diese Liste auf einen Eintrag schrumpfen.
  */
 export async function listPlayerOnMarket(
   token: string,
   leagueId: string,
   input: ListPlayerInput,
 ): Promise<void> {
-  await kbFetch(`/v4/leagues/${leagueId}/market/`, {
-    token,
-    method: 'POST',
-    body: { playerId: input.playerId, price: input.price },
-  });
+  const candidates = knownListingPath
+    ? [knownListingPath, ...LISTING_PATHS.filter((path) => path !== knownListingPath)]
+    : LISTING_PATHS;
+
+  let lastNotFound: KickbaseError | null = null;
+  for (const path of candidates) {
+    try {
+      await kbFetch(path(leagueId, input.playerId), {
+        token,
+        method: 'POST',
+        body: { playerId: input.playerId, price: input.price },
+      });
+      knownListingPath = path;
+      return;
+    } catch (err) {
+      if (err instanceof KickbaseError && err.status === 404) {
+        lastNotFound = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  knownListingPath = null;
+  throw new KickbaseError(
+    'Kickbase kennt keinen der bekannten „Auf den Markt stellen“-Pfade (404) — die API hat sich geändert.',
+    404,
+    lastNotFound?.body ?? null,
+  );
 }
 
 /**

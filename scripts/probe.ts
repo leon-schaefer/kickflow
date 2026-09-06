@@ -793,9 +793,12 @@ async function probeOffers(token: string, leagueId: string, marketItems: any[]):
  * bewusst der Marktwert: kein Schnäppchen, das ein Mitspieler in der einen
  * Sekunde wegschnappt.
  *
- * Der POST wird mit UND ohne abschließenden Slash probiert: die Spezifikation
- * führt ihn als `/v4/leagues/{leagueId}/market/`, und ob der Slash die Route
- * vom GET der Marktliste unterscheidet, ist genau die offene Frage.
+ * Der POST wird über dieselben Pfad-Kandidaten in derselben Reihenfolge
+ * probiert wie LISTING_PATHS in src/api/kickbase/endpoints.ts — der
+ * dokumentierte Pfad `/v4/leagues/{leagueId}/market/` antwortet in der Praxis
+ * mit 404, die Frage ist also, welcher es stattdessen ist. Abgebrochen wird
+ * beim ersten Treffer und bei jeder Antwort ≠ 404: die kommt schon von einer
+ * existierenden Route.
  */
 async function probeListPlayer(token: string, leagueId: string, squadItems: any[]): Promise<void> {
   console.log('\n=== --list-player: Spieler auf den Markt stellen/zurücknehmen verifizieren ===');
@@ -809,24 +812,42 @@ async function probeListPlayer(token: string, leagueId: string, squadItems: any[
   console.log(`Zielspieler: ${target.fn ?? ''} ${target.n} (${target.i}), Marktwert ${target.mv}`);
 
   console.log('\n-- 1. Auf den Markt stellen --');
+  // Dieselben Kandidaten in derselben Reihenfolge wie LISTING_PATHS in
+  // src/api/kickbase/endpoints.ts — der Probe ist die Messung, die dort die
+  // Liste irgendwann auf einen Eintrag schrumpfen lässt.
   const body = { playerId: String(target.i), price: target.mv };
-  let listed = await tryRequest(
-    'POST',
-    `/v4/leagues/${leagueId}/market/`,
-    token,
-    body,
-    'POST /market/ {playerId, price} (mit Slash, wie in der Spezifikation)',
-  );
-  if (!listed.ok) {
-    listed = await tryRequest(
-      'POST',
-      `/v4/leagues/${leagueId}/market`,
-      token,
-      body,
-      'POST /market {playerId, price} (ohne Slash)',
-    );
+  const listingPaths = [
+    {
+      path: `/v4/leagues/${leagueId}/market/${target.i}`,
+      label: 'POST /market/{playerId} {playerId, price} (Form der übrigen Marktrouten)',
+    },
+    {
+      path: `/v4/leagues/${leagueId}/market/`,
+      label: 'POST /market/ {playerId, price} (mit Slash, wie in der Spezifikation)',
+    },
+    {
+      path: `/v4/leagues/${leagueId}/market`,
+      label: 'POST /market {playerId, price} (ohne Slash)',
+    },
+  ];
+
+  let listed: { ok: boolean; status: number; body: unknown } | null = null;
+  for (const candidate of listingPaths) {
+    listed = await tryRequest('POST', candidate.path, token, body, candidate.label);
+    if (listed.ok) {
+      console.log(`✓ Treffer: ${candidate.label}`);
+      break;
+    }
+    // Nur ein 404 heißt „Route gibt es nicht". Alles andere kommt von einer
+    // existierenden Route und wäre beim nächsten Kandidaten nur Rauschen.
+    if (listed.status !== 404) {
+      console.error(
+        `Pfad existiert, Kickbase lehnt aber ab (${listed.status}) — weitere Kandidaten übersprungen.`,
+      );
+      return;
+    }
   }
-  if (!listed.ok) {
+  if (!listed?.ok) {
     console.error('Kein Pfad hat das Listing angenommen — es wurde nichts eingestellt.');
     return;
   }
