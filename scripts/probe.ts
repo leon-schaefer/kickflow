@@ -809,27 +809,42 @@ async function probeListPlayer(token: string, leagueId: string, squadItems: any[
   console.log(`Zielspieler: ${target.fn ?? ''} ${target.n} (${target.i}), Marktwert ${target.mv}`);
 
   console.log('\n-- 1. Auf den Markt stellen --');
-  const body = { playerId: String(target.i), price: target.mv };
-  let listed = await tryRequest(
-    'POST',
-    `/v4/leagues/${leagueId}/market/`,
-    token,
-    body,
-    'POST /market/ {playerId, price} (mit Slash, wie in der Spezifikation)',
-  );
-  if (!listed.ok) {
-    listed = await tryRequest(
-      'POST',
-      `/v4/leagues/${leagueId}/market`,
-      token,
-      body,
-      'POST /market {playerId, price} (ohne Slash)',
-    );
+  /**
+   * Vier Kombinationen, weil die beiden inoffiziellen Doku-Quellen sich in
+   * Feldnamen UND Pfad widersprechen (siehe listPlayerOnMarket in
+   * src/api/kickbase/endpoints.ts). Der Probe hört beim ersten Erfolg auf und
+   * nennt die Kombination beim Namen — genau dafür ist er da.
+   */
+  const playerId = String(target.i);
+  const variants = [
+    { path: `/v4/leagues/${leagueId}/market/`, body: { pi: playerId, prc: target.mv }, label: 'POST /market/ {pi, prc}' },
+    { path: `/v4/leagues/${leagueId}/market`, body: { pi: playerId, prc: target.mv }, label: 'POST /market {pi, prc}' },
+    {
+      path: `/v4/leagues/${leagueId}/market/`,
+      body: { playerId, price: target.mv },
+      label: 'POST /market/ {playerId, price}',
+    },
+    {
+      path: `/v4/leagues/${leagueId}/market`,
+      body: { playerId, price: target.mv },
+      label: 'POST /market {playerId, price}',
+    },
+  ];
+
+  let listed: { ok: boolean; status: number; body: unknown } | null = null;
+  let accepted: string | null = null;
+  for (const variant of variants) {
+    listed = await tryRequest('POST', variant.path, token, variant.body, variant.label);
+    if (listed.ok) {
+      accepted = variant.label;
+      break;
+    }
   }
-  if (!listed.ok) {
-    console.error('Kein Pfad hat das Listing angenommen — es wurde nichts eingestellt.');
+  if (!listed?.ok) {
+    console.error('Keine Kombination hat das Listing angenommen — es wurde nichts eingestellt.');
     return;
   }
+  console.log(`✓ Angenommen von: ${accepted}`);
 
   const afterList = await getJson(`/v4/leagues/${leagueId}/market`, token);
   await dump('market-after-list-player', afterList);

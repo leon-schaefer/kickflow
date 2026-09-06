@@ -2,7 +2,7 @@
  * Zusammengesetzte Kickbase-Aufrufe: HTTP + Validierung + Mapping in einem.
  * Das hier ist die einzige Schicht, die die App tatsächlich importiert.
  */
-import { kbFetch } from './client';
+import { KickbaseError, kbFetch } from './client';
 import {
   withCompetitionPlayersLimit,
   withPerformanceLimit,
@@ -424,18 +424,35 @@ export async function placeOffer(
  * Beschreibung des Endpoints heißt bezeichnenderweise "Set Player Transfer
  * Price". Gegenstück ist `removePlayerFromMarket`.
  *
- * Der Pfad hat einen abschließenden Slash — SO steht er in
- * simonsagstetter/kickbase-api-v4-docs (`POST /v4/leagues/{leagueId}/market/`,
- * operationId `setPlayerTransferPrice`), und zwar als einziger Marktpfad der
- * ganzen Spezifikation. Das ist keine Schlamperei beim Abtippen: ein Server,
- * der auf `/market` das GET der Marktliste routet, unterscheidet die beiden
- * Routen unter Umständen genau daran. Nicht "aufräumen", ohne es vorher
- * gemessen zu haben.
+ * Die Feldnamen im Body sind `pi`/`prc`, NICHT `playerId`/`price`. Genau daran
+ * scheiterte das Einstellen vom Aufstellungs-Screen aus: die API nahm den
+ * Request an, fand ohne `pi` aber keinen Spieler und antwortete auf JEDE Zeile
+ * des Dialogs mit `errMsg: "NotFound"`. `prc` ist auch das Feld, unter dem der
+ * gesetzte Preis in der Marktliste zurückkommt (siehe `rawMarketPlayerSchema`
+ * und `toMarketPlayer`) — die kurzen Namen sind hier die Regel, die langen die
+ * Ausnahme.
  *
- * Pfad und Feldnamen stammen damit aus derselben inoffiziellen Quelle wie
- * `getPlayerTransferHistory` und sind NICHT gegen ein eigenes Konto
- * verifiziert — das tut `npm run probe -- --list-player` (siehe
- * probeListPlayer() in scripts/probe.ts): der Probe listet einen echten
+ * Dass `placeOffer` daneben `{ price }` schickt, ist kein Widerspruch, sondern
+ * gemessen: der Gebots-Endpoint nimmt den langen Namen (verifiziert am
+ * 31.08.2026, siehe dort). Deshalb wird hier auch nichts vereinheitlicht.
+ *
+ * Beide Quellen der inoffiziellen Doku widersprechen sich in zwei Punkten, und
+ * keiner davon lässt sich ohne Konto entscheiden:
+ *
+ * - Feldnamen: `pi`/`prc` (kevinskyba/kickbase-api-doc, aus mitgeschnittenem
+ *   Verkehr) gegen `playerId`/`price` (simonsagstetter/kickbase-api-v4-docs,
+ *   handgeschriebenes Schema). Der Body trägt deshalb BEIDE Paare — die API
+ *   ignoriert unbekannte Felder, und ein Request ist besser als ein Ratespiel.
+ * - Pfad: mit abschließendem Slash (simonsagstetter, dort als einziger
+ *   Marktpfad der Spezifikation) gegen ohne (kevinskyba). Ein Server, der auf
+ *   `/market` das GET der Marktliste routet, unterscheidet die beiden Routen
+ *   unter Umständen genau daran — also erst mit Slash, und nur bei 404/405
+ *   (Route daneben, nicht Spieler oder Preis abgelehnt) derselbe Request ohne.
+ *   Ein zweiter Versuch ist gefahrlos: der Endpoint SETZT den Preis, ein
+ *   Doppelaufruf listet nicht zweimal.
+ *
+ * `npm run probe -- --list-player` (probeListPlayer() in scripts/probe.ts)
+ * prüft das gegen ein echtes Konto: der Probe listet einen echten
  * Kaderspieler und nimmt ihn direkt wieder herunter.
  */
 export async function listPlayerOnMarket(
@@ -443,11 +460,29 @@ export async function listPlayerOnMarket(
   leagueId: string,
   input: ListPlayerInput,
 ): Promise<void> {
-  await kbFetch(`/v4/leagues/${leagueId}/market/`, {
-    token,
-    method: 'POST',
-    body: { playerId: input.playerId, price: input.price },
-  });
+  const body = {
+    pi: input.playerId,
+    prc: input.price,
+    playerId: input.playerId,
+    price: input.price,
+  };
+  try {
+    await kbFetch(`/v4/leagues/${leagueId}/market/`, { token, method: 'POST', body });
+  } catch (err) {
+    if (!isRouteMiss(err)) throw err;
+    await kbFetch(`/v4/leagues/${leagueId}/market`, { token, method: 'POST', body });
+  }
+}
+
+/**
+ * Deutet ein Fehlschlag auf einen falschen PFAD hin (und nicht auf einen
+ * abgelehnten Spieler oder Preis)? Nur dann lohnt der Zweitversuch in
+ * `listPlayerOnMarket`. 404 ist dabei doppeldeutig — Kickbase meldet damit
+ * auch "Spieler nicht gefunden" —, ein zusätzlicher Request kostet in dem
+ * Fall aber nur die Zeit und liefert dieselbe Fehlermeldung.
+ */
+function isRouteMiss(err: unknown): boolean {
+  return err instanceof KickbaseError && (err.status === 404 || err.status === 405);
 }
 
 /**
