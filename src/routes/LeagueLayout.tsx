@@ -3,6 +3,7 @@ import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { ExcludedFromSaleProvider } from '@/lineup/ExcludedFromSaleContext';
 import { LeagueRulesProvider } from '@/lineup/LeagueRulesContext';
 import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
+import { PlayerListViewProvider } from '@/players/PlayerListViewContext';
 import styles from './LeagueLayout.module.css';
 
 /**
@@ -20,6 +21,11 @@ import styles from './LeagueLayout.module.css';
  * ein Spielerprofil ihn nicht verwirft (siehe LineupDraftContext) — und genau
  * dieser Entwurf ist es, den der `key` beim Liga-Wechsel wegräumen soll.
  *
+ * Aus demselben Grund liegt der PlayerListViewProvider dort: er hält Filter
+ * und Sortierung von Spieler- und Markt-Tab über den Abstecher aufs
+ * Spielerprofil hinweg, und seine Vereins-Chips gehören zum Wettbewerb der
+ * aktuellen Liga (siehe PlayerListViewContext).
+ *
  * Die beiden Speicher-Provider liegen wie bisher ÜBER dem Inhalt: der
  * Regel-State ist zwischen dem Aufstellungs-Tab und dem `rules`-Screen
  * darüber geteilt, und der Verkaufs-Ausschluss wird auf dem Spieler-Detail
@@ -35,7 +41,9 @@ export function LeagueLayout() {
         <ExcludedFromSaleProvider leagueId={leagueId ?? ''}>
           <div key={leagueId} className={styles.content}>
             <LineupDraftProvider>
-              <Outlet />
+              <PlayerListViewProvider>
+                <Outlet />
+              </PlayerListViewProvider>
             </LineupDraftProvider>
           </div>
         </ExcludedFromSaleProvider>

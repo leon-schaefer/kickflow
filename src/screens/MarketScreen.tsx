@@ -13,6 +13,7 @@ import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { useBudgetLimit } from '@/leagues/useBudgetLimit';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { usePlayerListView } from '@/players/PlayerListViewContext';
 import { useCompetitionTeams, useLeagues, useMarket, usePlaytimes } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
@@ -20,8 +21,7 @@ import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
 import { formatCountdown, msUntil } from '@/utils/format';
 import { filterOwnBids, sortByExpiry } from '@/utils/marketList';
-import type { PlayerFilterCriteria } from '@/utils/playerFilter';
-import { EMPTY_PLAYER_FILTER, filterPlayers, isPlayerFilterActive } from '@/utils/playerFilter';
+import { filterPlayers, isPlayerFilterActive } from '@/utils/playerFilter';
 import {
   metricForSort,
   metricLabels,
@@ -56,10 +56,12 @@ const SORT_OPTIONS: { key: PlayerSortKey; label: string; dividerBefore?: boolean
 export function MarketScreen() {
   const leagueId = useLeagueId();
   const navigate = useNavigate();
-  const [sortKey, setSortKey] = useState<PlayerSortKey>('avgPerMillion');
-  const [onlyOwnBids, setOnlyOwnBids] = useState(false);
+  // Filter, Sortierung und der Gebots-Chip liegen im PlayerListViewProvider
+  // (LeagueLayout), nicht in diesem Screen: der Weg auf ein Spielerprofil
+  // hängt ihn aus, mit `useState` wäre die Rückkehr ein Neuanfang.
+  const [view, setView] = usePlayerListView('market');
+  const { sortKey, filter, onlyMine: onlyOwnBids } = view;
   const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
-  const [filter, setFilter] = useState<PlayerFilterCriteria>(EMPTY_PLAYER_FILTER);
   const limit = useBudgetLimit();
   const competitionId = useCompetitionId();
   const teamsQuery = useCompetitionTeams(competitionId);
@@ -118,19 +120,23 @@ export function MarketScreen() {
     <>
       <AppHeader title={<LeagueSwitcher />} />
 
-      <PlayerFilterBar criteria={filter} onChange={setFilter} teams={teamsQuery.data} />
+      <PlayerFilterBar
+        criteria={filter}
+        onChange={(criteria) => setView({ ...view, filter: criteria })}
+        teams={teamsQuery.data}
+      />
 
       <SortChips
         options={SORT_OPTIONS}
         value={sortKey}
-        onChange={setSortKey}
+        onChange={(key) => setView({ ...view, sortKey: key })}
         leading={
           <>
             <button
               type="button"
               aria-pressed={onlyOwnBids}
               className={cx(layout.pressable, styles.sortChip)}
-              onClick={() => setOnlyOwnBids((value) => !value)}
+              onClick={() => setView({ ...view, onlyMine: !onlyOwnBids })}
             >
               Nur meine Gebote
             </button>

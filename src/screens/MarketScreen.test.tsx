@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -6,6 +6,7 @@ import type { MarketData, MarketPlayer, Team } from '@/api/kickbase';
 import type { BudgetLimit } from '@/utils/budget';
 import { computeBudgetLimit } from '@/utils/budget';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
+import { PlayerListViewProvider } from '@/players/PlayerListViewContext';
 import { MarketScreen } from './MarketScreen';
 
 const market = vi.hoisted(() => ({
@@ -64,24 +65,27 @@ function makePlayer(overrides: Partial<MarketPlayer> = {}): MarketPlayer {
   };
 }
 
+/**
+ * Wie im echten Baum: beide Provider liegen ÜBER dem Router, dort also über
+ * dem `<Outlet />` des LeagueLayout. `useLeagueId()` gibt dadurch immer einen
+ * string statt `string | undefined` — und Filter und Sortierung überleben den
+ * Weg aufs Spielerprofil (siehe PlayerListViewContext).
+ */
 function setup() {
   const router = createMemoryRouter(
     [
-      {
-        path: '/:leagueId/market',
-        // Wie im echten Baum: LeagueLayout stellt den Context, useLeagueId()
-        // gibt dadurch immer einen string statt `string | undefined`.
-        element: (
-          <LeagueIdProvider id="42">
-            <MarketScreen />
-          </LeagueIdProvider>
-        ),
-      },
+      { path: '/:leagueId/market', element: <MarketScreen /> },
       { path: '/:leagueId/player/:playerId', element: <h1>Spieler</h1> },
     ],
     { initialEntries: ['/42/market'] },
   );
-  const view = render(<RouterProvider router={router} />);
+  const view = render(
+    <LeagueIdProvider id="42">
+      <PlayerListViewProvider>
+        <RouterProvider router={router} />
+      </PlayerListViewProvider>
+    </LeagueIdProvider>,
+  );
   return { router, ...view };
 }
 
@@ -171,6 +175,27 @@ describe('MarketScreen', () => {
       fromPath: '/42/market',
       fromTitle: 'Markt',
     });
+  });
+
+  it('behält Filter, Sortierung und Gebots-Chip nach dem Weg aufs Spielerprofil', async () => {
+    const { router } = setup();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Punkte' }));
+    await userEvent.type(screen.getByRole('searchbox'), 'Wirtz');
+    await userEvent.click(screen.getByRole('button', { name: 'Nur meine Gebote' }));
+
+    await userEvent.click(screen.getByText('Wirtz'));
+    expect(router.state.location.pathname).toBe('/42/player/2');
+    await act(() => router.navigate(-1));
+
+    // Ohne den Provider über dem Router wäre die Rückkehr ein Neuanfang:
+    // Suchfeld leer, Sortierung zurück auf Punkte/Mio, Gebots-Chip aus.
+    expect(screen.getByRole('searchbox')).toHaveValue('Wirtz');
+    expect(screen.getByRole('button', { name: 'Punkte' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Nur meine Gebote' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('öffnet den Gebots-Dialog, ohne ins Profil zu wechseln', async () => {
