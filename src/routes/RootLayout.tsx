@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { InstallHint } from '@/pwa/InstallHint';
 import styles from './RootLayout.module.css';
 
 /**
@@ -24,6 +25,13 @@ export function RootLayout() {
   return (
     <div className={styles.shell}>
       <UpdateBanner />
+      {/*
+       * Wie der Banner hier und nicht in einem Tab-Layout: der Hinweis
+       * erscheint direkt nach dem Login, und der Ligen-Picker liegt außerhalb
+       * der Tabs. Er rendert `null`, solange niemand angemeldet ist oder der
+       * Merker steht (src/pwa/), kostet also nichts.
+       */}
+      <InstallHint />
       <Outlet />
     </div>
   );

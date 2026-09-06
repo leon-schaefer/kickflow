@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LAST_LEAGUE_KEY, SESSION_KEY, excludedFromSaleKey, leagueRulesKey } from './keys';
+import {
+  INSTALL_HINT_KEY,
+  LAST_LEAGUE_KEY,
+  SESSION_KEY,
+  excludedFromSaleKey,
+  leagueRulesKey,
+} from './keys';
 
 /**
  * Wächter über die localStorage-Schlüssel.
@@ -29,6 +35,7 @@ describe('localStorage-Schlüssel', () => {
     expect(LAST_LEAGUE_KEY).toBe('kickflow.lastLeagueId');
     expect(leagueRulesKey('42')).toBe('kickflow.rules.v1.42');
     expect(excludedFromSaleKey('42')).toBe('kickflow.excludedFromSale.v1.42');
+    expect(INSTALL_HINT_KEY).toBe('kickflow.installHint.v1');
   });
 
   it('sind pro Liga getrennt', () => {
@@ -45,6 +52,7 @@ describe('localStorage-Schlüssel', () => {
       'leagues/lastLeague.ts',
       'lineup/useLeagueRules.ts',
       'lineup/useExcludedFromSale.ts',
+      'pwa/useInstallHint.ts',
     ]) {
       const source = read(relative);
       expect(source, `${relative} baut Schlüssel selbst`).not.toMatch(/'kickflow\./);

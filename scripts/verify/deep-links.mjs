@@ -65,6 +65,12 @@ async function open(pathname, { session = true } = {}) {
       if (withSession) {
         localStorage.setItem(key, JSON.stringify({ token: 'verify-token', refreshToken: null }));
       }
+      // Der Installations-Hinweis (src/pwa/) legt sich sonst nach dem Login
+      // über jede geprüfte Seite: die Verify-Runde läuft in Chromium gegen
+      // ein Deployment mit Manifest und Service Worker, also genau die Lage,
+      // in der `beforeinstallprompt` feuert. Hier interessiert der Screen
+      // darunter — der Merker setzt den Hinweis auf „schon gesehen".
+      localStorage.setItem('kickflow.installHint.v1', '1');
       window.__csp = [];
       window.__errors = [];
       window.addEventListener('securitypolicyviolation', (e) =>

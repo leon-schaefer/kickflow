@@ -16,9 +16,10 @@
  */
 /**
  * Synchrone Variante. Nur für Werte, an denen KEINE `loaded`-Semantik hängt —
- * derzeit die zuletzt genutzte Liga (src/leagues/lastLeague.ts), die im
- * useState-Initializer eines Screens gelesen wird. Dieselbe Kapselung, nur
- * ohne das Promise davor.
+ * derzeit die zuletzt genutzte Liga (src/leagues/lastLeague.ts) und der
+ * Merker des Installations-Hinweises (src/pwa/useInstallHint.ts), beide im
+ * useState-Initializer gelesen. Dieselbe Kapselung, nur ohne das Promise
+ * davor.
  */
 function getItemSync(key: string): string | null {
   try {

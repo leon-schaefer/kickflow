@@ -1,0 +1,109 @@
+/*
+ * Das gemeinsame Panel deckelt seine Höhe bei 70dvh, kümmert sich aber nicht
+ * um den Überlauf — bei den bisherigen Dialogen passte der Inhalt immer. Der
+ * längste Zweig hier (drei Schritte plus Anlauftext) passt auf einem kleinen
+ * Gerät oder bei großer Systemschrift NICHT, und ohne diese Regel stünde die
+ * Fußnote unter dem Rahmen statt darin.
+ */
+.panel {
+  overflow-y: auto;
+}
+
+.body {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+/*
+ * Die einzige Regel dieser Datei OHNE `composes: v`/`h` — und das mit Absicht:
+ * eine nummerierte Liste ist kein Flex-Container. Ihre Zahlen zeichnet der
+ * Browser nur im normalen Fluss zuverlässig, und Symbol plus Text sollen in
+ * der Zeile mitlaufen statt zu eigenen Flex-Items zu werden. Der Abstand
+ * zwischen den Schritten kommt deshalb aus `margin`, nicht aus `gap`.
+ *
+ * `list-style-position` bleibt Default (außen), damit ein zweizeiliger
+ * Schritt unter dem Text weiterläuft und nicht unter der Zahl; das
+ * `padding-left` ist der Platz für die Zahlen.
+ */
+.steps {
+  margin: var(--space-xs) 0 0;
+  padding-left: var(--space-xl);
+}
+
+.step {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.step + .step {
+  margin-top: var(--space-xs);
+}
+
+/* Das Symbol sitzt mitten im Satz und soll auf der Schriftlinie liegen. */
+.step svg {
+  vertical-align: -2px;
+}
+
+/*
+ * Was das Symbol zeigt, muss auch vorgelesen werden: die SVGs sind
+ * `aria-hidden`, ohne diesen Text bliebe im Screenreader „auf tippen".
+ */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.actions {
+  composes: v from '@/theme/layout.module.css';
+  margin-top: var(--space-md);
+  gap: var(--space-sm);
+}
+
+/* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
+.primary {
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-background);
+}
+
+.primary:active {
+  opacity: 0.9;
+}
+
+.secondary {
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.footnote {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  line-height: 17px;
+  color: var(--color-text-muted);
+}
