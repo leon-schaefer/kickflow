@@ -115,9 +115,12 @@ const URLS = [
 
 for (const pathname of URLS) {
   const context = await browser.newContext();
-  await context.addInitScript(() =>
-    localStorage.setItem('kickflow.session.v1', JSON.stringify({ token: 'v', refreshToken: null })),
-  );
+  await context.addInitScript(() => {
+    localStorage.setItem('kickflow.session.v1', JSON.stringify({ token: 'v', refreshToken: null }));
+    // Wie in deep-links.mjs: der Installations-Hinweis (src/pwa/) würde die
+    // gemessenen Elemente sonst hinter einem Dialog verdecken.
+    localStorage.setItem('kickflow.installHint.v1', '1');
+  });
   const page = await context.newPage();
   await page.goto(BASE + pathname, { waitUntil: 'networkidle' });
   const serif = await page.evaluate(() =>

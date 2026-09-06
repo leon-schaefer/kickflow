@@ -29,3 +29,9 @@ export function leagueRulesKey(leagueId: string): string {
 export function excludedFromSaleKey(leagueId: string): string {
   return `kickflow.excludedFromSale.v1.${leagueId}`;
 }
+
+/**
+ * Merker, dass der Installations-Hinweis (src/pwa/) einmal gezeigt wurde.
+ * Absichtlich EIN Flag ohne Zähler: der Hinweis erscheint genau einmal.
+ */
+export const INSTALL_HINT_KEY = 'kickflow.installHint.v1';
