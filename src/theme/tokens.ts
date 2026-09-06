@@ -91,6 +91,38 @@ export const radius = {
 
 export const layout = {
   maxContentWidth: 480,
+
+  /**
+   * Abstand, den der Inhalt in der installierten iOS-PWA zur oberen
+   * Viewport-Kante hält.
+   *
+   * Zwei Dinge stecken darin, und die Reihenfolge ist wichtig:
+   *
+   * 1. Das Pflicht-Minimum: 40px. iOS legt über den oberen Rand eine Schicht,
+   *    die alles darin verschmiert; am Screenshot ausgemessen reicht sie bis
+   *    101pt ab Bildschirmkante, der Viewport beginnt ohne `viewport-fit=cover`
+   *    erst bei rund 62pt. Die Differenz liegt IM Viewport. Alles darunter
+   *    holt das Schmieren zurück — `iosStatusBand.test.ts` hält die Grenze
+   *    fest, die ganze Messung steht in der index.html.
+   * 2. Die Luft darüber, damit es nicht gequetscht aussieht. 40px war am Gerät
+   *    zu wenig, 48px zu viel; 44px liegt dazwischen.
+   *
+   * Wer daran dreht, dreht an Punkt 2 — Punkt 1 ist gemessen und keine
+   * Geschmacksfrage.
+   */
+  iosTopClearance: 44,
+
+  /**
+   * Dasselbe für die untere Kante, wo die Tab-Leiste sonst auf dem
+   * Home-Indicator sitzt.
+   *
+   * Pflicht-Minimum sind hier 34px — die Zone, die Apple für den
+   * Home-Indicator frei sehen will und die iOS auf Face-ID-Geräten als
+   * `safe-area-inset-bottom` meldet, wenn es sie meldet. Auch 34px waren am
+   * Gerät zu wenig; der Wert ist deshalb derselbe wie oben, was zusätzlich
+   * gleich viel Luft an beiden Kanten gibt.
+   */
+  iosBottomClearance: 44,
 } as const;
 
 /**
