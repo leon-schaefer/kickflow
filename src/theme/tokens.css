@@ -72,6 +72,7 @@
   /* layout */
   --layout-max-content-width: 480px;
   --layout-ios-status-band-overhang: 40px;
+  --layout-ios-home-indicator-clearance: 34px;
 
   /* Schriftfamilie und Erbgröße — von react-native-web geerbt, siehe tokens.ts */
   --font-family-base: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;

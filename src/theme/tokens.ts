@@ -109,6 +109,22 @@ export const layout = {
    * misst ihn am Gerät neu — geraten hilft hier niemandem.
    */
   iosStatusBandOverhang: 40,
+
+  /**
+   * Freiraum, den die untere Kante in der installierten iOS-PWA braucht.
+   *
+   * Gegenstück zum Überstand oben, aus demselben Anlass: die Leiste stand mit
+   * ihren 4px praktisch auf dem Home-Indicator. Die Annahme, iOS lege den
+   * Streifen darüber von sich aus außerhalb des Viewports (siehe den alten
+   * Kommentar in `TabBar.module.css`), hat das Gerät nicht bestätigt — unten
+   * war schlicht kein Abstand.
+   *
+   * 34px ist die Höhe, die iOS auf Face-ID-Geräten als
+   * `safe-area-inset-bottom` meldet, wenn es sie meldet: der Bereich, den
+   * Apple für den Home-Indicator frei sehen will. Angewendet wie oben als
+   * Kandidat im `max()`, nicht als Aufschlag.
+   */
+  iosHomeIndicatorClearance: 34,
 } as const;
 
 /**

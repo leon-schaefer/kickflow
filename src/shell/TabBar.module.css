@@ -10,15 +10,41 @@
    *
    * Das untere Padding kam bis zum Umzug GRATIS von React Navigation, das die
    * Safe-Area-Insets intern konsumiert hat; die selbstgebaute Leiste verliert
-   * das lautlos. Seit die index.html kein `viewport-fit=cover` mehr setzt,
-   * reserviert iOS den Streifen über dem Home-Indicator aber selbst und legt
-   * ihn außerhalb des Viewports — das Inset meldet null und muss es auch,
-   * sonst käme das Padding ein zweites Mal oben auf den reservierten Streifen.
+   * das lautlos. Ohne `viewport-fit=cover` meldet das Inset null, die Regel
+   * fällt also auf die 4px zurück.
    *
-   * `max()` statt einer Addition ist genau deshalb richtig: der Ausdruck
-   * stimmt in beiden Welten, ohne zu wissen, in welcher er läuft.
+   * `max()` statt einer Addition: der Ausdruck stimmt in beiden Welten, ohne
+   * zu wissen, in welcher er läuft. Kommt `viewport-fit=cover` je zurück,
+   * greift das Inset von selbst.
    */
   padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
+}
+
+/*
+ * Gegenstück zum Abstand oben in der Kopfzeile — und die Korrektur einer
+ * Annahme, die hier bis eben als Begründung stand: iOS lege den Streifen über
+ * dem Home-Indicator von sich aus außerhalb des Viewports, die 4px seien
+ * deshalb genug. Am Gerät war unten schlicht kein Abstand; die Leiste stand
+ * praktisch auf dem Indicator.
+ *
+ * Also dieselbe Konstruktion wie in `AppHeader.module.css`: ein Mindestabstand
+ * zur Viewport-Kante als Kandidat im `max()`, kein Aufschlag auf die 4px, und
+ * nur in der installierten iOS-PWA. Die beiden Bedingungen sind dort
+ * begründet; kurz: im Safari-Tab und auf anderen Plattformen gibt es weder
+ * Band noch Home-Indicator, dort wäre der Abstand eine Delle.
+ *
+ * Der Wert steht als `iosHomeIndicatorClearance` in tokens.ts.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .bar {
+      padding-bottom: max(
+        var(--space-xs),
+        env(safe-area-inset-bottom),
+        var(--layout-ios-home-indicator-clearance)
+      );
+    }
+  }
 }
 
 .tab {
