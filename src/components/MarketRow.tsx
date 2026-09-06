@@ -36,6 +36,12 @@ export function MarketRow({ player, playtime, metric, onClick, onBid }: MarketRo
   const countdownLabel =
     player.expiresInSeconds != null ? formatCountdown(player.expiresInSeconds * 1000) : null;
 
+  // Die zweite Zelle ordnet die erste ein: Ø Punkte sagen, ob eine hohe
+  // Punkte/Mio-Zahl von Leistung oder nur von einem kleinen Marktwert kommt.
+  // Sortiert der Screen selbst nach Ø Punkten, stehen sie schon oben — dann
+  // treten die Gesamtpunkte an die Stelle, statt dieselbe Zahl zu doppeln.
+  const contextMetric: PlayerMetric = metric === 'avgPoints' ? 'totalPoints' : 'avgPoints';
+
   const cells: StatCell[] = [
     {
       value: formatMetric(player, metric, playtime),
@@ -43,7 +49,10 @@ export function MarketRow({ player, playtime, metric, onClick, onBid }: MarketRo
       tone: 'accent',
       emphasis: true,
     },
-    { value: formatMetric(player, 'avgPoints', undefined), label: metricLabels.avgPoints.cell },
+    {
+      value: formatMetric(player, contextMetric, undefined),
+      label: metricLabels[contextMetric].cell,
+    },
   ];
 
   return (
