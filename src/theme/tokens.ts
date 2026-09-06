@@ -93,38 +93,36 @@ export const layout = {
   maxContentWidth: 480,
 
   /**
-   * Wie weit die verschmierende iOS-Schicht IN den Viewport hineinragt.
+   * Abstand, den der Inhalt in der installierten iOS-PWA zur oberen
+   * Viewport-Kante hält.
    *
-   * Am Screenshot der installierten PWA ausgemessen; der ganze Hergang steht
-   * in der index.html. Kurz: das Band reicht von der Bildschirmkante bis
-   * 101pt hinunter, der Viewport beginnt ohne `viewport-fit=cover` erst unter
-   * der Statusleiste bei rund 62pt. Die Differenz von rund 40pt liegt damit
-   * innerhalb der App — wer dort zeichnet, wird weiter verschmiert, auch wenn
-   * er `env(safe-area-inset-top)` korrekt respektiert (das Inset endet genau
-   * da, wo das Band noch 40pt weitergeht).
+   * Zwei Dinge stecken darin, und die Reihenfolge ist wichtig:
    *
-   * Angewendet als Mindestabstand von der Viewport-Kante (ein Kandidat im
-   * `max()`, kein Aufschlag), und nur in der installierten iOS-PWA — siehe
-   * `AppHeader.module.css` und `UpdateBannerView.module.css`. Wer ihn ändert,
-   * misst ihn am Gerät neu — geraten hilft hier niemandem.
+   * 1. Das Pflicht-Minimum: 40px. iOS legt über den oberen Rand eine Schicht,
+   *    die alles darin verschmiert; am Screenshot ausgemessen reicht sie bis
+   *    101pt ab Bildschirmkante, der Viewport beginnt ohne `viewport-fit=cover`
+   *    erst bei rund 62pt. Die Differenz liegt IM Viewport. Alles darunter
+   *    holt das Schmieren zurück — `iosStatusBand.test.ts` hält die Grenze
+   *    fest, die ganze Messung steht in der index.html.
+   * 2. Die Luft darüber, damit es nicht gequetscht aussieht. 40px war am Gerät
+   *    zu wenig, 48px zu viel; 44px liegt dazwischen.
+   *
+   * Wer daran dreht, dreht an Punkt 2 — Punkt 1 ist gemessen und keine
+   * Geschmacksfrage.
    */
-  iosStatusBandOverhang: 40,
+  iosTopClearance: 44,
 
   /**
-   * Freiraum, den die untere Kante in der installierten iOS-PWA braucht.
+   * Dasselbe für die untere Kante, wo die Tab-Leiste sonst auf dem
+   * Home-Indicator sitzt.
    *
-   * Gegenstück zum Überstand oben, aus demselben Anlass: die Leiste stand mit
-   * ihren 4px praktisch auf dem Home-Indicator. Die Annahme, iOS lege den
-   * Streifen darüber von sich aus außerhalb des Viewports (siehe den alten
-   * Kommentar in `TabBar.module.css`), hat das Gerät nicht bestätigt — unten
-   * war schlicht kein Abstand.
-   *
-   * 34px ist die Höhe, die iOS auf Face-ID-Geräten als
-   * `safe-area-inset-bottom` meldet, wenn es sie meldet: der Bereich, den
-   * Apple für den Home-Indicator frei sehen will. Angewendet wie oben als
-   * Kandidat im `max()`, nicht als Aufschlag.
+   * Pflicht-Minimum sind hier 34px — die Zone, die Apple für den
+   * Home-Indicator frei sehen will und die iOS auf Face-ID-Geräten als
+   * `safe-area-inset-bottom` meldet, wenn es sie meldet. Auch 34px waren am
+   * Gerät zu wenig; der Wert ist deshalb derselbe wie oben, was zusätzlich
+   * gleich viel Luft an beiden Kanten gibt.
    */
-  iosHomeIndicatorClearance: 34,
+  iosBottomClearance: 44,
 } as const;
 
 /**

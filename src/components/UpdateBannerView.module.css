@@ -21,7 +21,7 @@
     .frame {
       top: max(
         calc(env(safe-area-inset-top) + var(--space-sm)),
-        var(--layout-ios-status-band-overhang)
+        var(--layout-ios-top-clearance)
       );
     }
   }
