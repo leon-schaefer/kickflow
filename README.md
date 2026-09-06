@@ -218,9 +218,27 @@ vor einem Deploy, nicht für jeden Commit.
 ## PWA
 
 `public/manifest.webmanifest` deklariert `display: standalone`, `lang: de`,
-Portrait und die Icons (192, 512, 512 maskable). Installiert wird über die
-Browser-eigene UI („Zum Home-Bildschirm hinzufügen"); die App zeigt dafür
-keinen eigenen Hinweis.
+Portrait und die Icons (192, 512, 512 maskable).
+
+Auf den Weg dorthin weist `src/pwa/` genau EINMAL hin: nach dem ersten Login
+erscheint ein Dialog, danach nie wieder (Merker `kickflow.installHint.v1`).
+Vor dem Login nicht — wer die App noch nicht gesehen hat, kann die Frage nicht
+beantworten; in der installierten PWA ebenfalls nicht (`display-mode:
+standalone` bzw. `navigator.standalone`).
+
+Was er zeigt, hängt an der Plattform, weil „installieren" dort etwas
+Verschiedenes ist. Chromium meldet die Installierbarkeit über
+`beforeinstallprompt` an — das Event wird beim Laden abgefangen
+(`installPromptStore.ts`, deshalb auch keine Chromium-Mini-Infobar) und
+später auf Knopfdruck ausgelöst. WebKit auf iOS kennt das Event nicht; dort
+führt der einzige Weg über „Teilen" → „Zum Home-Bildschirm", und der Dialog
+zeigt statt eines Buttons die drei Schritte. Android ohne abgefangenes Event
+(Firefox u. a.) bekommt dieselbe Anleitung fürs Browser-Menü. Alles andere —
+Desktop-Safari, Desktop-Firefox — bekommt nichts: ein Hinweis ohne Weg
+dahinter ist schlechter als keiner.
+
+Die Entscheidung selbst steht ohne DOM-Zugriff in `src/pwa/installHint.ts`
+und ist dort ohne Browser geprüft.
 
 Den Icon-Satz erzeugt `scripts/generate-icons.py` aus einer gemeinsamen
 Vektor-Marke:
