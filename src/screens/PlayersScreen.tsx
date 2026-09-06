@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router';
 import type { CompetitionPlayer, Team } from '@/api/kickbase';
@@ -11,6 +11,7 @@ import { SortChips, SortChipsDivider } from '@/components/SortChips';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { usePlayerListView } from '@/players/PlayerListViewContext';
 import {
   useCompetitionPlayers,
   useCompetitionTeams,
@@ -22,8 +23,7 @@ import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
-import type { PlayerFilterCriteria } from '@/utils/playerFilter';
-import { EMPTY_PLAYER_FILTER, filterPlayers, isPlayerFilterActive } from '@/utils/playerFilter';
+import { filterPlayers, isPlayerFilterActive } from '@/utils/playerFilter';
 import {
   metricForSort,
   metricLabels,
@@ -101,9 +101,11 @@ export function PlayersScreen() {
   const lineupQuery = useLineup(leagueId);
   const marketQuery = useMarket(leagueId);
 
-  const [sortKey, setSortKey] = useState<PlayerSortKey>('marketValue');
-  const [filter, setFilter] = useState<PlayerFilterCriteria>(EMPTY_PLAYER_FILTER);
-  const [onlyMySquad, setOnlyMySquad] = useState(false);
+  // Filter, Sortierung und der Kader-Chip liegen im PlayerListViewProvider
+  // (LeagueLayout), nicht in diesem Screen: der Weg auf ein Spielerprofil
+  // hängt ihn aus, mit `useState` wäre die Rückkehr ein Neuanfang.
+  const [view, setView] = usePlayerListView('players');
+  const { sortKey, filter, onlyMine: onlyMySquad } = view;
 
   const mySquadIds = useMemo(
     () => (lineupQuery.data?.players ?? []).map((player) => player.id),
@@ -162,8 +164,11 @@ export function PlayersScreen() {
    */
   function toggleMySquad() {
     const next = !onlyMySquad;
-    setOnlyMySquad(next);
-    if (!next && sortKey === 'pointsPerMinute') setSortKey('marketValue');
+    setView({
+      ...view,
+      onlyMine: next,
+      sortKey: !next && sortKey === 'pointsPerMinute' ? 'marketValue' : sortKey,
+    });
   }
 
   const refresh = useRefresh(teamsQuery, playersQuery, lineupQuery, marketQuery, playtimeState);
@@ -223,12 +228,16 @@ export function PlayersScreen() {
     <>
       {header}
 
-      <PlayerFilterBar criteria={filter} onChange={setFilter} teams={teamsQuery.data} />
+      <PlayerFilterBar
+        criteria={filter}
+        onChange={(criteria) => setView({ ...view, filter: criteria })}
+        teams={teamsQuery.data}
+      />
 
       <SortChips
         options={onlyMySquad ? [...SORT_OPTIONS, PLAYTIME_SORT_OPTION] : SORT_OPTIONS}
         value={sortKey}
-        onChange={setSortKey}
+        onChange={(key) => setView({ ...view, sortKey: key })}
         leading={
           <>
             <button
