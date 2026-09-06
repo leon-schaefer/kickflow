@@ -30,28 +30,33 @@ interface InstallHintViewProps {
  */
 export function InstallHintView({ kind, onInstall, onDismiss }: InstallHintViewProps) {
   return (
-    <Modal open onClose={onDismiss} title="kickflow installieren">
+    <Modal
+      open
+      onClose={onDismiss}
+      title="kickflow als App installieren"
+      panelClassName={styles.panel}
+    >
       <p className={styles.body}>
-        Vom Startbildschirm startet kickflow im Vollbild — ohne Browserleisten, mit eigenem
-        Symbol und schneller zur Hand.
+        Danach liegt kickflow wie jede andere App auf dem Startbildschirm: eigenes Symbol,
+        Start im Vollbild, keine Browserleisten. Ohne App Store, ohne Download.
       </p>
 
       {kind === 'ios' && (
         <ol className={styles.steps}>
           <li className={styles.step}>
-            Unten in der Browserleiste auf Teilen{' '}
+            In der Browserleiste auf Teilen{' '}
             <ShareIcon size={15} />
             <span className={styles.srOnly}> (Teilen-Symbol)</span> tippen.
           </li>
-          <li className={styles.step}>In der Liste „Zum Home-Bildschirm" wählen.</li>
-          <li className={styles.step}>Oben rechts mit „Hinzufügen" bestätigen.</li>
+          <li className={styles.step}>„Zum Home-Bildschirm" wählen.</li>
+          <li className={styles.step}>Mit „Hinzufügen" bestätigen — fertig.</li>
         </ol>
       )}
 
       {kind === 'android' && (
         <ol className={styles.steps}>
           <li className={styles.step}>
-            Oben rechts das Browser-Menü{' '}
+            Das Browser-Menü{' '}
             <MenuIcon size={15} />
             <span className={styles.srOnly}> (Menü-Symbol)</span> öffnen.
           </li>
@@ -93,8 +98,8 @@ export function InstallHintView({ kind, onInstall, onDismiss }: InstallHintViewP
        * die App danach jederzeit über den Browser selbst.
        */}
       <p className={styles.footnote}>
-        Dieser Hinweis erscheint nur einmal. Installieren geht später jederzeit über den
-        Browser.
+        Dieser Hinweis erscheint nur einmal; später geht es jederzeit über den Browser.
+        Entfernen lässt sich das Symbol wie jede andere App.
       </p>
     </Modal>
   );

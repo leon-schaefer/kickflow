@@ -17,7 +17,9 @@ describe('InstallHintView', () => {
   it('zeigt auf Android ohne Event die Menü-Anleitung', () => {
     render(<InstallHintView kind="android" onInstall={() => {}} onDismiss={() => {}} />);
 
-    expect(screen.getByText(/App installieren/)).toBeInTheDocument();
+    // Nicht auf „App installieren" prüfen — das steht seit der Umformulierung
+    // auch in der Überschrift des Dialogs.
+    expect(screen.getByText(/Zum Startbildschirm hinzufügen/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Installieren' })).not.toBeInTheDocument();
   });
 
