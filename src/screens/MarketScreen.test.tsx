@@ -107,6 +107,26 @@ describe('MarketScreen', () => {
     expect(within(rows[0]!).getByText('Wirtz')).toBeInTheDocument();
   });
 
+  it('sortiert auf Wunsch nach absoluten Punkten statt pro Million', async () => {
+    // Der billige Ergänzungsspieler führt die Punkte/Mio-Liste an, der teure
+    // Stammspieler die absolute — genau der Grund für die beiden Chips.
+    market.data = {
+      players: [
+        makePlayer({ id: '1', name: 'Musiala', valueScoreAvg: 12, averagePoints: 120 }),
+        makePlayer({ id: '2', name: 'Wirtz', valueScoreAvg: 20, averagePoints: 60, totalPoints: 180 }),
+      ],
+      marketValueUpdateAt: null,
+    };
+    setup();
+    expect(within(screen.getAllByRole('listitem')[0]!).getByText('Wirtz')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ø Punkte' }));
+    expect(within(screen.getAllByRole('listitem')[0]!).getByText('Musiala')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Punkte' }));
+    expect(within(screen.getAllByRole('listitem')[0]!).getByText('Musiala')).toBeInTheDocument();
+  });
+
   it('filtert auf eigene Gebote und wieder zurück', async () => {
     setup();
     const toggle = screen.getByRole('button', { name: 'Nur meine Gebote' });

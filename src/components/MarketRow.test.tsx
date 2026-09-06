@@ -87,6 +87,21 @@ describe('MarketRow', () => {
     expect(screen.getByText('+10 %')).toBeInTheDocument();
   });
 
+  it('doppelt die sortierte Kennzahl nicht, wenn sie schon Ø Punkte ist', () => {
+    render(
+      <MarketRow
+        player={makePlayer({ averagePoints: 120, totalPoints: 400 })}
+        metric="avgPoints"
+        onBid={vi.fn()}
+      />,
+    );
+    // Oben die sortierte Kennzahl, darunter die Einordnung — zweimal "Ø Punkte"
+    // wäre eine verschenkte Zeile.
+    expect(screen.getByText('Ø Punkte')).toBeInTheDocument();
+    expect(screen.getByText('Punkte')).toBeInTheDocument();
+    expect(screen.getByText('400')).toBeInTheDocument();
+  });
+
   it('zeigt die Restlaufzeit nur bei Kickbase-Listings', () => {
     const { container } = render(
       <MarketRow player={makePlayer()} metric="avgPerMillion" onBid={vi.fn()} />,
