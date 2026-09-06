@@ -55,6 +55,19 @@ abgewichen wird.
   „Systemleisten überlappen uns nie“ und stimmt in beiden Welten. Wer ihn als
   toten Code streicht, nimmt der nächsten Runde das Netz — im Desktop-Browser
   zeigt keine der beiden Welten ein Symptom.
+  Weil das Band rund 40pt tiefer reicht als die Safe Area, ragt es auch in den
+  so beschnittenen Viewport hinein. Kopfzeile und Update-Banner halten deshalb
+  `--layout-ios-top-clearance` als Mindestabstand zur oberen Viewport-Kante
+  ein, die Tab-Leiste `--layout-ios-bottom-clearance` zur unteren — jeweils als
+  weiterer Kandidat IM `max()`, nicht als Aufschlag darauf: gebraucht wird ein
+  Mindestabstand, kein Zuschlag auf einen Wert, der dasselbe schon leistet.
+  In beiden Werten steckt ein Pflicht-Minimum (40px Bandunterkante oben, 34px
+  Home-Indicator-Zone unten) plus Luft nach Augenmaß; `iosStatusBand.test.ts`
+  hält nur die Minima fest, alles darüber darf sich ändern. Beides greift nur unter
+  `@supports (-webkit-touch-callout: none)` und
+  `@media (display-mode: standalone)`, also ausschließlich in der installierten
+  iOS-PWA. Im Tab und auf anderen Plattformen gibt es weder Band noch
+  Home-Indicator, dort wäre der Abstand eine Delle.
 - **CSP**: `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` trägt die
   Argumentation für den Token im localStorage. Nichts einbauen, was Inline-
   Scripts oder `eval` braucht — siehe `vite.config.ts`

@@ -12,8 +12,14 @@
          Unterkante, und alles darin verschmiert (der Liga-Titel kam auf Spitzenhelligkeit
          151 statt der 245, die Text in derselben Farbe 30pt tiefer erreicht). Das Band reicht
          rund 40pt WEITER als `env(safe-area-inset-top)` (~62pt) — das Inset zu respektieren
-         genügt also nicht, und ein noch höherer Header schiebt nur mehr App hinein.
+         genügt also nicht.
          Gegen eine Schicht des Systems hilft kein CSS; hilft nur, nichts darunter zu malen.
+         Das geht in zwei Schritten, und beide sind nötig: hier oben bleibt die App aus dem
+         Bereich unter der Statusleiste heraus, womit der Viewport bei ~62pt beginnt. Die
+         restlichen ~40pt des Bandes liegen dann IM Viewport — so weit von der Viewport-Kante
+         weg fängt der Inhalt der Kopfzeile in der installierten PWA deshalb frühestens an
+         (src/shell/AppHeader.module.css, Wert als `iosTopClearance` in src/theme/tokens.ts —
+         diese 40pt sind darin das Pflicht-Minimum, gesetzt ist etwas mehr).
 
          Ohne `viewport-fit=cover` melden alle `env(safe-area-inset-*)` null. Das ist hier
          kein Verlust, sondern der Sinn der Sache: der sichere Bereich IST jetzt der
