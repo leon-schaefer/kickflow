@@ -639,12 +639,12 @@ async function tryPostLineup(
  * mehrere unbelegte Pfad-/Body-Varianten durchprobiert werden.
  */
 async function tryRequest(
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   urlPath: string,
   token: string,
   body?: unknown,
   label?: string,
-): Promise<{ ok: boolean; status: number; body: unknown }> {
+): Promise<{ ok: boolean; status: number; body: unknown; allow: string | null }> {
   const res = await fetch(`${BASE_URL}${urlPath}`, {
     method,
     headers: {
@@ -656,7 +656,10 @@ async function tryRequest(
   });
   const responseBody = await res.text().then((t) => (t.length ? safeJsonParse(t) : null));
   console.log(`  ${label ?? `${method} ${urlPath}`} → ${res.status}`, responseBody ?? '');
-  return { ok: res.ok, status: res.status, body: responseBody };
+  // `Allow` steht nur bei 405 drin und ist die einzige Stelle, an der Kickbase
+  // die erlaubten Methoden einer Route verrät — im Browser bliebe er hinter
+  // CORS verborgen, im Probe nicht.
+  return { ok: res.ok, status: res.status, body: responseBody, allow: res.headers.get('allow') };
 }
 
 function safeJsonParse(text: string): unknown {
@@ -793,12 +796,17 @@ async function probeOffers(token: string, leagueId: string, marketItems: any[]):
  * bewusst der Marktwert: kein Schnäppchen, das ein Mitspieler in der einen
  * Sekunde wegschnappt.
  *
- * Der POST wird über dieselben Pfad-Kandidaten in derselben Reihenfolge
- * probiert wie LISTING_PATHS in src/api/kickbase/endpoints.ts — der
- * dokumentierte Pfad `/v4/leagues/{leagueId}/market/` antwortet in der Praxis
- * mit 404, die Frage ist also, welcher es stattdessen ist. Abgebrochen wird
- * beim ersten Treffer und bei jeder Antwort ≠ 404: die kommt schon von einer
- * existierenden Route.
+ * Probiert dieselben Kandidaten in derselben Reihenfolge wie LISTING_ROUTES in
+ * src/api/kickbase/endpoints.ts — der dokumentierte Aufruf
+ * `POST /v4/leagues/{leagueId}/market/` antwortet in der Praxis mit 404,
+ * `POST .../market/{playerId}` mit 405; die Frage ist, welcher es stattdessen
+ * ist. Weiter geht es nur bei 404 und 405, abgebrochen wird beim ersten
+ * Treffer und bei jeder anderen Antwort: die kommt schon von einem
+ * existierenden Aufruf.
+ *
+ * Bei 405 wird der `Allow`-Header ausgegeben — er nennt die erlaubten Methoden
+ * dieser Route und beendet damit das Raten. Im Browser wäre er unsichtbar
+ * (CORS gibt ihn ohne `Access-Control-Expose-Headers` nicht frei), hier nicht.
  */
 async function probeListPlayer(token: string, leagueId: string, squadItems: any[]): Promise<void> {
   console.log('\n=== --list-player: Spieler auf den Markt stellen/zurücknehmen verifizieren ===');
@@ -812,37 +820,46 @@ async function probeListPlayer(token: string, leagueId: string, squadItems: any[
   console.log(`Zielspieler: ${target.fn ?? ''} ${target.n} (${target.i}), Marktwert ${target.mv}`);
 
   console.log('\n-- 1. Auf den Markt stellen --');
-  // Dieselben Kandidaten in derselben Reihenfolge wie LISTING_PATHS in
+  // Dieselben Kandidaten in derselben Reihenfolge wie LISTING_ROUTES in
   // src/api/kickbase/endpoints.ts — der Probe ist die Messung, die dort die
   // Liste irgendwann auf einen Eintrag schrumpfen lässt.
   const body = { playerId: String(target.i), price: target.mv };
-  const listingPaths = [
+  const listingRoutes = [
     {
-      path: `/v4/leagues/${leagueId}/market/${target.i}`,
-      label: 'POST /market/{playerId} {playerId, price} (Form der übrigen Marktrouten)',
-    },
-    {
-      path: `/v4/leagues/${leagueId}/market/`,
-      label: 'POST /market/ {playerId, price} (mit Slash, wie in der Spezifikation)',
-    },
-    {
+      method: 'POST' as const,
       path: `/v4/leagues/${leagueId}/market`,
-      label: 'POST /market {playerId, price} (ohne Slash)',
+      label: 'POST /market {playerId, price} (Doku-Operation ohne den Slash)',
+    },
+    {
+      method: 'PUT' as const,
+      path: `/v4/leagues/${leagueId}/market/${target.i}`,
+      label: 'PUT /market/{playerId} {playerId, price} (Route existiert laut 405)',
+    },
+    {
+      method: 'POST' as const,
+      path: `/v4/leagues/${leagueId}/market/`,
+      label: 'POST /market/ {playerId, price} (Doku-Pfad wörtlich, gemessen 404)',
     },
   ];
 
-  let listed: { ok: boolean; status: number; body: unknown } | null = null;
-  for (const candidate of listingPaths) {
-    listed = await tryRequest('POST', candidate.path, token, body, candidate.label);
+  let listed: { ok: boolean; status: number; body: unknown; allow: string | null } | null = null;
+  for (const candidate of listingRoutes) {
+    listed = await tryRequest(candidate.method, candidate.path, token, body, candidate.label);
     if (listed.ok) {
       console.log(`✓ Treffer: ${candidate.label}`);
       break;
     }
-    // Nur ein 404 heißt „Route gibt es nicht". Alles andere kommt von einer
-    // existierenden Route und wäre beim nächsten Kandidaten nur Rauschen.
-    if (listed.status !== 404) {
+    if (listed.status === 405 && listed.allow) {
+      // Der Fund, der das Raten beendet: die Route gibt es, und der Header
+      // sagt, mit welcher Methode.
+      console.log(`  ↳ 405, erlaubte Methoden laut Allow-Header: ${listed.allow}`);
+    }
+    // 404 = Route unbekannt, 405 = Methode nicht erlaubt. Beides heißt
+    // „nicht dieser Aufruf" und hat nichts eingestellt. Alles andere kommt von
+    // einem existierenden Aufruf und wäre beim nächsten Kandidaten nur Rauschen.
+    if (listed.status !== 404 && listed.status !== 405) {
       console.error(
-        `Pfad existiert, Kickbase lehnt aber ab (${listed.status}) — weitere Kandidaten übersprungen.`,
+        `Aufruf existiert, Kickbase lehnt aber ab (${listed.status}) — weitere Kandidaten übersprungen.`,
       );
       return;
     }
