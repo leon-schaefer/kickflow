@@ -2,6 +2,7 @@ import { Outlet, useParams } from 'react-router';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { ExcludedFromSaleProvider } from '@/lineup/ExcludedFromSaleContext';
 import { LeagueRulesProvider } from '@/lineup/LeagueRulesContext';
+import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
 import styles from './LeagueLayout.module.css';
 
 /**
@@ -13,6 +14,11 @@ import styles from './LeagueLayout.module.css';
  * LeagueSwitcher navigiert mit `replace`, die Route bleibt also dieselbe —
  * React würde den Baum sonst weiterverwenden. Wie bisher sitzt der `key`
  * innerhalb des LeagueIdProvider, auf dem Inhalt.
+ *
+ * Der LineupDraftProvider liegt dagegen INNERHALB des `key`: er hält den
+ * ungespeicherten Aufstellungs-Entwurf, damit ein Abstecher auf `rules` oder
+ * ein Spielerprofil ihn nicht verwirft (siehe LineupDraftContext) — und genau
+ * dieser Entwurf ist es, den der `key` beim Liga-Wechsel wegräumen soll.
  *
  * Die beiden Speicher-Provider liegen wie bisher ÜBER dem Inhalt: der
  * Regel-State ist zwischen dem Aufstellungs-Tab und dem `rules`-Screen
@@ -28,7 +34,9 @@ export function LeagueLayout() {
       <LeagueRulesProvider leagueId={leagueId ?? ''}>
         <ExcludedFromSaleProvider leagueId={leagueId ?? ''}>
           <div key={leagueId} className={styles.content}>
-            <Outlet />
+            <LineupDraftProvider>
+              <Outlet />
+            </LineupDraftProvider>
           </div>
         </ExcludedFromSaleProvider>
       </LeagueRulesProvider>
