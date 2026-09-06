@@ -1,3 +1,14 @@
+/*
+ * Das gemeinsame Panel deckelt seine Höhe bei 70dvh, kümmert sich aber nicht
+ * um den Überlauf — bei den bisherigen Dialogen passte der Inhalt immer. Der
+ * längste Zweig hier (drei Schritte plus Anlauftext) passt auf einem kleinen
+ * Gerät oder bei großer Systemschrift NICHT, und ohne diese Regel stünde die
+ * Fußnote unter dem Rahmen statt darin.
+ */
+.panel {
+  overflow-y: auto;
+}
+
 .body {
   margin: 0;
   font-size: var(--font-size-body);
