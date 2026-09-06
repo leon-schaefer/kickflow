@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import type { LineupData, MarketData, MatchdaySchedule, SquadPlayer } from '@/api/kickbase';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
+import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
 import { mockLineupData } from '@/mock/mockLineup';
 import { fakeLayout } from '@/test/fakeLayout';
 import pitchStyles from '@/components/Pitch.module.css';
@@ -91,24 +92,28 @@ function openSchedule(): MatchdaySchedule {
   };
 }
 
+/**
+ * Die beiden Provider liegen ÜBER dem Router, so wie im echten Baum über dem
+ * `<Outlet />` des LeagueLayout. Für den Entwurf ist das keine Kulisse,
+ * sondern der Punkt: nur so überlebt er den Weg auf `rules` und zurück.
+ */
 function setup() {
   const router = createMemoryRouter(
     [
-      {
-        path: '/:leagueId/lineup',
-        element: (
-          <LeagueIdProvider id="42">
-            <LineupScreen />
-          </LeagueIdProvider>
-        ),
-      },
+      { path: '/:leagueId/lineup', element: <LineupScreen /> },
       { path: '/:leagueId/player/:playerId', element: <h1>Spieler</h1> },
       { path: '/:leagueId/rules', element: <h1>Regeln</h1> },
       { path: '/:leagueId/fixtures', element: <h1>Restprogramm</h1> },
     ],
     { initialEntries: ['/42/lineup'] },
   );
-  const view = render(<RouterProvider router={router} />);
+  const view = render(
+    <LeagueIdProvider id="42">
+      <LineupDraftProvider>
+        <RouterProvider router={router} />
+      </LineupDraftProvider>
+    </LeagueIdProvider>,
+  );
   return { router, ...view };
 }
 
@@ -186,6 +191,24 @@ describe('LineupScreen', () => {
     await startEditing();
     expect(screen.getByRole('button', { name: 'Optimieren' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeInTheDocument();
+  });
+
+  it('behält Bearbeitungsmodus und Entwurf über den Regel-Screen hinweg', async () => {
+    const { router } = setup();
+    await startEditing();
+    // Ein Handgriff, damit sich der Entwurf vom Server-Stand unterscheidet.
+    await userEvent.click(pitchCard('Feldmann'));
+
+    // Genau der Weg aus dem Bug: die „Regeln"-Zeile der OptimizerBar hängt
+    // den Screen aus, Zurück mountet ihn neu.
+    await userEvent.click(screen.getByRole('button', { name: /Regeln|Keine Regeln aktiv/ }));
+    expect(router.state.location.pathname).toBe('/42/rules');
+    await act(() => router.navigate('/42/lineup'));
+
+    expect(screen.getByRole('button', { name: 'Optimieren' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeInTheDocument();
+    expect(pitchNames().join(' ')).not.toContain('Feldmann');
+    expect(screen.getByText(/10 von 11 Positionen besetzt/)).toBeInTheDocument();
   });
 
   it('entfernt einen Startelf-Spieler auf die Bank', async () => {

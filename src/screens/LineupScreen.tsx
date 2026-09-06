@@ -18,7 +18,8 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
-import { type OptimizerDiff, useLineupOptimizer } from '@/lineup/useLineupOptimizer';
+import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
+import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import {
   useLeagues,
   useLineup,
@@ -83,7 +84,26 @@ export function LineupScreen() {
   const { excludedIds, toggleExcluded } = useExcludedFromSaleContext();
   const [, forceTick] = useState(0);
 
-  const [editing, setEditing] = useState(false);
+  // Die Bearbeitungs-Sitzung liegt im LineupDraftProvider (LeagueLayout), nicht
+  // hier: die „Regeln"-Zeile der OptimizerBar und jede Spielerkarte navigieren
+  // weg und hängen diesen Screen aus. Mit lokalem useState kam man in einen
+  // zugeklappten Optimizer und ohne Entwurf zurück — siehe LineupDraftContext.
+  const {
+    editing,
+    setEditing,
+    formation,
+    setFormation,
+    draftIds,
+    setDraftIds,
+    selectedBenchId,
+    setSelectedBenchId,
+    appliedDiff,
+    setAppliedDiff,
+    preOptimize,
+    setPreOptimize,
+    autoNote,
+    setAutoNote,
+  } = useLineupDraftContext();
   // „Auf den Markt stellen" für die Pflichtverkäufe — der Dialog hängt an der
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
@@ -92,9 +112,6 @@ export function LineupScreen() {
   // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
   // (siehe usePurchases), also erst holen, wenn die Liste wirklich offen ist.
   const [sellAdviceOpen, setSellAdviceOpen] = useState(false);
-  const [formation, setFormation] = useState<string>('');
-  const [draftIds, setDraftIds] = useState<string[]>([]);
-  const [selectedBenchId, setSelectedBenchId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Kaufpreise für die Kaufen/Verkaufen-Liste — ein Request PRO Kaderspieler
@@ -109,18 +126,6 @@ export function LineupScreen() {
     for (const [playerId, transfer] of purchases.purchases) map.set(playerId, transfer.price);
     return map;
   }, [purchases.purchases]);
-  // Rückmeldung zur automatischen Formationserkennung — lebt nur bis zum
-  // nächsten Eingriff und ersetzt solange die Hinweiszeile unter dem Feld.
-  const [autoNote, setAutoNote] = useState<string | null>(null);
-
-  // Eingefroren zum Zeitpunkt des letzten "Optimieren" — treibt Marker/Diff-Anzeige,
-  // unabhängig vom aktuellen (nach dem Übernehmen wieder leeren) Live-Diff.
-  const [appliedDiff, setAppliedDiff] = useState<OptimizerDiff | null>(null);
-  const [preOptimize, setPreOptimize] = useState<{
-    formation: string;
-    draftIds: string[];
-  } | null>(null);
-
   // Countdown-Anzeige lebendig halten, ohne dafür zu pollen (kein Netzwerk-Request).
   useEffect(() => {
     const id = window.setInterval(() => forceTick((n) => n + 1), 60_000);
