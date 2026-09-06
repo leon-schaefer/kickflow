@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { layout } from './tokens';
 
 /**
- * Wächter über den Abstand zum verschmierenden Band der iOS-PWA.
+ * Wächter über die beiden Abstände zu den Systemkanten der iOS-PWA.
  *
  * Das Band ist die dritte Runde an derselben Stelle: erst zeichnete die App
  * randlos unter die Statusleiste, dann respektierte sie `env(safe-area-inset-
@@ -16,7 +16,8 @@ import { layout } from './tokens';
  * Verhalten: jsdom rechnet kein Layout, der Desktop-Browser zeigt kein
  * Symptom, und die einzige Umgebung, in der der Verlust sichtbar wird, ist ein
  * iPhone mit installierter PWA. Fällt eine der Regeln weg, ist der Titel
- * wieder verschmiert und niemand merkt es vor dem nächsten Screenshot.
+ * wieder verschmiert oder die Tab-Leiste sitzt wieder auf dem Home-Indicator,
+ * und niemand merkt es vor dem nächsten Screenshot.
  */
 const SRC = path.join(import.meta.dirname, '..');
 const HEADER = readFileSync(path.join(SRC, 'shell', 'AppHeader.module.css'), 'utf8');
@@ -24,8 +25,10 @@ const BANNER = readFileSync(
   path.join(SRC, 'components', 'UpdateBannerView.module.css'),
   'utf8',
 );
+const TABBAR = readFileSync(path.join(SRC, 'shell', 'TabBar.module.css'), 'utf8');
 
 const VAR = '--layout-ios-status-band-overhang';
+const BOTTOM_VAR = '--layout-ios-home-indicator-clearance';
 
 /** Die beiden Bedingungen, die den Abstand auf die installierte iOS-PWA einengen. */
 function guardedBlocks(css: string): string[] {
@@ -36,11 +39,13 @@ function guardedBlocks(css: string): string[] {
 }
 
 describe('Abstand zum iOS-Statusband', () => {
-  it('kennt den ausgemessenen Überstand als Token', () => {
-    // Der Wert selbst steht in tokens.ts und ist am Gerät gemessen (101pt
-    // Bandunterkante minus ~62pt Viewport-Beginn). Hier nur festhalten, dass er
-    // existiert und plausibel bleibt — eine 0 wäre der stille Rückfall.
+  it('kennt beide Abstände als Token', () => {
+    // Die Werte stehen in tokens.ts: oben am Gerät gemessen (101pt
+    // Bandunterkante minus ~62pt Viewport-Beginn), unten der Bereich, den
+    // Apple für den Home-Indicator frei sehen will. Hier nur festhalten, dass
+    // sie existieren und positiv bleiben — eine 0 wäre der stille Rückfall.
     expect(layout.iosStatusBandOverhang).toBeGreaterThan(0);
+    expect(layout.iosHomeIndicatorClearance).toBeGreaterThan(0);
   });
 
   it('schiebt die Kopfzeile um den Überstand nach unten', () => {
@@ -63,15 +68,28 @@ describe('Abstand zum iOS-Statusband', () => {
     expect(block).toMatch(/top:\s*max\(/);
   });
 
+  it('hält die Tab-Leiste vom Home-Indicator frei', () => {
+    const [block] = guardedBlocks(TABBAR);
+    expect(block, '@supports-Block fehlt in TabBar.module.css').toBeDefined();
+    expect(block).toContain('display-mode: standalone');
+    expect(block).toContain(`var(${BOTTOM_VAR})`);
+    expect(block).toMatch(/padding-bottom:\s*max\(/);
+    expect(block).toContain('env(safe-area-inset-bottom)');
+  });
+
   it('lässt den Abstand außerhalb der installierten iOS-PWA weg', () => {
     // Ohne eine der beiden Bedingungen bekämen Safari-Tab, Android-PWA und
-    // Desktop eine 40px-Delle über der Kopfzeile — ein Fehler, den umgekehrt
-    // nur der Desktop zeigt.
-    for (const css of [HEADER, BANNER]) {
-      const occurrences = css.split(`var(${VAR})`).length - 1;
+    // Desktop eine Delle über der Kopfzeile bzw. unter der Tab-Leiste — ein
+    // Fehler, den umgekehrt nur der Desktop zeigt.
+    for (const [css, name] of [
+      [HEADER, VAR],
+      [BANNER, VAR],
+      [TABBAR, BOTTOM_VAR],
+    ] as const) {
+      const occurrences = css.split(`var(${name})`).length - 1;
       expect(occurrences).toBe(1);
       const [block] = guardedBlocks(css);
-      expect(block).toContain(`var(${VAR})`);
+      expect(block).toContain(`var(${name})`);
     }
   });
 });

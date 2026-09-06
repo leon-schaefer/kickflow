@@ -56,12 +56,16 @@ abgewichen wird.
   toten Code streicht, nimmt der nächsten Runde das Netz — im Desktop-Browser
   zeigt keine der beiden Welten ein Symptom.
   Weil das Band rund 40pt tiefer reicht als die Safe Area, ragt es auch in den
-  so beschnittenen Viewport hinein. Kopfzeile und Update-Banner schieben ihren
-  Inhalt deshalb zusätzlich um `--layout-ios-status-band-overhang` nach unten —
-  aber nur unter `@supports (-webkit-touch-callout: none)` und
+  so beschnittenen Viewport hinein. Kopfzeile und Update-Banner halten deshalb
+  `--layout-ios-status-band-overhang` als Mindestabstand zur oberen
+  Viewport-Kante ein, die Tab-Leiste `--layout-ios-home-indicator-clearance`
+  zur unteren — jeweils als weiterer Kandidat IM `max()`, nicht als Aufschlag
+  darauf: gebraucht wird ein Mindestabstand, kein Zuschlag auf einen Wert, der
+  dasselbe schon leistet. Beides greift nur unter
+  `@supports (-webkit-touch-callout: none)` und
   `@media (display-mode: standalone)`, also ausschließlich in der installierten
-  iOS-PWA. Im Tab und auf anderen Plattformen gibt es das Band nicht, dort wäre
-  der Abstand eine Delle.
+  iOS-PWA. Im Tab und auf anderen Plattformen gibt es weder Band noch
+  Home-Indicator, dort wäre der Abstand eine Delle.
 - **CSP**: `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` trägt die
   Argumentation für den Token im localStorage. Nichts einbauen, was Inline-
   Scripts oder `eval` braucht — siehe `vite.config.ts`
