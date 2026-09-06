@@ -37,11 +37,20 @@ import styles from './MarketScreen.module.css';
 // referenziell stabile ID-Liste, sonst baut useQueries sie bei jedem Render neu.
 const NO_PLAYTIME_IDS: string[] = [];
 
-const SORT_OPTIONS: { key: PlayerSortKey; label: string }[] = [
+/**
+ * Erst die Wert-Kennzahlen (der Markt fragt zuerst „lohnt der Preis?"), dann
+ * die nackten Punkte, dann der Ablauf — die Divider trennen genau diese drei
+ * Gruppen, wie im Spieler-Tab auch. Ø Punkte und Punkte gehören dazu, weil
+ * eine hohe Punkte/Mio-Zahl auch von einem billigen Ergänzungsspieler kommen
+ * kann: wer die Startelf sucht, braucht die absoluten Punkte.
+ */
+const SORT_OPTIONS: { key: PlayerSortKey; label: string; dividerBefore?: boolean }[] = [
   { key: 'avgPerMillion', label: metricLabels.avgPerMillion.chip },
   { key: 'totalPerMillion', label: metricLabels.totalPerMillion.chip },
   { key: 'pointsPerMinute', label: metricLabels.pointsPerMinute.chip },
-  { key: 'expiry', label: 'Ablauf' },
+  { key: 'avgPoints', label: metricLabels.avgPoints.chip, dividerBefore: true },
+  { key: 'totalPoints', label: metricLabels.totalPoints.chip },
+  { key: 'expiry', label: 'Ablauf', dividerBefore: true },
 ];
 
 export function MarketScreen() {
