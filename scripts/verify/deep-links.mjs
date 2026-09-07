@@ -48,6 +48,7 @@ const URLS = [
   ['/login', 'Kickflow'],
   ['/leagues', 'Meine Ligen'],
   ['/settings', 'Einstellungen'],
+  ['/feedback', 'Feedback'],
   ['/42/lineup', 'Liga'],
   ['/42/players', 'Liga'],
   ['/42/market', 'Liga'],

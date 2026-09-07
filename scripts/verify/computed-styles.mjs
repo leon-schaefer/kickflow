@@ -108,6 +108,7 @@ const URLS = [
   '/login',
   '/leagues',
   '/settings',
+  '/feedback',
   '/42/lineup',
   '/42/players',
   '/42/market',
