@@ -1,10 +1,14 @@
 # Checks für Pull Requests: Typecheck, Tests und der Web-Build.
 #
 # Der Web-Build ist hier der wichtigste Schritt. Kickflow wird ausschließlich
-# als Web-App über Vercel ausgeliefert, und `expo export -p web` ist der einzige
-# Build, den es noch gibt — läuft er nicht, fällt das sonst erst bei Vercel auf,
-# also nach dem Merge. Er braucht keine Secrets und funktioniert deshalb auch in
-# Forks.
+# als Web-App über Vercel ausgeliefert, und `npm run build:web` ist genau der
+# Befehl, den vercel.json als buildCommand fährt — läuft er nicht, fällt das
+# sonst erst bei Vercel auf, also nach dem Merge. (Der Befehl hieß bis zum
+# Umzug von Expo auf Vite `expo export -p web`.)
+#
+# Er braucht keine Secrets und funktioniert deshalb auch in Forks: das ist der
+# einzige Check, den ein fremder Pull Request bestehen muss. Der zweite
+# Workflow (vercel-qr.yml) überspringt Forks absichtlich, siehe dort.
 #
 # actions/checkout prüft bei pull_request den Merge-Commit aus, geprüft wird
 # also das, was tatsächlich landen würde — nicht der Branch-Kopf.
