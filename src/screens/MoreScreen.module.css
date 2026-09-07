@@ -32,9 +32,11 @@
   color: var(--color-text-secondary);
 }
 
-/* Geteilt von „Link teilen" und „Unterstützen" — beide sind eine sekundäre
-   Aktion auf einer Karte, und zwei getrennte Klassen mit identischen Werten
-   wären der Anfang der Drift. */
+/* Geteilt von „Link teilen", „Unterstützen" und „Feedback geben" — alle drei
+   sind eine sekundäre Aktion auf einer eigenen Karte, und getrennte Klassen
+   mit identischen Werten wären der Anfang der Drift. Gleiche Optik heißt hier
+   auch gleiche Gewichtung, und die ist richtig: keine der drei ist wichtiger
+   als die anderen. */
 .cardButton {
   /* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
   min-height: 44px;
@@ -47,6 +49,19 @@
   font-size: var(--font-size-body);
   font-weight: 600;
   color: var(--color-accent);
+}
+
+/*
+ * Zusatz zu .cardButton für die eine dieser drei Aktionen, die ein `<a>` ist
+ * („Feedback geben" navigiert). Bewusst eine ZWEITE Klasse neben
+ * .cardButton und kein `composes: cardButton` mit überschriebenen Werten:
+ * Vite emittiert die komponierte Klasse NACH der einbindenden, und weil
+ * .cardButton nicht in `:where()` steht, gewänne sie jedes Override (siehe
+ * den Docblock in src/theme/layout.module.css). Nur `text-decoration` setzen
+ * heißt: nichts zu überschreiben, also auch keine Reihenfolge-Falle.
+ */
+.cardLink {
+  text-decoration: none;
 }
 
 .hint {

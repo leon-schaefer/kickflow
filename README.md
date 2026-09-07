@@ -144,6 +144,20 @@ Gebraucht wird sie erst, wenn die App unter einer Domain läuft, die Vercel
 nicht als Produktions-Domain des Projekts kennt. Fehlen im Vercel-Build beide,
 schlägt der Build fehl — mit Absicht (`scripts/siteOrigin.ts`).
 
+Das Feedback-Formular im Mehr-Tab (`/feedback`) braucht dagegen **keine**
+Env-Var: der Empfänger steht als `FEEDBACK_EMAIL` in `src/support/links.ts`,
+neben Homepage- und Datenschutz-Link und aus demselben Grund — ein
+Feedback-Weg, der je nach Environment fehlt, ist keiner. Wer die Adresse
+ändert, muss dafür sorgen, dass das Postfach existiert: die App verschickt
+nicht selbst, sie öffnet das Mail-Programm des Nutzers mit fertigem Betreff
+und Text (`src/support/feedback.ts`), und ob eine Mail ankommt, kann sie nicht
+erkennen.
+
+Mailto und kein Formular-Dienst, weil kickflow keinen eigenen Server hat: ein
+Endpunkt bei Formspree & Co. bräuchte einen dritten Host in `connect-src`.
+Der Preis ist ein Nutzer ohne eingerichtetes Mail-Programm — für den steht
+Betreff und Text auf dem Screen zum Kopieren daneben.
+
 CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
 Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
 Vercels `deployment_status` eintrifft.
@@ -195,7 +209,7 @@ damit die lokale Prüfung nicht von Produktion abdriften kann. Der häufigste
 Fehler bei so einer Verifikation ist `serve -s dist`: das sendet keine CSP —
 und genau die CSP ist der Ort, an dem ein Bundler überrascht.
 
-`deep-links.mjs` ruft alle 13 URLs direkt auf und prüft Status, Überschrift,
+`deep-links.mjs` ruft alle 14 URLs direkt auf und prüft Status, Überschrift,
 Konsolenfehler und CSP-Verstöße. Letztere über das DOM-Event
 `securitypolicyviolation`, nicht über eine Konsolen-Textsuche: nur so werden
 auch stille Verstöße sichtbar. Genau daran ist aufgefallen, dass Zods
@@ -211,7 +225,7 @@ bedient.
 
 `computed-styles.mjs` vergleicht `getComputedStyle` gegen die Absicht — die
 Schriftgröße, das Gewicht, den Hintergrund und das Padding einiger tragender
-Elemente, plus die Zusicherung, dass auf keiner der 13 Seiten ein Element eine
+Elemente, plus die Zusicherung, dass auf keiner der 14 Seiten ein Element eine
 Schrift außerhalb des Basis-Stacks berechnet. Das ist der einzige Test, der die
 Kaskade misst statt sie zu lesen: welche Regel bei gleicher Spezifität gewinnt,
 entscheidet die Emissionsreihenfolge im Bundle, und daran sind schon zwei

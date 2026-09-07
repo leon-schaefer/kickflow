@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/auth/LogoutButton';
 import { ExternalLink } from '@/components/ExternalLink';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { AppHeader } from '@/shell/AppHeader';
+import { withOrigin } from '@/shell/useBackTarget';
 import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
 import {
@@ -32,6 +34,7 @@ import styles from './MoreScreen.module.css';
  */
 export function MoreScreen() {
   const { userName } = useAuth();
+  const { pathname } = useLocation();
   const [linkFailed, setLinkFailed] = useState(false);
   const [invite, setInvite] = useState<InviteOutcome | null>(null);
 
@@ -129,6 +132,29 @@ export function MoreScreen() {
               )}
             </section>
           )}
+
+          {/*
+           * Ein `<Link>` und kein Button: das ist eine Navigation, und ein
+           * echtes `<a href>` erlaubt „in neuem Tab öffnen" und zeigt das
+           * Ziel in der Statusleiste. Die Herkunft geht als state mit, damit
+           * Zurück von dort hierher führt und nicht in die Ligenliste — der
+           * Feedback-Screen liegt außerhalb von `/:leagueId` und hat sonst
+           * keinen Tab, auf den er zurückfallen könnte.
+           */}
+          <section className={styles.card}>
+            <h2 className={styles.cardTitle}>Feedback & Wünsche</h2>
+            <p className={styles.cardBody}>
+              Ein Fehler, eine fehlende Funktion oder eine Idee? Schreib es mir — die App wächst
+              genau daran.
+            </p>
+            <Link
+              to="/feedback"
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+              className={cx(layout.pressableH, styles.cardButton, styles.cardLink)}
+            >
+              Feedback geben
+            </Link>
+          </section>
 
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>Konto</h2>
