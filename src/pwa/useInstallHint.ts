@@ -2,6 +2,7 @@ import { useCallback, useState, useSyncExternalStore } from 'react';
 import { INSTALL_HINT_KEY } from '@/storage/keys';
 import localStore from '@/storage/local';
 import { type InstallHintKind, installHintKind } from './installHint';
+import { isStandalone } from './standalone';
 import {
   clearInstallPrompt,
   getInstallState,
@@ -19,19 +20,6 @@ import {
  */
 function readSeen(): boolean {
   return localStore.getItemSync(INSTALL_HINT_KEY) !== null;
-}
-
-/**
- * Zwei Wege, dieselbe Frage: `display-mode: standalone` beantwortet sie in
- * Chromium und im modernen Safari, `navigator.standalone` ist der ältere
- * WebKit-Weg und trägt iOS-Versionen, die das Media-Feature nicht kennen.
- * Fehlt einer der beiden, hielte die App eine installierte PWA für einen Tab
- * und böte an, was dort schon geschehen ist.
- */
-function isStandalone(): boolean {
-  const legacy = (window.navigator as Navigator & { standalone?: boolean }).standalone;
-  if (legacy === true) return true;
-  return window.matchMedia('(display-mode: standalone)').matches;
 }
 
 export interface InstallHint {
