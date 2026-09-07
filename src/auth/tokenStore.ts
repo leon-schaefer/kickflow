@@ -15,18 +15,43 @@ import localStore from '@/storage/local';
 export interface StoredSession {
   token: string;
   refreshToken: string | null;
+  /**
+   * Eigene Kickbase-User-ID, mitgespeichert statt nur im Speicher gehalten:
+   * daran hängt, welche Zeile der Liga-Tabelle die eigene ist und wer der
+   * Duell-Gegner ist (siehe src/screens/LeagueScreen.tsx). Lag sie nur im
+   * State, war sie nach jedem Reload weg — der Liga-Tab zeigte dann bis zum
+   * nächsten Login weder die eigene Zeile noch das Duell.
+   *
+   * `null` heißt "nicht bekannt", nicht "kein Login": Alt-Einträge von vor
+   * dieser Persistierung tragen das Feld nicht, und die Login-Antwort selbst
+   * liefert `u.id` nur laut unverifizierter Doku (siehe toAuthSession).
+   */
+  userId: string | null;
+  /** Anzeigename, aus demselben Grund mitgespeichert (siehe MoreScreen). */
+  userName: string | null;
 }
 
 export async function getSession(): Promise<StoredSession | null> {
   const raw = await localStore.getItem(SESSION_KEY);
   if (!raw) return null;
+  let parsed: Partial<StoredSession> | null;
   try {
-    return JSON.parse(raw) as StoredSession;
+    parsed = JSON.parse(raw) as Partial<StoredSession> | null;
   } catch {
     // Kaputter Eintrag (von Hand verändert, abgebrochener Schreibvorgang) —
     // wie "nicht angemeldet" behandeln, nicht werfen.
     return null;
   }
+  if (!parsed?.token) return null;
+  // Feldweise aufbauen statt den geparsten Wert durchzureichen: Einträge von
+  // vor `userId`/`userName` tragen die Felder nicht, und `undefined` würde
+  // sich im AuthProvider nicht von "wird noch geladen" unterscheiden.
+  return {
+    token: parsed.token,
+    refreshToken: parsed.refreshToken ?? null,
+    userId: parsed.userId ?? null,
+    userName: parsed.userName ?? null,
+  };
 }
 
 export async function setSession(session: StoredSession): Promise<void> {
