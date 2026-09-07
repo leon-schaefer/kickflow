@@ -67,9 +67,28 @@ describe('Route-Baum', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/leagues'));
   });
 
-  it('/ verteilt ohne Session auf den Login', async () => {
+  it('/ zeigt ohne Session die öffentliche Startseite', async () => {
+    // Vorher ging es hier sofort auf den Login. Wer kickflow noch nie gesehen
+    // hat, stand damit als Erstes vor einem Feld für sein Kickbase-Passwort.
     const { router } = renderRoute('/', { session: false });
-    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(await screen.findByRole('heading', { level: 1, name: 'kickflow' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('/ verteilt ohne Session in der installierten PWA weiter auf den Login', async () => {
+    // `/` ist die `start_url` aus dem Manifest. Wer die App auf dem
+    // Startbildschirm hat, ist geworben — und käme in der PWA ohne
+    // Adressleiste an einer Werbeseite nicht vorbei.
+    Object.defineProperty(window.navigator, 'standalone', { value: true, configurable: true });
+    try {
+      const { router } = renderRoute('/', { session: false });
+      await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    } finally {
+      Object.defineProperty(window.navigator, 'standalone', {
+        value: undefined,
+        configurable: true,
+      });
+    }
   });
 
   it('leitet /:leagueId auf den ersten Tab — vorher lief das ins Leere', async () => {

@@ -11,7 +11,7 @@ import { PlayerDetailScreen } from '@/screens/PlayerDetailScreen';
 import { PlayersScreen } from '@/screens/PlayersScreen';
 import { RulesScreen } from '@/screens/RulesScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
-import { IndexRedirect } from './IndexRedirect';
+import { IndexRoute } from './IndexRoute';
 import { LeagueLayout } from './LeagueLayout';
 import { NotFound } from './NotFound';
 import { RequireAuth } from './RequireAuth';
@@ -39,7 +39,7 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <IndexRedirect /> },
+      { index: true, element: <IndexRoute /> },
       { path: 'login', element: <LoginScreen /> },
 
       {

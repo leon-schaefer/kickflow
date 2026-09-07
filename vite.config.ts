@@ -3,8 +3,9 @@ import path from 'node:path';
 import react from '@vitejs/plugin-react';
 // defineConfig aus 'vitest/config', nicht aus 'vite': nur diese Variante kennt den
 // `test`-Block unten. Die Vite-Optionen sind identisch typisiert.
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { resolveShortGitSha } from './scripts/gitSha.ts';
+import { resolveSiteOrigin } from './scripts/siteOrigin.ts';
 
 /**
  * Vite-Konfiguration für die Web-Auslieferung — seit dem Cutover die einzige.
@@ -19,8 +20,33 @@ const pkg = JSON.parse(readFileSync(path.join(import.meta.dirname, 'package.json
   version: string;
 };
 
+/**
+ * Ersetzt `%SITE_ORIGIN%` im HTML-Kopf durch die eigene Herkunft.
+ *
+ * Vite ersetzt in der index.html von sich aus nur `%VITE_*%` aus den
+ * Env-Variablen und lässt jeden anderen Platzhalter STEHEN. Das genügt hier
+ * nicht: die Herkunft kommt im Deploy aus einer Vercel-Variablen ohne
+ * `VITE_`-Präfix und braucht eine Normalisierung (siehe scripts/siteOrigin.ts).
+ * Ein stehengebliebenes `%SITE_ORIGIN%` wäre außerdem der stille Fehler, den
+ * die ganze Auflösung vermeiden soll — ein `og:image`, das keiner lädt.
+ *
+ * `order: 'pre'`, damit die Ersetzung vor Vites eigenem HTML-Durchlauf
+ * passiert und dieser den Platzhalter gar nicht erst zu sehen bekommt.
+ */
+function siteOriginHtml(): Plugin {
+  return {
+    name: 'kickflow:site-origin-html',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html.replaceAll('%SITE_ORIGIN%', resolveSiteOrigin(process.env));
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), siteOriginHtml()],
 
   resolve: {
     alias: {
@@ -86,6 +112,11 @@ export default defineConfig({
    * grün, würde aber nicht mehr auffallen, wenn der Code versehentlich das globale
    * `window` benutzt.
    *
+   * Das Logik-Projekt nimmt neben `src/` auch `scripts/` auf. Der Build-Code dort
+   * war bisher ungetestet, weil ihn kein `include` erfasste — und mit
+   * scripts/siteOrigin.ts liegt dort jetzt Logik, deren Fehlerfall (eine falsche
+   * Herkunft in den Open-Graph-Tags) im Browser unsichtbar bleibt.
+   *
    * Die Trennung nach `.ts` vs. `.tsx` hält die bestehenden Logik-Tests unangetastet:
    * `src/**\/*.test.ts` matcht `foo.test.tsx` nicht. Jeder neue Komponententest heißt
    * `.test.tsx` und landet automatisch im jsdom-Projekt. Notausgang für ein
@@ -107,7 +138,7 @@ export default defineConfig({
         test: {
           name: 'logic',
           environment: 'node',
-          include: ['src/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
         },
       },
       {

@@ -20,6 +20,10 @@ import { colors } from '@/theme/tokens';
  *   3. `100dvh` plus `background-color` auf html/body — Safari tönt seine
  *      Toolbars aus dem Body-Hintergrund, das `theme-color`-Meta allein
  *      genügt dafür nicht.
+ *   4. Die Open-Graph-Tags der Vorschaukarte. Sie brechen am lautlosesten von
+ *      allen: sichtbar wird ein Fehler erst in einem fremden Chat, nachdem
+ *      jemand den Link geteilt hat. Im Browser fällt nichts aus, in CI nichts
+ *      auf.
  *
  * Beim Umzug auf Vite wandert die Datei von `public/index.html` nach
  * `./index.html`, weil Vite die Root-HTML dort erwartet. Der Test prüft
@@ -97,6 +101,65 @@ describe('index.html', () => {
   it('verhindert das Rubber-Banding, das die Tab-Bar verschieben würde', () => {
     expect(html).toContain('overflow: hidden');
     expect(html).toContain('overscroll-behavior: none');
+  });
+
+  /**
+   * Die Vorschaukarte in WhatsApp, Discord, Signal, Reddit — der Weg, auf dem
+   * kickflow Nutzer findet, führt über einen geteilten Link.
+   */
+  describe('Vorschaukarte (Open Graph)', () => {
+    it('trägt Beschreibung, Titel und Bild', () => {
+      expect(html).toMatch(/<meta\s+name="description"\s+content="[^"]{60,}"/);
+      expect(html).toContain('property="og:title"');
+      expect(html).toContain('property="og:description"');
+      expect(html).toContain('property="og:image"');
+      // Ohne `summary_large_image` zeigt X eine kleine quadratische Karte und
+      // beschneidet das 1200x630-Bild mittig.
+      expect(html).toMatch(/name="twitter:card"\s+content="summary_large_image"/);
+    });
+
+    it('baut jede geteilte URL absolut aus %SITE_ORIGIN%', () => {
+      // Der eigentliche Fallstrick. Open Graph verlangt absolute URLs, und die
+      // Scraper lösen einen relativen Pfad nicht zuverlässig auf — ein
+      // `content="/og-image.png"` bedeutet in der Praxis: Karte ohne Bild.
+      const urls = [
+        ...html.matchAll(/(?:property|name)="(og:url|og:image|twitter:image)"\s+content="([^"]*)"/g),
+      ].map(([, key, value]) => [key, value] as const);
+      const canonical = /<link\s+rel="canonical"\s+href="([^"]*)"/.exec(html)?.[1];
+
+      expect(urls).toHaveLength(3);
+      for (const [key, value] of urls) {
+        expect(value, key).toMatch(/^%SITE_ORIGIN%\//);
+      }
+      expect(canonical).toMatch(/^%SITE_ORIGIN%\//);
+    });
+
+    it('nennt ein Bild, das es gibt — in der Größe, die drinsteht', () => {
+      const src = /property="og:image"\s+content="%SITE_ORIGIN%(\/[^"]*)"/.exec(html)?.[1];
+      expect(src).toBeTruthy();
+
+      // Unter public/ und damit unverändert in dist/ (siehe vite.config.ts).
+      const file = path.join(ROOT, 'public', src!);
+      expect(existsSync(file), `${src} fehlt unter public/`).toBe(true);
+
+      // Die Maße kommen aus dem PNG selbst und nicht aus einer Notiz: der
+      // IHDR-Chunk steht am Dateianfang, Breite und Höhe als 32-Bit
+      // Big-Endian ab Byte 16. Eine falsche Angabe im Tag lässt den Scraper
+      // die Karte im falschen Verhältnis layouten.
+      const header = readFileSync(file);
+      const width = header.readUInt32BE(16);
+      const height = header.readUInt32BE(20);
+
+      expect(html).toContain(`content="${width}"`);
+      expect(html).toContain(`content="${height}"`);
+      // Format der grossen Karte: nominell 1.91:1, was 1200x630 mit 1.9048
+      // gerade nicht exakt trifft — geprüft wird deshalb das Band, in dem die
+      // Karte nicht beschnitten wird, plus die Mindestkantenlänge, unter der
+      // die Scraper auf die kleine Karte umschalten.
+      expect(width / height).toBeGreaterThan(1.85);
+      expect(width / height).toBeLessThan(1.95);
+      expect(width).toBeGreaterThanOrEqual(600);
+    });
   });
 
   it('hat den Mount-Point und registriert den Service Worker', () => {
