@@ -26,6 +26,8 @@ const BANNER = readFileSync(
   'utf8',
 );
 const TABBAR = readFileSync(path.join(SRC, 'shell', 'TabBar.module.css'), 'utf8');
+/** Vierter Kandidat am oberen Rand: der Hinweis aus src/pwa/resumeGuard.ts. */
+const STALLED = readFileSync(path.join(SRC, 'pwa', 'stalledNotice.module.css'), 'utf8');
 
 const VAR = '--layout-ios-top-clearance';
 const BOTTOM_VAR = '--layout-ios-bottom-clearance';
@@ -78,6 +80,20 @@ describe('Abstände zu den iOS-Systemkanten', () => {
     expect(block).toMatch(/top:\s*max\(/);
   });
 
+  /**
+   * Der Hinweis, der ein eingefrorenes React meldet, sitzt an derselben
+   * Stelle wie das Update-Banner — und wäre ohne den Abstand als einziges
+   * Element wieder im Band. Er ist außerdem der Notausgang: unlesbar ist er
+   * schlimmer als woanders.
+   */
+  it('hält den Stillstands-Hinweis auf derselben Höhe', () => {
+    const [block] = guardedBlocks(STALLED);
+    expect(block, '@supports-Block fehlt in stalledNotice.module.css').toBeDefined();
+    expect(block).toContain('display-mode: standalone');
+    expect(block).toContain(`var(${VAR})`);
+    expect(block).toMatch(/top:\s*max\(/);
+  });
+
   it('hält die Tab-Leiste vom Home-Indicator frei', () => {
     const [block] = guardedBlocks(TABBAR);
     expect(block, '@supports-Block fehlt in TabBar.module.css').toBeDefined();
@@ -94,6 +110,7 @@ describe('Abstände zu den iOS-Systemkanten', () => {
     for (const [css, name] of [
       [HEADER, VAR],
       [BANNER, VAR],
+      [STALLED, VAR],
       [TABBAR, BOTTOM_VAR],
     ] as const) {
       const occurrences = css.split(`var(${name})`).length - 1;

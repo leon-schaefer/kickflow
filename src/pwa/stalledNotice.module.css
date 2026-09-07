@@ -1,0 +1,58 @@
+/*
+ * Optik und Geometrie wie beim Update-Banner
+ * (src/components/UpdateBannerView.module.css) — dieselbe Rolle, dieselbe
+ * Stelle am Bildschirm, deshalb dasselbe Aussehen.
+ *
+ * Ein Unterschied ist tragend: `position: fixed` statt `absolute`. Der
+ * Update-Banner hängt IM Baum unter `.shell`, das `position: relative` trägt
+ * (src/routes/RootLayout.module.css). Dieser Hinweis wird von Hand an
+ * `document.body` gehängt (Begründung in stalledNotice.ts) und hat damit
+ * keinen positionierten Vorfahren — `absolute` würde ihn an den Seitenanfang
+ * legen statt an die Viewport-Kante.
+ */
+.frame {
+  composes: v from '@/theme/layout.module.css';
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--space-sm));
+  left: var(--space-md);
+  right: var(--space-md);
+  max-width: var(--layout-max-content-width);
+  margin-inline: auto;
+  /* Über dem Update-Banner (1000): kommen beide zusammen, ist dieser der
+     dringendere — der andere ist ohne Rendern ohnehin nicht bedienbar. */
+  z-index: 1001;
+}
+
+/*
+ * Dieselbe Verschiebung wie in Kopfzeile und Update-Banner, aus demselben
+ * Grund: in der installierten iOS-PWA legt das System ein Band über den
+ * oberen Rand, das rund 40pt tiefer reicht als die Safe Area. Messung und
+ * Bedingungen stehen in `src/shell/AppHeader.module.css`.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .frame {
+      top: max(
+        calc(env(safe-area-inset-top) + var(--space-sm)),
+        var(--layout-ios-top-clearance)
+      );
+    }
+  }
+}
+
+.banner {
+  composes: pressableV from '@/theme/layout.module.css';
+  align-items: center;
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-background);
+  text-align: center;
+}
+
+.banner:active {
+  opacity: 0.9;
+}

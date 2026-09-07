@@ -121,3 +121,25 @@ abgewichen wird.
   `src/components/Modal.tsx`). Nicht optional: die Touch-Listener von
   `Refreshable` hängen mit `capture` am Wrapper, und ein im Baum gerendertes
   Panel würde einen Wisch darin als Pull-to-Refresh im Hintergrund auslösen.
+- **Rückkehr aus dem Hintergrund**: `src/pwa/resumeGuard.ts` hängt NEBEN React
+  (aufgerufen unten in `main.tsx`, nicht in einer Komponente) und
+  `src/pwa/stalledNotice.ts` baut seinen Hinweis mit `document.createElement`
+  statt als Komponente. Beides ist der Sinn der Sache und kein Stilbruch: der
+  Fall, für den die zwei Dateien da sind, ist eine PWA, in der React nach dem
+  Auftauen nichts mehr rendert — eine React-Komponente wäre dort nie sichtbar.
+  Die Messung (Transitions laufen über den einen `MessageChannel` des
+  Schedulers, diskrete Taps über `queueMicrotask`) steht im Kopf von
+  `resumeGuard.ts`. Wer das in React zurückholt, hat einen Wächter, der genau
+  dann schläft, wenn er gebraucht wird — und im Desktop-Browser zeigt keine
+  der beiden Fassungen ein Symptom.
+  Neu geladen wird an allen drei Stellen (Update-Banner, Fehlerseite,
+  Hinweis) ausschließlich auf Tap. Ein Auto-Reload würde einen ungespeicherten
+  Aufstellungs-Entwurf wegwerfen.
+- **Veraltete Chunks**: Die Screens hängen an `lazy()`, ihre Chunk-Namen tragen
+  einen Content-Hash. Eine lange offene PWA kennt nach einem Deploy nur die
+  alten Namen, der Import lehnt ab — und React Router legt seine
+  Default-ErrorBoundary NUR um die Wurzel. Deshalb trägt die Wurzelroute ein
+  `errorElement` (`src/routes/AppErrorScreen.tsx`); ohne es ersetzt ein
+  fehlender Chunk die ganze App durch „Unexpected Application Error!" auf
+  Englisch und ohne Weg zurück (`src/routes/staleChunk.test.tsx` stellt es am
+  echten Baum nach).

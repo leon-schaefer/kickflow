@@ -12,6 +12,18 @@
 // Umgekehrt darf unter public/ nie ein Verzeichnis assets/ entstehen: dessen Inhalt
 // landet unveraendert in dist/assets/ und wuerde hier cache-first behandelt, obwohl
 // er keinen Content-Hash traegt.
+//
+// Gecacht wird NUR eine `response.ok`-Antwort, und das in beiden Zweigen. Ohne die
+// Pruefung legt sich der Cache seine eigenen Fehler ab, und beide Faelle treffen genau
+// die lange offene PWA:
+//   - cache-first: ein Chunk, den es nach einem Redeploy nicht mehr gibt, liefert einen
+//     404. Gecacht ist der 404 dann die dauerhafte Antwort fuer diese URL — auch wenn
+//     das Deployment sie wieder haette.
+//   - network-first: eine 404/500-Antwort auf die index.html ueberschreibt die letzte
+//     funktionierende Kopie. Der naechste Offline-Start zeigt dann die Fehlerseite statt
+//     der App, und zwar bis zum naechsten erfolgreichen Abruf.
+// Ein `cache.put` mit einer Antwort ausserhalb von 2xx lehnt ausserdem ab (Status 0,
+// 206) — hier bisher eine unbehandelte Rejection im Worker.
 const CACHE_NAME = 'kickflow-v2';
 const IMMUTABLE_PATH = '/assets/';
 
@@ -40,7 +52,7 @@ self.addEventListener('fetch', (event) => {
         const cached = await cache.match(event.request);
         if (cached) return cached;
         const response = await fetch(event.request);
-        cache.put(event.request, response.clone());
+        if (response.ok) cache.put(event.request, response.clone());
         return response;
       })
     );
@@ -51,7 +63,7 @@ self.addEventListener('fetch', (event) => {
     caches.open(CACHE_NAME).then(async (cache) => {
       try {
         const response = await fetch(event.request);
-        cache.put(event.request, response.clone());
+        if (response.ok) cache.put(event.request, response.clone());
         return response;
       } catch (error) {
         const cached = await cache.match(event.request);
