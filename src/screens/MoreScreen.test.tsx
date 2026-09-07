@@ -18,9 +18,10 @@ vi.mock('@/support/supportUrl', () => supportUrl);
 vi.mock('@/support/openExternalUrl', () => ({ openExternalUrl }));
 
 /**
- * Ein Router ist Pflicht, seit die Feedback-Karte einen `<Link>` trägt. Die
- * Einstiegs-URL ist die echte des Tabs: aus ihr baut die Karte die Herkunft,
- * die den Zurück-Weg des Feedback-Screens hierher lenkt.
+ * Ein Router ist Pflicht, seit die Feedback-Karte einen `<Link>` trägt — für
+ * JEDEN Test dieser Datei, auch die zum Teilen-Knopf. Die Einstiegs-URL ist
+ * die echte des Tabs: aus ihr baut die Karte die Herkunft, die den Zurück-Weg
+ * des Feedback-Screens hierher lenkt.
  */
 function renderScreen() {
   return render(
@@ -102,5 +103,76 @@ describe('MoreScreen', () => {
     renderScreen();
     expect(screen.getByRole('link', { name: 'Homepage' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Die Verzweigung selbst liegt in src/support/shareInvite.ts und ist dort ohne
+ * DOM geprüft. Hier geht es nur um das, was der Nutzer davon sieht.
+ */
+describe('MoreScreen: Liga-Kollegen einladen', () => {
+  /*
+   * `Partial<Navigator>` ginge nicht: die Zwischenablage müsste dafür ein
+   * vollständiges `Clipboard` sein, obwohl `browserShareTarget` nur
+   * `writeText` anfasst. Der Stub bildet genau das ab, was gelesen wird.
+   */
+  function setNavigator(extra: Record<string, unknown>) {
+    for (const [key, value] of Object.entries(extra)) {
+      Object.defineProperty(window.navigator, key, { value, configurable: true });
+    }
+  }
+
+  afterEach(() => {
+    setNavigator({ share: undefined, clipboard: undefined });
+  });
+
+  it('teilt die eigene Adresse über das Teilen-Blatt', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    setNavigator({ share });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(share.mock.calls[0][0]).toMatchObject({ url: window.location.origin });
+    // Geteilt wird die Startseite und nicht die aktuelle Route: der Empfänger
+    // hat keine Session und würde von jeder anderen URL weggeleitet.
+    expect(share.mock.calls[0][0].url).not.toContain('/more');
+  });
+
+  it('sagt es, wenn der Link nur in der Zwischenablage liegt', async () => {
+    // Ohne Teilen-Blatt (Desktop-Chrome, Firefox) bleibt die Zwischenablage —
+    // dann MUSS die App sagen, dass der Nutzer selbst einfügen muss.
+    setNavigator({ clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Link kopiert');
+  });
+
+  it('schweigt, wenn der Nutzer das Teilen-Blatt wegwischt', async () => {
+    const abort = new Error('abgebrochen');
+    abort.name = 'AbortError';
+    setNavigator({ share: vi.fn().mockRejectedValue(abort) });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    // Wegwischen ist eine Antwort und kein Fehler.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('meldet, wenn es gar keinen Weg gibt', async () => {
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Teilen hat nicht funktioniert');
+    // Und der Link steht im Klartext daneben: in der installierten PWA gibt es
+    // keine Adressleiste, aus der ihn jemand ablesen könnte.
+    expect(alert).toHaveTextContent(window.location.origin);
   });
 });

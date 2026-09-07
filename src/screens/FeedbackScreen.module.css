@@ -150,13 +150,16 @@
   padding: var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--color-background);
+  /* `font-family: inherit` ist Pflicht und kein Rauschen: ein <pre> trägt den
+     Monospace-Default des User-Agents, den die Regel am body in
+     src/theme/base.css nicht erreicht. Und Monospace wäre hier kein Gewinn,
+     sondern eine zweite Schriftfamilie in einer App, die genau eine hat —
+     scripts/verify/computed-styles.mjs prüft das über alle Seiten. Die Zeilen
+     sind „Label: Wert" und keine Tabelle, sie brauchen keine feste Breite. */
+  font-family: inherit;
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-small);
   color: var(--color-text-secondary);
-  /* Die Schrift des <pre> bleibt bewusst der Monospace-Default des Browsers
-     und wird NICHT auf die Body-Schrift aus src/theme/base.css gezogen: hier
-     stehen Maße und ein User-Agent, die untereinander lesbar sein müssen. Das
-     ist die einzige Stelle der App, an der das gilt. */
   /* Der Block geht genau so in die Mail, Zeilenumbrüche inklusive — deshalb
      `pre-wrap` und kein Umformatieren. Die User-Agent-Zeile ist lang und
      bricht in der Karte um, statt sie zu verbreitern. */

@@ -8,6 +8,12 @@ import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
 import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
+import {
+  browserShareTarget,
+  type InviteOutcome,
+  inviteUrl,
+  shareInvite,
+} from '@/support/shareInvite';
 import { SUPPORT_URL } from '@/support/supportUrl';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
@@ -30,6 +36,17 @@ export function MoreScreen() {
   const { userName } = useAuth();
   const { pathname } = useLocation();
   const [linkFailed, setLinkFailed] = useState(false);
+  const [invite, setInvite] = useState<InviteOutcome | null>(null);
+
+  /*
+   * `shareInvite` MUSS direkt am Klick hängen: `navigator.share` verlangt eine
+   * frische Nutzer-Geste und wirft, wenn davor noch etwas anderes awaited
+   * wurde. Deshalb steht hier kein Aufräumen vor dem Aufruf — der alte
+   * Rückmeldungstext wird erst mit dem Ergebnis überschrieben.
+   */
+  async function handleInvite() {
+    setInvite(await shareInvite(inviteUrl(), browserShareTarget()));
+  }
 
   async function handleSupport() {
     if (!SUPPORT_URL) return;
@@ -47,6 +64,44 @@ export function MoreScreen() {
       <div className={styles.scroll}>
         <div className={styles.content}>
           {/*
+           * Ganz oben, und das mit Absicht: der Weg, auf dem kickflow Nutzer
+           * findet, führt über die Liga-Gruppenchats seiner Nutzer. Ohne diese
+           * Karte gibt es dafür nur „URL abschreiben" — in der installierten
+           * PWA nicht einmal das, dort fehlt die Adressleiste.
+           */}
+          <section className={styles.card}>
+            <h2 className={styles.cardTitle}>Liga-Kollegen einladen</h2>
+            <p className={styles.cardBody}>
+              kickflow lohnt sich am meisten, wenn deine Liga mitspielt. Teile den Link — der
+              Rest ist eine Anmeldung mit dem Kickbase-Konto.
+            </p>
+            <button
+              type="button"
+              className={cx(layout.pressableH, styles.cardButton)}
+              onClick={handleInvite}
+            >
+              Link teilen
+            </button>
+            {invite === 'copied' && (
+              <p className={styles.hint} role="status">
+                Link kopiert — jetzt in den Liga-Chat einfügen.
+              </p>
+            )}
+            {invite === 'failed' && (
+              /*
+               * Der Link steht hier im Klartext, statt dass die Meldung auf die
+               * Adressleiste verweist: in der installierten PWA gibt es keine.
+               * Ein „kopier es dir aus der Adresszeile" wäre dort genau für die
+               * Nutzer nutzlos, die am ehesten teilen wollen.
+               */
+              <p className={styles.error} role="alert">
+                Teilen hat nicht funktioniert. Der Link lautet:{' '}
+                <span className={styles.inviteUrl}>{inviteUrl()}</span>
+              </p>
+            )}
+          </section>
+
+          {/*
            * Ohne VITE_SUPPORT_URL erscheint die Karte gar nicht — ein
            * Spenden-Button, der auf einen toten Link zeigt, ist schlechter als
            * keiner (siehe src/support/supportUrl.ts).
@@ -62,7 +117,7 @@ export function MoreScreen() {
               </p>
               <button
                 type="button"
-                className={cx(layout.pressableH, styles.supportButton)}
+                className={cx(layout.pressableH, styles.cardButton)}
                 onClick={handleSupport}
               >
                 Unterstützen
@@ -95,7 +150,7 @@ export function MoreScreen() {
             <Link
               to="/feedback"
               state={withOrigin(pathname, leagueTabTitles.more).state}
-              className={cx(layout.pressableH, styles.feedbackButton)}
+              className={cx(layout.pressableH, styles.cardButton, styles.cardLink)}
             >
               Feedback geben
             </Link>

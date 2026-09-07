@@ -2,12 +2,12 @@ import { useCallback, useState, useSyncExternalStore } from 'react';
 import { INSTALL_HINT_KEY } from '@/storage/keys';
 import localStore from '@/storage/local';
 import { type InstallHintKind, installHintKind } from './installHint';
+import { isStandalone } from './standalone';
 import {
   clearInstallPrompt,
   getInstallState,
   onInstallStateChange,
 } from './installPromptStore';
-import { isStandalone } from './standalone';
 
 /**
  * Verbindet die Umgebung (Standalone? Merker gesetzt? Event abgefangen?) mit
