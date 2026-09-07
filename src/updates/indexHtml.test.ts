@@ -162,6 +162,19 @@ describe('index.html', () => {
     });
   });
 
+  it('bietet das Favicon als SVG UND als PNG an', () => {
+    // SVG zuerst (skaliert scharf auf jede Tab- und Lesezeichen-Größe), PNG
+    // als Rückfall für Browser ohne SVG-Favicon-Unterstützung (Safari < 16,
+    // ältere Android-Browser). Die REIHENFOLGE entscheidet, welches ein
+    // Browser nimmt, der beide kennt — deshalb wird sie hier geprüft und nicht
+    // nur die Existenz beider Zeilen.
+    const svgAt = html.indexOf('type="image/svg+xml"');
+    const pngAt = html.indexOf('href="/favicon.png"');
+    expect(svgAt).toBeGreaterThan(-1);
+    expect(pngAt).toBeGreaterThan(-1);
+    expect(svgAt).toBeLessThan(pngAt);
+  });
+
   it('hat den Mount-Point und registriert den Service Worker', () => {
     expect(html).toContain('id="root"');
     expect(html).toContain('/register-sw.js');

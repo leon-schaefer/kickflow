@@ -1,0 +1,161 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+/*
+ * Rechtstext ist Fließtext und damit die einzige Stelle der App, an der lange
+ * Absätze stehen. Deshalb hier eine line-height, die tokens.css absichtlich
+ * NICHT global setzt (siehe Begründung dort: eine eingeführte line-height
+ * würde die vertikale Rhythmik an allen anderen Fundstellen verschieben).
+ */
+.section {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-md);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.lead {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 22px;
+  color: var(--color-text-primary);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 22px;
+  color: var(--color-text-secondary);
+}
+
+.list {
+  margin: 0;
+  /* Der Einzug trägt die Aufzählungszeichen — ohne ihn sitzen sie außerhalb
+     der Karte und werden abgeschnitten. */
+  padding-inline-start: var(--space-lg);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 22px;
+  color: var(--color-text-secondary);
+}
+
+.list li + li {
+  margin-top: var(--space-xs);
+}
+
+.updated {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+/*
+ * Speicher-Tabelle der Datenschutzerklärung.
+ *
+ * Eine echte <table> und keine Div-Liste: es sind Daten mit Spaltenköpfen, und
+ * ein Screenreader kündigt darin „Zweck, Spalte 2 von 3" an. Als Divs wäre die
+ * Zuordnung Zelle-zu-Kopf verloren.
+ *
+ * `display: block` plus `overflow-x: auto` am Wrapper und nicht an der Tabelle:
+ * die Tabelle mit drei Spalten Text ist auf 360px breiter als der Viewport, und
+ * scrollen soll sie in ihrem eigenen Kasten — nicht die Seite nach rechts
+ * ziehen.
+ */
+.tableWrap {
+  overflow-x: auto;
+  /* Erlaubt dem Kasten, schmaler als sein Inhalt zu werden. Ohne das dehnt der
+     Flex-Container ihn auf die Inhaltsbreite und die Seite scrollt doch. */
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Mindestbreite, ab der die drei Spalten nicht mehr zu Buchstabentürmen
+     zusammenfallen; darunter greift das Scrollen im Wrapper. */
+  min-width: 420px;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  text-align: start;
+}
+
+.table th {
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table td {
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  line-height: 18px;
+  color: var(--color-text-secondary);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Der Schlüsselname ist Code und soll als solcher lesbar sein — vor allem
+   soll er nicht mitten im Punkt umbrechen. */
+.key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.personalTag {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  padding: 1px var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--pos-gk-soft);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--pos-gk);
+}
+
+/* Interner Link auf die jeweils andere Rechtsseite. 44px Trefferfläche wie
+   überall sonst in der App. */
+.crossLink {
+  composes: h from '@/theme/layout.module.css';
+  min-height: 44px;
+  align-items: center;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-accent);
+}
+
+.tableCaption {
+  margin: 0;
+  padding-bottom: var(--space-sm);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  text-align: start;
+}

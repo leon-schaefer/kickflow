@@ -66,6 +66,20 @@ export function FixturesScreen() {
       .sort((a, b) => a.average[lens] - b.average[lens]);
   }, [matchdaysQuery.data, teamsQuery.data, lookahead, lens]);
 
+  /**
+   * Vereins-ID → Name, für die Textalternative der Spielzellen.
+   *
+   * Hier stehen zehn Zellen je Zeile, und ohne die Map wäre jede von ihnen
+   * für einen Screenreader das Wort „H" bzw. „A" — die Härte steckte nur in
+   * der Farbe und der Gegner nur in der Farbe der Nachbarzelle. Mit der Map
+   * liest jede Zelle „Spieltag 12, Auswärtsspiel gegen Bayern München,
+   * schwer".
+   */
+  const teamNames = useMemo(
+    () => new Map((teamsQuery.data ?? []).map((team) => [team.id, team.name])),
+    [teamsQuery.data],
+  );
+
   // Ein Header für alle Zweige — unter expo-router musste der Zurück-Button
   // in jedem einzeln stehen, damit der Pfeil auch beim Laden beschriftet ist.
   const header = <AppHeader title="Restprogramm" back={back} />;
@@ -138,7 +152,11 @@ export function FixturesScreen() {
                      * Streifen breiter als die Spalte.
                      */}
                     <span className={cx(styles.fixtureCells, layout.noScrollbar)}>
-                      <FixtureDifficultyStrip ratings={ratings} lens={lens} />
+                      <FixtureDifficultyStrip
+                        ratings={ratings}
+                        lens={lens}
+                        opponentNames={teamNames}
+                      />
                     </span>
                     <span className={styles.avgText}>{formatAverage(average[lens])}</span>
                   </li>

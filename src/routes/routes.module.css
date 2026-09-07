@@ -1,0 +1,14 @@
+/*
+ * Platzhalter, während ein lazy geladener Screen-Chunk unterwegs ist.
+ *
+ * `flex: 1 1 0` statt `height: 100%`: die Fläche sitzt als Kind eines
+ * Flex-Containers (RootLayout bzw. TabsLayout) und soll genau den Platz
+ * einnehmen, den der Screen danach bekommt — sonst springt das Layout in dem
+ * Moment, in dem der Chunk ankommt.
+ */
+.fallback {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+}

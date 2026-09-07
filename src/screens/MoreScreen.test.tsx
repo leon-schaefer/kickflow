@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRIVACY_PATH, TERMS_PATH } from '@/legal/legalRoutes';
 import { MoreScreen } from './MoreScreen';
 
 const auth = vi.hoisted(() => ({ userName: null as string | null }));
@@ -99,10 +100,23 @@ describe('MoreScreen', () => {
     expect(link).toHaveAttribute('href', '/feedback');
   });
 
-  it('hält Homepage und Datenschutz erreichbar', () => {
+  it('hält Homepage, Datenschutz und Nutzungsbedingungen erreichbar', () => {
     renderScreen();
+    // Die Homepage bleibt ein externer Link (ExternalLink rendert einen
+    // <button role="link">), die beiden Rechtsseiten sind App-Routen.
     expect(screen.getByRole('link', { name: 'Homepage' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+    // Auf den href geprüft und nicht nur auf die Existenz: das ist der
+    // Unterschied, den der Umzug macht — vorher führten beide nach außen.
+    // Zeigte der Link wieder auf codewithleon.dev, blieb ein Test auf den
+    // reinen Linktext grün.
+    expect(screen.getByRole('link', { name: 'Datenschutz' })).toHaveAttribute(
+      'href',
+      PRIVACY_PATH,
+    );
+    expect(screen.getByRole('link', { name: 'Nutzungsbedingungen' })).toHaveAttribute(
+      'href',
+      TERMS_PATH,
+    );
   });
 });
 

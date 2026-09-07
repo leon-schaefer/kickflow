@@ -23,14 +23,14 @@
   --color-border: #2A342B;
   --color-text-primary: #F3F6F3;
   --color-text-secondary: #9BAA9C;
-  --color-text-muted: #6B786C;
+  --color-text-muted: #849085;
   --color-accent: #3FBF63;
   --color-accent-muted: #274A31;
   --color-pitch: #1E5C33;
   --color-pitch-line: rgba(255,255,255,0.35);
   --color-positive: #3FBF63;
-  --color-negative: #E5484D;
-  --color-danger: #E5484D;
+  --color-negative: #EB5A5F;
+  --color-danger: #EB5A5F;
 
   /* positionColors — `-soft` ist die Hintergrundvariante (Alpha 0x26) */
   --pos-gk: #E0A83F;
@@ -39,21 +39,21 @@
   --pos-def-soft: #3F8FE026;
   --pos-mid: #3FBF63;
   --pos-mid-soft: #3FBF6326;
-  --pos-fwd: #E0523F;
-  --pos-fwd-soft: #E0523F26;
+  --pos-fwd: #E56552;
+  --pos-fwd-soft: #E5655226;
 
   /* Deckkraft-Varianten der Signalfarben — Hintergrund zu einem farbigen Rand (FixtureDifficultyStrip) */
   --color-positive-soft: #3FBF6326;
-  --color-negative-soft: #E5484D26;
+  --color-negative-soft: #EB5A5F26;
 
   /* statusColors */
   --status-fit: #3FBF63;
-  --status-injured: #E5484D;
+  --status-injured: #EB5A5F;
   --status-doubtful: #E0A83F;
   --status-rehab: #E0A83F;
-  --status-suspended: #E5484D;
-  --status-away: #6B786C;
-  --status-unknown: #6B786C;
+  --status-suspended: #EB5A5F;
+  --status-away: #849085;
+  --status-unknown: #849085;
 
   /* spacing */
   --space-xs: 4px;

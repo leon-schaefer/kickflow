@@ -1,3 +1,7 @@
+// MUSS vor dem zod-Import stehen: schaltet Zods JIT ab, bevor hier das
+// erste Schema gebaut wird. Nicht optional und kein Duplikat der Zeile in
+// main.tsx — Begründung im Kopf von src/app/zodConfig.ts.
+import '@/app/zodConfig';
 import { z } from 'zod';
 
 /**

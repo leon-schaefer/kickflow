@@ -3,9 +3,12 @@
 Marke: eine steigende Marktwert-Kurve, die im Fussball als Endpunkt-Marker ausläuft.
 Aufruf: pip install pillow cairosvg && python3 scripts/generate-icons.py
 
-Zwei Sorten Ausgabe, beide aus derselben Geometrie:
+Drei Sorten Ausgabe, alle aus derselben Geometrie:
 
   * Der Icon-Satz (quadratisch, TARGETS) - Favicon, PWA-Icons, Apple-Touch-Icon.
+  * public/favicon.svg - dieselbe Marke als VEKTOR. Moderne Browser bevorzugen
+    sie gegenueber der PNG und skalieren sie scharf auf jede Tab- und
+    Lesezeichen-Groesse; die PNG bleibt als Rueckfall.
   * Das Share-Bild public/og-image.png (1200x630, OG_TARGET) - das Vorschaubild,
     das WhatsApp, Discord, Reddit & Co. zu einem geteilten Link zeigen. Es ist
     das einzige Asset mit Text; alles andere ist reine Geometrie.
@@ -14,7 +17,7 @@ Das Ergebnis ist deterministisch und liegt im Repo - laufen muss das Skript nur,
 wenn sich die Marke oder der Text im Share-Bild aendert.
 """
 import math, os, cairosvg
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 BG_DARK, BG_DARK2 = "#0B0F0C", "#16231A"
@@ -82,6 +85,81 @@ def render(svg, size):
         bytestring=svg.encode(), output_width=size, output_height=size))).convert("RGBA")
 
 # (Pfad, Kantenlänge, Anteil der Marke, deckender Hintergrund)
+# ---------------------------------------------------------------------------
+# Speichern
+# ---------------------------------------------------------------------------
+# Alle Bilder hier sind derselbe dunkle Radialverlauf mit einer gruenen Kurve
+# und einem weissen Ball darauf. Als 24-Bit-RGB kostet das etwa das Doppelte
+# dessen, was eine 256er-Palette braucht — gemessen ueber den ganzen Satz:
+# 156 kB auf 81 kB (-48 %).
+#
+# ## Warum MIT Dithering, obwohl das die Datei groesser macht
+#
+# Die naheliegende Variante — Palette OHNE Dithering — ist deutlich kleiner
+# (-68 % statt -48 %) und sieht in der Messung sogar besser aus: die groesste
+# Abweichung EINES Kanals EINES Pixels liegt bei 3 von 255.
+#
+# Sie ist trotzdem falsch, und das ist einmal ausprobiert und am Bild
+# verglichen worden: bei 3/255 sind im Verlauf konzentrische Ringe SICHTBAR.
+# Ohne Dithering ist der Fehler strukturiert — er verlaeuft entlang der Linien
+# gleicher Helligkeit und legt genau das Muster an, fuer das das Auge am
+# empfindlichsten ist. Der Verlauf spannt hier nur rund 11 Helligkeitsstufen je
+# Kanal (#16231A nach #0B0F0C); auf 1200px Breite gedehnt liegt jede
+# Stufengrenze als sichtbare Kante im Bild.
+#
+# Dithering verteilt denselben Fehler als feines Rauschen, und die Ringe sind
+# weg. Die Lehre steht hier, weil die Messung in die Irre fuehrt: eine Schranke
+# auf den maximalen Kanalfehler ist fuer Banding der falsche Waechter. Der
+# Waechter unten prueft deshalb den mittleren Fehler (RMSE), fuer den Dithering
+# keine Ausrede hat.
+#
+# `optimize=True` allein bringt nichts mehr: PIL faehrt zlib dabei schon auf
+# Stufe 9, `compress_level=9` liefert byteidentische Dateien. Mehr holen nur
+# externe Optimierer (oxipng, zopflipng) heraus, typischerweise weitere
+# 5-15 % — die sind hier absichtlich keine Voraussetzung, weil dieses Skript
+# von Hand laeuft und nicht im Build.
+MAX_RMSE = 1.5
+
+def save_png(im, rel_path, opaque_bg=(11, 15, 12)):
+    """Speichert als gedithertes 256-Farben-PNG und prueft die Abweichung nach.
+
+    Die Pruefung ist der Punkt: die Palette ist nur deshalb unbedenklich, weil
+    DIESE Marke so wenige Farbtoene hat. Wuerde sie einmal bunter — ein Foto,
+    ein zweiter Verlauf —, reichten 256 Farben nicht mehr, und niemand sieht
+    das an einem 192px-Icon auf einem Homescreen. Dann bricht lieber dieses
+    Skript.
+    """
+    if opaque_bg is not None:
+        # Ohne Alphakanal: ein Favicon mit Transparenz verschwindet in einer
+        # hellen Tab-Leiste, und Vorschaukarten kennen kein Alpha.
+        flat = Image.new("RGB", im.size, opaque_bg)
+        flat.paste(im, (0, 0), im if im.mode == "RGBA" else None)
+        im = flat
+
+    rgb = im.convert("RGB")
+    # `convert("P", ADAPTIVE)` ist die Variante MIT Floyd-Steinberg-Dithering;
+    # `quantize(dither=NONE)` waere die ohne. Siehe die Begruendung oben.
+    quantized = rgb.convert("P", palette=Image.ADAPTIVE, colors=256)
+
+    hist = ImageChops.difference(rgb, quantized.convert("RGB")).histogram()
+    sq = n = 0
+    for ch in range(3):
+        for value, count in enumerate(hist[ch * 256:(ch + 1) * 256]):
+            sq += count * value * value
+            n += count
+    rmse = math.sqrt(sq / n)
+    if rmse > MAX_RMSE:
+        raise SystemExit(
+            f"{rel_path}: 256-Farben-Palette weicht im Mittel um {rmse:.2f}/255 ab "
+            f"(erlaubt: {MAX_RMSE}). Die Marke hat jetzt zu viele Farbtoene fuer "
+            f"eine Palette — save_png() auf RGB umstellen und die Groessen in den "
+            f"Kommentaren darueber neu messen."
+        )
+
+    out = os.path.join(ROOT, rel_path)
+    quantized.save(out, optimize=True)
+    return os.path.getsize(out), rmse
+
 TARGETS = [
     ("public/favicon.png",                   196, 0.80, True),
     ("public/icons/icon-192.png",            192, 0.76, True),
@@ -92,15 +170,18 @@ TARGETS = [
 
 for i, (path, size, ratio, bg) in enumerate(TARGETS):
     im = render(canvas(size, ratio, bg=bg, uid=f"u{i}"), size)
-    if bg:                                     # Favicon und PWA-Icons ohne Alphakanal
-        flat = Image.new("RGB", (size, size), (11, 15, 12))
-        flat.paste(im, (0, 0), im)
-        im = flat
-    im.save(os.path.join(ROOT, path), optimize=True)
-    print(f"{path:44s} {size}x{size}")
+    written, rmse = save_png(im, path, opaque_bg=(11, 15, 12) if bg else None)
+    print(f"{path:44s} {size}x{size}  {written:6d} B  (RMSE {rmse:.2f}/255)")
 
 open(os.path.join(ROOT, "assets/icon.svg"), "w").write(canvas(1024, 0.76, uid="src"))
 print(f"{'assets/icon.svg':44s} (Vektorquelle)")
+
+# Derselbe Aufruf wie die Vektorquelle, nur kleiner im viewBox — bei einem SVG
+# ist die Zahl ohnehin nur der Bezugsrahmen, nicht die Ausgabegroesse. Der
+# deckende Hintergrund bleibt AN: ein Favicon mit Alphakanal verschwindet in
+# einer hellen Tab-Leiste, weil die dunkle Marke dann auf Weiss sitzt.
+open(os.path.join(ROOT, "public/favicon.svg"), "w").write(canvas(64, 0.80, uid="fav"))
+print(f"{'public/favicon.svg':44s} (Vektor-Favicon)")
 
 # ---------------------------------------------------------------------------
 # Share-Bild (Open Graph)
@@ -156,7 +237,5 @@ import io as _io  # noqa: E402  — lokal, damit `render` oben unveraendert blei
 
 _png = cairosvg.svg2png(bytestring=share_canvas().encode(), output_width=OG_W, output_height=OG_H)
 _im = Image.open(_io.BytesIO(_png)).convert("RGBA")
-_flat = Image.new("RGB", (OG_W, OG_H), (11, 15, 12))   # Vorschaukarten kennen kein Alpha
-_flat.paste(_im, (0, 0), _im)
-_flat.save(os.path.join(ROOT, OG_TARGET), optimize=True)
-print(f"{OG_TARGET:44s} {OG_W}x{OG_H}")
+_written, _rmse = save_png(_im, OG_TARGET)
+print(f"{OG_TARGET:44s} {OG_W}x{OG_H}  {_written:6d} B  (RMSE {_rmse:.2f}/255)")

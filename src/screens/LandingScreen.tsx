@@ -1,6 +1,13 @@
 import { Link } from 'react-router';
 import { ExternalLink } from '@/components/ExternalLink';
-import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
+import {
+  PRIVACY_PATH,
+  PRIVACY_TITLE,
+  TERMS_PATH,
+  TERMS_TITLE,
+} from '@/legal/legalRoutes';
+import { withOrigin } from '@/shell/useBackTarget';
+import { HOMEPAGE_URL } from '@/support/links';
 import styles from './LandingScreen.module.css';
 
 /**
@@ -115,7 +122,21 @@ export function LandingScreen() {
               Stelle etwas nach.
             </li>
           </ul>
-          <ExternalLink url={PRIVACY_URL} label="Datenschutzerklärung lesen" />
+          {/*
+           * Interner Link, seit die Erklärung eine eigene Route ist
+           * (src/legal/, Begründung in src/support/links.ts). Für DIESE Seite
+           * ist das mehr als Bequemlichkeit: sie wirbt damit, dass nichts
+           * nachgeladen wird — ein Absprung auf eine fremde Domain direkt
+           * unter dem Satz „die App lädt von keiner anderen Stelle etwas
+           * nach" wäre genau der falsche Beweis.
+           */}
+          <Link
+            to={PRIVACY_PATH}
+            className={styles.privacyLink}
+            state={withOrigin('/', 'Startseite').state}
+          >
+            Datenschutzerklärung lesen
+          </Link>
         </section>
 
         <footer className={styles.footer}>
@@ -127,7 +148,23 @@ export function LandingScreen() {
             <span className={styles.legalSeparator} aria-hidden="true">
               ·
             </span>
-            <ExternalLink url={PRIVACY_URL} label="Datenschutz" compact />
+            <Link
+              to={PRIVACY_PATH}
+              className={styles.legalLink}
+              state={withOrigin('/', 'Startseite').state}
+            >
+              {PRIVACY_TITLE}
+            </Link>
+            <span className={styles.legalSeparator} aria-hidden="true">
+              ·
+            </span>
+            <Link
+              to={TERMS_PATH}
+              className={styles.legalLink}
+              state={withOrigin('/', 'Startseite').state}
+            >
+              {TERMS_TITLE}
+            </Link>
           </div>
           <p className={styles.disclaimer}>
             Inoffizielle App. Nicht mit der Kickbase GmbH verbunden. Kickbase ist eine Marke der

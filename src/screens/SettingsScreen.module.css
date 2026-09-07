@@ -19,3 +19,98 @@
   font-weight: 600;
   color: var(--color-danger);
 }
+
+/* Kartenaufbau wie im Regel- und im Mehr-Tab (surface + 1px border + radius.lg). */
+.card {
+  composes: v from '@/theme/layout.module.css';
+  /* Der Screen-Container richtet seine Kinder an `flex-start` aus, damit der
+     Abmelden-Knopf nur so breit wird wie sein Text. Die Karte soll dagegen die
+     Zeile füllen — sonst bricht ihr Fließtext an der Textbreite des längsten
+     Knopfes um. */
+  align-self: stretch;
+  padding: var(--space-md);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.cardBody {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.inlineLink {
+  composes: pressable from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: start;
+}
+
+.inlineLink:active {
+  opacity: 0.7;
+}
+
+/*
+ * Der Warnhinweis der zweiten Stufe. `--color-danger` als Text auf
+ * `--color-surface` erreicht 5.14:1 (siehe theme/contrast.test.ts) — die
+ * Meldung ist damit auch bei 13px lesbar und nicht nur „rot".
+ */
+.warning {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  line-height: 18px;
+  color: var(--color-danger);
+}
+
+.confirmRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  /* Auf 320px stehen „Endgültig löschen" und „Abbrechen" nicht nebeneinander. */
+  flex-wrap: wrap;
+}
+
+.dangerButton {
+  /* 44px Trefferfläche wie bei allen Bedienelementen der App. */
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  padding-inline: var(--space-lg);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.cancelButton {
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  padding-inline: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}

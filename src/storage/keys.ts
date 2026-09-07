@@ -14,6 +14,26 @@
  * in keys.test.ts wörtlich geprüft.
  */
 
+/**
+ * Gemeinsames Präfix ALLER Schlüssel dieser App.
+ *
+ * Zwei Dinge hängen daran, und beide brauchen es, weil die Schlüsselmenge
+ * nicht endlich ist: `leagueRulesKey` und `excludedFromSaleKey` bauen ihren
+ * Namen aus einer Liga-ID, es gibt also so viele wie der Nutzer Ligen hat.
+ * Eine Liste zum Durchlaufen kann es damit nicht geben — nur das Präfix.
+ *
+ *   1. `localStore.clearAppData()` löscht darüber alles, was kickflow
+ *      angelegt hat (Datenschutz-Auskunft, siehe SettingsScreen).
+ *   2. `storage/inventory.ts` beschreibt darüber, was gespeichert wird, für
+ *      die Datenschutzerklärung.
+ *
+ * Das Präfix ist DEFINIEREND, nicht beschreibend: keys.test.ts prüft, dass
+ * jeder Schlüssel damit anfängt. Ein Schlüssel ohne Präfix wäre von beidem
+ * ausgenommen — er würde beim Löschen liegen bleiben und in der
+ * Datenschutzerklärung fehlen.
+ */
+export const APP_KEY_PREFIX = 'kickflow.';
+
 /** Anmeldung: Token und Refresh-Token. Siehe src/auth/tokenStore.ts. */
 export const SESSION_KEY = 'kickflow.session.v1';
 
