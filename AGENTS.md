@@ -75,6 +75,16 @@ abgewichen wird.
   `style-src 'unsafe-inline'` muss dagegen BLEIBEN: die echt dynamischen Werte
   (Positionsfarben, Zellengrößen, Pull-Offset) sind Inline-`style`-Attribute
   und fielen sonst lautlos aus.
+- **Geteilte Links** sind der einzige Weg, auf dem kickflow Nutzer findet —
+  und alles daran bricht ausschließlich außerhalb des eigenen Browsers.
+  `/` zeigt ohne Session die öffentliche Startseite, aber nur im Tab: in der
+  installierten PWA ist `/` die `start_url` und führt weiter auf den Login
+  (`src/routes/IndexRoute.tsx`). Die Open-Graph-Tags im HTML-Kopf bauen ihre
+  URLs ABSOLUT aus `%SITE_ORIGIN%`, das ein Plugin in `vite.config.ts` zur
+  Build-Zeit ersetzt (`scripts/siteOrigin.ts`); ein relativer Pfad ergibt eine
+  Vorschaukarte ohne Bild, ohne dass irgendwo etwas ausfällt. Was auf der
+  Startseite steht, muss die App auch können: der Text ist das Erste, was ein
+  Fremder liest, und das Erste, was er nachprüft.
 - **Modale** liegen per `createPortal` an `document.body` (siehe
   `src/components/Modal.tsx`). Nicht optional: die Touch-Listener von
   `Refreshable` hängen mit `capture` am Wrapper, und ein im Baum gerendertes
