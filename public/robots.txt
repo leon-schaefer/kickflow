@@ -1,0 +1,9 @@
+# Alles erlaubt — öffentlich ist ohnehin nur die Startseite. Jede andere Route
+# liegt hinter dem Login und liefert einem Crawler nichts als die leere SPA.
+#
+# Die Datei muss existieren, obwohl sie nichts verbietet: der Catch-All-Rewrite
+# in vercel.json beantwortet einen fehlenden Pfad mit der index.html und Status
+# 200 (siehe README). Ohne sie bekäme jeder Crawler unter /robots.txt eine
+# HTML-Seite als vermeintliche robots.txt geliefert.
+User-agent: *
+Allow: /

@@ -32,7 +32,10 @@
   color: var(--color-text-secondary);
 }
 
-.supportButton {
+/* Geteilt von „Link teilen" und „Unterstützen" — beide sind eine sekundäre
+   Aktion auf einer Karte, und zwei getrennte Klassen mit identischen Werten
+   wären der Anfang der Drift. */
+.cardButton {
   /* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
   min-height: 44px;
   align-items: center;
@@ -58,6 +61,14 @@
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-caption);
   color: var(--color-danger);
+}
+
+/* Der Link im Fehlerfall: lesbar und markierbar, in der Textfarbe statt in
+   Rot — die Meldung ist rot, der Link ist die Nutzlast. */
+.inviteUrl {
+  color: var(--color-text-primary);
+  user-select: all;
+  word-break: break-all;
 }
 
 .version {
