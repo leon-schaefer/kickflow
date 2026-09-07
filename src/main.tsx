@@ -5,6 +5,8 @@ import '@/app/zodConfig';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app/App';
+import { startResumeGuard } from '@/pwa/resumeGuard';
+import { hideStalledNotice, showStalledNotice } from '@/pwa/stalledNotice';
 import '@/theme/base.css';
 import '@/theme/tokens.css';
 import '@/theme/positions.css';
@@ -26,3 +28,17 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+/**
+ * Neben React und nicht darin: der Wächter muss noch arbeiten, wenn React
+ * nach der Rückkehr aus dem Hintergrund nichts mehr rendert — und genau das
+ * ist sein Fall. Die ausgemessene Begründung steht in
+ * src/pwa/resumeGuard.ts.
+ *
+ * Kein `stop()` aufgehoben: der Wächter lebt so lange wie das Dokument. Die
+ * Abmeldung gibt es für die Tests.
+ */
+startResumeGuard({
+  onStalled: () => showStalledNotice(() => window.location.reload()),
+  onRecovered: hideStalledNotice,
+});

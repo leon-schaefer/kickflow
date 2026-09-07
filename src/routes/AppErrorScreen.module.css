@@ -1,0 +1,63 @@
+/*
+ * Diese Seite ersetzt den ganzen Baum — auch `RootLayout` mit seiner `.shell`
+ * (src/routes/RootLayout.module.css). Fläche, Breitenbegrenzung und die
+ * beiden Farben müssen deshalb hier noch einmal stehen: ohne sie zeichnet der
+ * Browser dunklen Text auf dem `body`-Hintergrund aus der index.html, also
+ * fast unlesbar.
+ */
+.screen {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  width: 100%;
+  max-width: var(--layout-max-content-width);
+  margin-inline: auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+  text-align: center;
+}
+
+.body {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* 44px ist die Trefferfläche, die diese App für Bedienelemente ansetzt. */
+.action {
+  composes: pressableV from '@/theme/layout.module.css';
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-background);
+}
+
+.action:active {
+  opacity: 0.9;
+}
+
+.detail {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+  text-align: center;
+  /* Eine Fehlermeldung kann eine URL ohne Leerzeichen sein. */
+  overflow-wrap: anywhere;
+}
