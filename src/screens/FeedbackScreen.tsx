@@ -56,6 +56,18 @@ export function FeedbackScreen() {
   }
 
   /*
+   * Jede Änderung am Text oder an der Kategorie räumt das Ergebnis der letzten
+   * Übergabe weg. Sonst stünde „Text liegt bereit" über einem Text, der
+   * inzwischen ein anderer ist — und der Knopf hieße weiter „Nochmal öffnen",
+   * obwohl es diesmal etwas Neues zu öffnen gibt.
+   */
+  function reset() {
+    setOpened(false);
+    setFailed(false);
+    setCopied(null);
+  }
+
+  /*
    * Das `preventDefault` ist Pflicht und nicht Stil — wie im LoginScreen:
    * ohne es navigiert der Browser das Formular ab, und die CSP in vercel.json
    * hat `form-action 'none'`.
@@ -114,7 +126,10 @@ export function FeedbackScreen() {
                   type="button"
                   aria-pressed={category === key}
                   className={cx(layout.pressable, styles.chip)}
-                  onClick={() => setCategory(key)}
+                  onClick={() => {
+                    setCategory(key);
+                    reset();
+                  }}
                 >
                   {label}
                 </button>
@@ -133,35 +148,67 @@ export function FeedbackScreen() {
               rows={8}
               maxLength={FEEDBACK_MESSAGE_MAX}
               value={message}
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={(event) => {
+                setMessage(event.target.value);
+                reset();
+              }}
             />
             <p className={styles.counter}>
               {message.length} von {FEEDBACK_MESSAGE_MAX} Zeichen
             </p>
 
+            {/*
+             * Die Beschriftung wechselt nach der Übergabe. Das ist die
+             * unmittelbarste Rückmeldung, die es gibt: sie steht auf dem
+             * Element, das gerade gedrückt wurde.
+             */}
             <button
               type="submit"
               className={cx(layout.pressableH, styles.submitButton)}
               disabled={!canSubmit}
             >
-              Feedback senden
+              {opened ? 'Nochmal öffnen' : 'Feedback senden'}
             </button>
-            <p className={styles.hint}>
-              Öffnet dein Mail-Programm mit dem fertigen Text — abgeschickt wird erst dort. Deine
-              Absenderadresse siehst du in deinem Mail-Programm; nur über sie kann ich antworten.
-            </p>
-
-            {failed && (
-              <p className={styles.error} role="alert">
-                Das Mail-Programm ließ sich nicht öffnen. Kopier den Text unten und schick ihn von
-                Hand.
+            {/*
+             * Der Hinweis erklärt, was der Knopf TUN WIRD — nach dem Druck ist
+             * das erledigt und die Ergebnis-Tafel sagt es genauer. Beides
+             * gleichzeitig stehen zu lassen war der halbe Grund, warum die
+             * Meldung unterging: zwei Absätze, die dasselbe erzählen, und der
+             * längere zuerst.
+             */}
+            {!opened && !failed && (
+              <p className={styles.hint}>
+                Öffnet dein Mail-Programm mit dem fertigen Text — abgeschickt wird erst dort. Deine
+                Absenderadresse siehst du in deinem Mail-Programm; nur über sie kann ich antworten.
               </p>
             )}
+
+            {/*
+             * Das Ergebnis ist eine abgesetzte Tafel und keine weitere Zeile
+             * Kleingedrucktes: eine Bildschirmbreite grauer Hinweistext davor
+             * hat jede Meldung in Fließtextgröße unsichtbar gemacht — der
+             * Klick fühlte sich wirkungslos an, obwohl er wirkte. Die
+             * Unterscheidung geschafft/gescheitert läuft über `role`, ein
+             * echtes Attribut, das hier ohnehin verschieden ist.
+             */}
+            {failed && (
+              <div className={styles.result} role="alert">
+                <p className={styles.resultTitle}>Das Mail-Programm ging nicht auf</p>
+                <p className={styles.resultBody}>
+                  Wahrscheinlich ist auf diesem Gerät keins eingerichtet. Dein Text ist nicht
+                  verloren: kopier ihn unten und schick ihn von Hand.
+                </p>
+              </div>
+            )}
             {opened && !failed && (
-              <p className={styles.ok} role="status">
-                Dein Mail-Programm sollte sich jetzt mit dem fertigen Text geöffnet haben. Wenn
-                nicht, hilft der Weg unten.
-              </p>
+              <div className={styles.result} role="status">
+                <p className={styles.resultTitle}>Text liegt bereit</p>
+                <p className={styles.resultBody}>
+                  Dein Mail-Programm sollte sich mit Betreff und Text geöffnet haben — abschicken
+                  musst du dort. Bleibt hier und dort alles gleich, ist auf diesem Gerät keins
+                  eingerichtet: dann führt der Weg unten weiter.
+                </p>
+              </div>
             )}
           </section>
 

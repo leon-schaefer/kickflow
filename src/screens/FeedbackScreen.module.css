@@ -208,6 +208,50 @@
   color: var(--color-positive);
 }
 
+/*
+ * Die Ergebnis-Tafel nach dem Absenden. Rahmen, Fläche und eine fette Zeile,
+ * weil sie unter mehreren Zeilen grauen Hinweistexts landet — dort geht alles
+ * unter, was aussieht wie noch ein Hinweis.
+ *
+ * Die Variante hängt an `role` statt an einer zweiten Klasse: das Attribut
+ * ist ohnehin verschieden (status vs. alert), und ein Attributselektor gewinnt
+ * über die Basisregel unabhängig von der Emissionsreihenfolge — bei zwei
+ * gleich spezifischen Klassen am selben Element entscheidet sie (siehe den
+ * Docblock in src/theme/layout.module.css).
+ */
+.result {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+}
+
+.result[role='alert'] {
+  border-color: var(--color-danger);
+  background: var(--color-surface-raised);
+}
+
+.resultTitle {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.result[role='alert'] .resultTitle {
+  color: var(--color-danger);
+}
+
+.resultBody {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  line-height: 17px;
+  color: var(--color-text-secondary);
+}
+
 .error {
   margin: 0;
   font-size: var(--font-size-caption);
