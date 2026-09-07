@@ -28,7 +28,12 @@ try {
 
 const BASE = process.argv[2] ?? 'http://localhost:4173';
 
-/** [Pfad, Selektor, Beschreibung, { CSS-Eigenschaft: Sollwert }] */
+/**
+ * [Pfad, Selektor, Beschreibung, { CSS-Eigenschaft: Sollwert }, Optionen?]
+ *
+ * Optionen: `session` legt eine Sitzung in den Speicher (Pflicht für alles
+ * hinter dem Auth-Gate), `focus` fokussiert das Element vor der Messung.
+ */
 const CHECKS = [
   [
     '/login',
@@ -61,15 +66,42 @@ const CHECKS = [
     'Rechtslink (pressable + eigene Klasse)',
     { fontFamily: '-apple-system', fontSize: '11px', color: 'rgb(155, 170, 156)' },
   ],
+  /*
+   * Der einzige Eintrag, der einen ZUSTAND misst. Grund: ein <textarea> ohne
+   * eigene Fokusregel bekommt den Ring des Browsers, und der ist in Chrome
+   * die blaue Systemakzentfarbe — im Ruhezustand ist davon nichts zu sehen,
+   * ein Blick in den Diff zeigt es auch nicht. Erwartet wird deshalb beides:
+   * der Rahmen in der Akzentfarbe der App UND ein abgeschalteter Ring.
+   */
+  [
+    '/feedback',
+    'textarea',
+    'Feedback-Textfeld im Fokus',
+    { borderColor: 'rgb(63, 191, 99)', outlineStyle: 'none' },
+    { session: true, focus: true },
+  ],
 ];
 
 const browser = await chromium.launch();
 const rows = [];
 let failures = 0;
 
-for (const [pathname, selector, label, expected] of CHECKS) {
-  const page = await browser.newPage();
+for (const [pathname, selector, label, expected, options = {}] of CHECKS) {
+  const context = await browser.newContext();
+  if (options.session) {
+    await context.addInitScript(() => {
+      localStorage.setItem(
+        'kickflow.session.v1',
+        JSON.stringify({ token: 'v', refreshToken: null }),
+      );
+      // Wie unten im Schrift-Sweep: der Installations-Hinweis würde das
+      // gemessene Element sonst hinter einem Dialog verdecken.
+      localStorage.setItem('kickflow.installHint.v1', '1');
+    });
+  }
+  const page = await context.newPage();
   await page.goto(BASE + pathname, { waitUntil: 'networkidle' });
+  if (options.focus) await page.focus(selector);
   const actual = await page.evaluate(
     ([sel, props]) => {
       const el = document.querySelector(sel);
@@ -79,7 +111,7 @@ for (const [pathname, selector, label, expected] of CHECKS) {
     },
     [selector, Object.keys(expected)],
   );
-  await page.close();
+  await context.close();
 
   for (const [prop, want] of Object.entries(expected)) {
     // fontFamily nur am ersten Eintrag vergleichen — der Rest des Stacks ist
