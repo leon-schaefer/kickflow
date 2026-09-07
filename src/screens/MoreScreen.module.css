@@ -46,6 +46,27 @@
   color: var(--color-accent);
 }
 
+/*
+ * Sieht aus wie .supportButton, ist aber ein <a>: deshalb `text-decoration:
+ * none` und die zentrierte Ausrichtung, die ein <button> von sich aus hat.
+ * Bewusst nicht die Akzentfarbe der Unterstützen-Karte — auf einer Karte mit
+ * zwei gleich lauten Knöpfen führt keiner mehr.
+ */
+.feedbackButton {
+  /* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
 .hint {
   margin: 0;
   font-size: var(--font-size-caption);
