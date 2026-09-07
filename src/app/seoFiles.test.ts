@@ -9,65 +9,50 @@ import { routes } from '@/routes/routes';
  * Wächter über robots.txt und sitemap.xml.
  *
  * Beide Dateien sind generiert (scripts/write-seo-files.ts) und NICHT
- * eingecheckt, weil ihr Inhalt an der Umgebung hängt. Geprüft werden deshalb
- * die reinen Render-Funktionen — dasselbe Muster wie
+ * eingecheckt, weil sie die Domain enthalten und die erst der Build kennt.
+ * Geprüft werden deshalb die reinen Render-Funktionen — dasselbe Muster wie
  * src/theme/tokens.css.test.ts für den Token-Generator.
  *
  * Der wichtigste Test ist der letzte: er liest den echten Route-Baum und
- * verlangt, dass die beiden Rechtsseiten dort ÖFFENTLICH hängen. Eine
- * sitemap.xml, die auf eine Route hinter dem Auth-Gate zeigt, schickt jeden
- * Crawler auf eine Weiterleitung — und zwar bei genau den zwei Seiten, deren
- * Erreichbarkeit gefordert ist.
+ * verlangt, dass jede Sitemap-URL dort ÖFFENTLICH hängt. Eine Sitemap, die auf
+ * eine Route hinter dem Auth-Gate zeigt, schickt jeden Crawler auf eine
+ * Weiterleitung — und das schlimmstenfalls bei den zwei Seiten, deren
+ * Erreichbarkeit rechtlich gefordert ist.
  */
+const ORIGIN = 'https://kickflow.example';
+
 describe('robots.txt', () => {
-  const ORIGIN = 'https://kickflow.example';
+  const txt = renderRobotsTxt(ORIGIN);
 
-  it('sperrt die Routen hinter dem Login', () => {
-    const txt = renderRobotsTxt(ORIGIN, true);
-    for (const blocked of ['/login', '/leagues', '/settings']) {
-      expect(txt).toContain(`Disallow: ${blocked}`);
-    }
-    // Die Liga-Tabs liegen hinter einem dynamischen Segment und werden über
-    // eine Wildcard gesperrt.
-    for (const tab of ['lineup', 'players', 'market', 'league', 'more']) {
-      expect(txt).toContain(`Disallow: /*/${tab}`);
-    }
-  });
-
-  it('lässt Startseite und Rechtsseiten zu', () => {
-    const txt = renderRobotsTxt(ORIGIN, true);
-    // `/$` ist das Muster für „genau die Startseite" — ohne den Anker würde
-    // `Allow: /` jedes Disallow darüber aushebeln.
-    expect(txt).toContain('Allow: /$');
-    expect(txt).toContain(`Allow: ${PRIVACY_PATH}`);
-    expect(txt).toContain(`Allow: ${TERMS_PATH}`);
+  it('erlaubt das Crawlen und sperrt nichts', () => {
+    // Die Politik ist aus der eingecheckten Fassung übernommen und
+    // absichtlich unverändert: hinter jeder Route außer den drei öffentlichen
+    // liegt der Login, und dort bekommt ein Crawler nur die leere SPA. Eine
+    // Disallow-Liste einzuführen wäre eine eigene Entscheidung mit eigener
+    // Begründung — nicht Beifang einer Sitemap.
+    expect(txt).toContain('User-agent: *');
+    expect(txt).toContain('Allow: /');
+    expect(txt).not.toMatch(/^Disallow:/m);
   });
 
   it('nennt die Sitemap mit absoluter URL', () => {
-    // Die robots.txt-Spezifikation verlangt hier eine absolute URL; ein
-    // relativer Pfad wird ignoriert.
-    expect(renderRobotsTxt(ORIGIN, true)).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`);
+    // Der einzige Grund, warum die Datei überhaupt generiert wird: die
+    // robots.txt-Spezifikation verlangt hier eine absolute URL, ein relativer
+    // Pfad wird ignoriert — eine statische Datei kann das nicht leisten.
+    expect(txt).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`);
+    expect(txt).not.toContain('Sitemap: /');
   });
 
-  it('lässt die Sitemap-Zeile weg, wenn keine Domain bekannt ist', () => {
-    const txt = renderRobotsTxt(null, true);
-    expect(txt).not.toMatch(/^Sitemap:/m);
-    // Statt einer geratenen Domain steht dort die Begründung.
-    expect(txt).toContain('VERCEL_PROJECT_PRODUCTION_URL');
-  });
-
-  it('sperrt auf einem Preview-Deploy ALLES', () => {
-    const txt = renderRobotsTxt(ORIGIN, false);
-    expect(txt).toContain('Disallow: /');
-    // Nichts freigeben und keine Sitemap anbieten: ein Feature-Branch soll
-    // nicht mit der Produktionsdomain um dieselben Inhalte konkurrieren.
-    expect(txt).not.toMatch(/^Allow:/m);
-    expect(txt).not.toMatch(/^Sitemap:/m);
+  it('erklärt, warum sie existiert', () => {
+    // Der Catch-All-Rewrite beantwortet einen fehlenden Pfad mit der
+    // index.html und Status 200 — ohne diese Datei bekäme ein Crawler unter
+    // /robots.txt eine HTML-Seite. Die Begründung soll in der Datei stehen,
+    // weil sie sonst beim nächsten Aufräumen gelöscht wird.
+    expect(txt).toContain('Catch-All-Rewrite');
   });
 });
 
 describe('sitemap.xml', () => {
-  const ORIGIN = 'https://kickflow.example';
   const xml = renderSitemapXml(ORIGIN, '2026-09-07');
 
   it('ist wohlgeformtes XML mit dem richtigen Namensraum', () => {
@@ -85,8 +70,18 @@ describe('sitemap.xml', () => {
   });
 
   it('nennt keine Route, die ein Login verlangt', () => {
-    for (const blocked of ['/leagues', '/settings', '/lineup', '/market', '/login']) {
-      expect(xml, `${blocked} gehört nicht in die Sitemap`).not.toContain(`<loc>${ORIGIN}${blocked}`);
+    for (const blocked of ['/leagues', '/settings', '/feedback', '/lineup', '/market', '/login']) {
+      expect(xml, `${blocked} gehört nicht in die Sitemap`).not.toContain(
+        `<loc>${ORIGIN}${blocked}`,
+      );
+    }
+  });
+
+  it('datiert auf den Tag und nicht auf die Sekunde', () => {
+    // `lastmod` mit Sekundengenauigkeit behauptet eine Änderung, die ein Build
+    // ohne Inhaltsänderung nicht hergibt.
+    for (const m of xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)) {
+      expect(m[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });
 });
@@ -103,9 +98,12 @@ describe('Kopplung an den Route-Baum', () => {
     const root = routes[0];
     const gate = root.children?.find((c) => !c.path && c.children);
     const gatedPaths = new Set(gate?.children?.map((c) => c.path));
-    return (root.children ?? [])
+    const own = (root.children ?? [])
       .filter((c) => c.path && c.path !== '*' && !gatedPaths.has(c.path))
       .map((c) => `/${c.path}`);
+    // Die Index-Route hat kein `path`, ist aber `/` — und seit der
+    // öffentlichen Startseite echter Inhalt.
+    return root.children?.some((c) => c.index) ? ['/', ...own] : own;
   }
 
   it('hat beide Rechtsseiten öffentlich, nicht hinter dem Auth-Gate', () => {
@@ -114,17 +112,20 @@ describe('Kopplung an den Route-Baum', () => {
     expect(open).toContain(TERMS_PATH);
   });
 
-  it('nennt in der Sitemap nur Pfade, die es im Route-Baum gibt', () => {
-    // Gegenprobe zur Auslassung: eine Sitemap-URL, die auf einen 404 führt,
-    // ist schlimmer als eine fehlende.
-    const open = new Set([...publicPaths(), '/']);
-    const locs = [...renderSitemapXml('https://x.test', '2026-01-01').matchAll(
-      /<loc>https:\/\/x\.test([^<]*)<\/loc>/g,
-    )].map((m) => m[1] || '/');
+  it('nennt in der Sitemap nur Pfade, die es öffentlich im Route-Baum gibt', () => {
+    // Gegenprobe zur Auslassung: eine Sitemap-URL, die auf einen Login
+    // umleitet oder auf einen 404 führt, ist schlimmer als eine fehlende.
+    const open = new Set(publicPaths());
+    const locs = [
+      ...renderSitemapXml('https://x.test', '2026-01-01').matchAll(
+        /<loc>https:\/\/x\.test([^<]*)<\/loc>/g,
+      ),
+    ].map((m) => m[1] || '/');
     for (const loc of locs) {
-      expect(open.has(loc), `${loc} steht in der Sitemap, aber nicht öffentlich im Route-Baum`).toBe(
-        true,
-      );
+      expect(
+        open.has(loc),
+        `${loc} steht in der Sitemap, aber nicht öffentlich im Route-Baum`,
+      ).toBe(true);
     }
   });
 
@@ -139,5 +140,16 @@ describe('Kopplung an den Route-Baum', () => {
     expect(source).toContain("from '../src/legal/legalRoutes'");
     expect(source).not.toContain("'/datenschutz'");
     expect(source).not.toContain("'/nutzungsbedingungen'");
+  });
+
+  it('benutzt dieselbe Herkunfts-Auflösung wie die Open-Graph-Tags', () => {
+    // Zwei Auflösungen wären zwei Domains, die auseinanderlaufen können —
+    // canonical/og:url auf der einen, die Sitemap auf der anderen. Es gibt
+    // genau eine (scripts/siteOrigin.ts), und die benutzen beide.
+    const source = readFileSync(
+      path.join(import.meta.dirname, '..', '..', 'scripts', 'write-seo-files.ts'),
+      'utf8',
+    );
+    expect(source).toContain("from './siteOrigin'");
   });
 });

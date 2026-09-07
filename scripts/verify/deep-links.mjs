@@ -38,11 +38,17 @@ const BASE = process.argv[2] ?? 'http://localhost:4173';
  * Erwartete h1 je URL. Die vier Liga-Tabs tragen dort den LeagueSwitcher —
  * ohne geladene Ligenliste ist das der Fallback 'Liga'. Der Mehr-Tab hat als
  * einziger einen festen Titel, der Login gar keinen AppHeader.
+ *
+ * Dritter Eintrag: Optionen für `open`. Nur die öffentliche Startseite braucht
+ * ihn — sie zeigt sich ausschließlich OHNE Session, mit Session leitet `/` auf
+ * die Ligenliste um.
  */
 const URLS = [
+  ['/', 'kickflow', { session: false }],
   ['/login', 'Kickflow'],
   ['/leagues', 'Meine Ligen'],
   ['/settings', 'Einstellungen'],
+  ['/feedback', 'Feedback'],
   ['/42/lineup', 'Liga'],
   ['/42/players', 'Liga'],
   ['/42/market', 'Liga'],
@@ -97,8 +103,8 @@ async function open(pathname, { session = true } = {}) {
   return { context, page, response, consoleErrors };
 }
 
-for (const [pathname, heading] of URLS) {
-  const { context, page, response, consoleErrors } = await open(pathname);
+for (const [pathname, heading, options] of URLS) {
+  const { context, page, response, consoleErrors } = await open(pathname, options);
 
   const status = response?.status();
   // Der LeagueSwitcher trägt ein dekoratives Chevron IM h1 — es ist
@@ -139,6 +145,13 @@ const extra = [];
   // Deep Link ohne Session muss auf /login umleiten.
   const { context, page } = await open('/42/lineup', { session: false });
   extra.push({ fall: 'Deep Link ohne Session', ergebnis: page.url().replace(BASE, ''), erwartet: '/login' });
+  await context.close();
+}
+{
+  // `/` MIT Session -> Ligenliste. Die Startseite ist für Fremde, nicht für
+  // den, der schon angemeldet ist.
+  const { context, page } = await open('/');
+  extra.push({ fall: 'Startseite mit Session', ergebnis: page.url().replace(BASE, ''), erwartet: '/leagues' });
   await context.close();
 }
 {
@@ -198,6 +211,7 @@ await browser.close();
 
 const PRUEFUNG = {
   'Deep Link ohne Session': (r) => r === '/login',
+  'Startseite mit Session': (r) => r === '/leagues',
   'nackte Liga-URL': (r) => r === '/42/lineup',
   'unbekannte Unterseite': (r) => r === 'Nicht gefunden',
   'Zurück-Label (Deep Link)': (r) => r === '‹Aufstellung',

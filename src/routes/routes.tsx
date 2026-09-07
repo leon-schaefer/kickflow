@@ -4,7 +4,7 @@ import { Spinner } from '@/components/Spinner';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { PRIVACY_PATH, PRIVACY_TITLE, TERMS_PATH, TERMS_TITLE } from '@/legal/legalRoutes';
 import { LoginScreen } from '@/screens/LoginScreen';
-import { IndexRedirect } from './IndexRedirect';
+import { IndexRoute } from './IndexRoute';
 import { LeagueLayout } from './LeagueLayout';
 import { NotFound } from './NotFound';
 import { RequireAuth } from './RequireAuth';
@@ -15,7 +15,7 @@ import styles from './routes.module.css';
 /**
  * Der Route-Baum — Ersatz für das Dateisystem-Routing von expo-router.
  *
- * Die 13 URLs bleiben unverändert: PWA-Installationen und Lesezeichen zeigen
+ * Die URLs bleiben unverändert: PWA-Installationen und Lesezeichen zeigen
  * darauf, und der Catch-All-Rewrite in vercel.json liefert jeden Pfad an
  * diese SPA. Neu dazu kommen `/datenschutz` und `/nutzungsbedingungen`.
  *
@@ -29,24 +29,26 @@ import styles from './routes.module.css';
  *
  * ## Warum die Screens `lazy` sind
  *
- * Vorher lag die ganze App in EINEM Chunk: 581,72 kB (175,56 kB gzip). Wer
- * den Login sah, hatte den Markt-Tab, den Optimizer, die Charts und jeden
- * Detail-Screen schon geladen — auf dem Handy vor dem ersten Tippen.
+ * Vorher lag die ganze App in EINEM Chunk: 581,72 kB (175,56 kB gzip). Wer den
+ * Login oder die öffentliche Startseite sah, hatte den Markt-Tab, den
+ * Optimizer, die Charts und jeden Detail-Screen schon geladen — auf dem Handy
+ * vor dem ersten Tippen.
  *
  * `lazy()` schneidet den Baum an den Route-Grenzen; jeder Screen wird ein
- * eigener Chunk, den Rolldown erst beim Betreten lädt. Zwei Ausnahmen stehen
- * bewusst statisch oben:
+ * eigener Chunk, den Rolldown erst beim Betreten lädt. Drei Gruppen stehen
+ * bewusst statisch oben, weil sie IM kritischen Pfad liegen:
  *
- *   - `LoginScreen` — der erste Screen für jeden Nicht-Angemeldeten. Ihn
- *     nachzuladen hieße, den kritischen Pfad um eine zweite Rundreise zu
- *     verlängern, also genau das Gegenteil.
+ *   - `IndexRoute` samt `LandingScreen` — was ein Fremder sieht, der den
+ *     geteilten Link antippt. Das ist die Seite, für die die Vorschaukarte
+ *     wirbt; sie nachzuladen wäre genau die falsche Stelle.
+ *   - `LoginScreen` — der erste Screen für jeden Nicht-Angemeldeten.
  *   - Die Layouts (`RootLayout`, `RequireAuth`, `TabsLayout`, `LeagueLayout`)
- *     und `NotFound` — die stecken in jedem Pfad bzw. sind winzig, ein
- *     eigener Chunk kostete mehr Anfrage als er Bytes spart.
+ *     und `NotFound` — die stecken in jedem Pfad bzw. sind winzig, ein eigener
+ *     Chunk kostete mehr Anfrage als er Bytes spart.
  *
  * Die Screens tragen `default`-Exporte NICHT; `lazy` erwartet aber genau das.
- * Deshalb der `.then`-Umweg pro Import, statt in 13 Dateien den Export-Stil
- * zu ändern — die Named Exports sind überall sonst importiert (Tests
+ * Deshalb der `.then`-Umweg pro Import, statt in 14 Dateien den Export-Stil zu
+ * ändern — die Named Exports sind überall sonst importiert (Tests
  * eingeschlossen) und sollen so bleiben.
  *
  * ## `handle.title`
@@ -56,14 +58,15 @@ import styles from './routes.module.css';
  * `useMatches()` und setzt daraus `document.title` — siehe
  * src/app/documentTitle.ts.
  *
- * Der Titel steht deshalb HIER und nicht im Screen: so ist er eine
- * Eigenschaft des Baums, und eine neue Route ohne Titel fällt beim Lesen
- * dieser Datei auf. Verteilt über 15 `useEffect`s wäre er 15 Stellen, an
- * denen er fehlen kann.
+ * Der Titel steht deshalb HIER und nicht im Screen: so ist er eine Eigenschaft
+ * des Baums, und eine neue Route ohne Titel fällt beim Lesen dieser Datei auf.
+ * Verteilt über 17 `useEffect`s wäre er 17 Stellen, an denen er fehlen kann.
  *
- * Die Tab-Titel kommen aus `leagueTabTitles`, damit Kopfzeile, Tab-Leiste
- * und Fenstertitel dieselben Wörter benutzen; die Rechtsseiten aus
- * legalRoutes.ts, aus demselben Grund.
+ * Die Tab-Titel kommen aus `leagueTabTitles`, damit Kopfzeile, Tab-Leiste und
+ * Fenstertitel dieselben Wörter benutzen; die Rechtsseiten aus legalRoutes.ts,
+ * aus demselben Grund. Der Index trägt KEINEN — dort gilt der Standardtitel
+ * aus der index.html, und der ist für die öffentliche Startseite genau der
+ * richtige.
  */
 
 /** `lazy()` braucht `{ default: Component }`, die Screens exportieren benannt. */
@@ -72,6 +75,9 @@ const LeaguesScreen = lazy(() =>
 );
 const SettingsScreen = lazy(() =>
   import('@/screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
+);
+const FeedbackScreen = lazy(() =>
+  import('@/screens/FeedbackScreen').then((m) => ({ default: m.FeedbackScreen })),
 );
 const LineupScreen = lazy(() =>
   import('@/screens/LineupScreen').then((m) => ({ default: m.LineupScreen })),
@@ -143,29 +149,48 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <IndexRedirect /> },
+      { index: true, element: <IndexRoute /> },
       { path: 'login', element: <LoginScreen />, handle: { title: 'Anmelden' } },
 
       /*
        * ÖFFENTLICH, also außerhalb von `RequireAuth` — und das ist die
        * eigentliche Anforderung, nicht eine Bequemlichkeit: die
        * Datenschutzerklärung muss lesbar sein, BEVOR jemand seine
-       * Kickbase-Zugangsdaten eintippt. Hinter dem Auth-Gate käme sie zu
-       * spät, und der Login-Fuß könnte nicht darauf verlinken.
+       * Kickbase-Zugangsdaten eintippt. Hinter dem Auth-Gate käme sie zu spät,
+       * und der Login-Fuß könnte nicht darauf verlinken.
        *
-       * Es sind zugleich die einzigen App-Routen, die in der sitemap.xml
-       * stehen und die robots.txt nicht sperrt — alles andere braucht ein
-       * Kickbase-Konto und hat für einen Crawler keinen Inhalt.
+       * Zusammen mit der Startseite sind es damit die drei Routen, die für
+       * einen Crawler überhaupt Inhalt haben — und genau die drei, die in der
+       * sitemap.xml stehen (scripts/write-seo-files.ts).
        */
-      { path: PRIVACY_PATH.slice(1), element: screen(<PrivacyScreen />), handle: { title: PRIVACY_TITLE } },
-      { path: TERMS_PATH.slice(1), element: screen(<TermsScreen />), handle: { title: TERMS_TITLE } },
+      {
+        path: PRIVACY_PATH.slice(1),
+        element: screen(<PrivacyScreen />),
+        handle: { title: PRIVACY_TITLE },
+      },
+      {
+        path: TERMS_PATH.slice(1),
+        element: screen(<TermsScreen />),
+        handle: { title: TERMS_TITLE },
+      },
 
       {
         // = Klammer-Gruppe `(app)`: das Auth-Gate, ohne URL-Segment.
         element: <RequireAuth />,
         children: [
           { path: 'leagues', element: screen(<LeaguesScreen />), handle: { title: 'Meine Ligen' } },
-          { path: 'settings', element: screen(<SettingsScreen />), handle: { title: 'Einstellungen' } },
+          {
+            path: 'settings',
+            element: screen(<SettingsScreen />),
+            handle: { title: 'Einstellungen' },
+          },
+          /*
+           * Feedback gehört zur App und nicht zu einer Liga — deshalb neben
+           * den Einstellungen und nicht unter `:leagueId`, obwohl der
+           * Einstieg im Mehr-Tab sitzt. Die einzige Route, die es unter
+           * expo-router noch nicht gab.
+           */
+          { path: 'feedback', element: screen(<FeedbackScreen />), handle: { title: 'Feedback' } },
 
           {
             path: ':leagueId',
@@ -182,19 +207,51 @@ export const routes: RouteObject[] = [
                 // = Klammer-Gruppe `(tabs)`: Rahmen mit Tab-Leiste, ohne URL-Segment.
                 element: <TabsLayout />,
                 children: [
-                  { path: 'lineup', element: screen(<LineupScreen />), handle: { title: leagueTabTitles.lineup } },
-                  { path: 'players', element: screen(<PlayersScreen />), handle: { title: leagueTabTitles.players } },
-                  { path: 'market', element: screen(<MarketScreen />), handle: { title: leagueTabTitles.market } },
-                  { path: 'league', element: screen(<LeagueScreen />), handle: { title: leagueTabTitles.league } },
-                  { path: 'more', element: screen(<MoreScreen />), handle: { title: leagueTabTitles.more } },
+                  {
+                    path: 'lineup',
+                    element: screen(<LineupScreen />),
+                    handle: { title: leagueTabTitles.lineup },
+                  },
+                  {
+                    path: 'players',
+                    element: screen(<PlayersScreen />),
+                    handle: { title: leagueTabTitles.players },
+                  },
+                  {
+                    path: 'market',
+                    element: screen(<MarketScreen />),
+                    handle: { title: leagueTabTitles.market },
+                  },
+                  {
+                    path: 'league',
+                    element: screen(<LeagueScreen />),
+                    handle: { title: leagueTabTitles.league },
+                  },
+                  {
+                    path: 'more',
+                    element: screen(<MoreScreen />),
+                    handle: { title: leagueTabTitles.more },
+                  },
                 ],
               },
 
               // Über den Tabs: eigener Header mit Zurück, keine Tab-Leiste.
-              { path: 'player/:playerId', element: screen(<PlayerDetailScreen />), handle: { title: 'Spieler' } },
-              { path: 'manager/:managerId', element: screen(<ManagerDetailScreen />), handle: { title: 'Manager' } },
+              {
+                path: 'player/:playerId',
+                element: screen(<PlayerDetailScreen />),
+                handle: { title: 'Spieler' },
+              },
+              {
+                path: 'manager/:managerId',
+                element: screen(<ManagerDetailScreen />),
+                handle: { title: 'Manager' },
+              },
               { path: 'rules', element: screen(<RulesScreen />), handle: { title: 'Regeln' } },
-              { path: 'fixtures', element: screen(<FixturesScreen />), handle: { title: 'Restprogramm' } },
+              {
+                path: 'fixtures',
+                element: screen(<FixturesScreen />),
+                handle: { title: 'Restprogramm' },
+              },
             ],
           },
         ],

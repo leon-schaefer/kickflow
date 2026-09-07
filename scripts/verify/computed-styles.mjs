@@ -93,15 +93,22 @@ for (const [pathname, selector, label, expected] of CHECKS) {
 }
 
 /**
- * Und der Gegencheck über ALLE 13 Seiten: kein einziges Element darf in einer
+ * Und der Gegencheck über ALLE Seiten: kein einziges Element darf in einer
  * Serifenschrift rendern. Genau das war der Ausgangsfehler — react-native-web
  * gab jedem `<Text>` `font: '14px System'`, im RN-Code stand deshalb nirgends
  * ein `fontFamily`, und der Port setzte gar keines.
+ *
+ * `session: false` nur für die öffentliche Startseite: mit Session leitet `/`
+ * auf die Ligenliste um, die Seite käme also nie unter das Messgerät. Sie ist
+ * dabei die einzige mit Fließtext über mehrere Absätze — also die, auf der
+ * eine falsche Schrift am meisten auffiele.
  */
 const URLS = [
+  ['/', { session: false }],
   '/login',
   '/leagues',
   '/settings',
+  '/feedback',
   '/42/lineup',
   '/42/players',
   '/42/market',
@@ -113,14 +120,20 @@ const URLS = [
   '/42/fixtures',
 ];
 
-for (const pathname of URLS) {
+for (const entry of URLS) {
+  const [pathname, { session = true } = {}] = Array.isArray(entry) ? entry : [entry, {}];
   const context = await browser.newContext();
-  await context.addInitScript(() => {
-    localStorage.setItem('kickflow.session.v1', JSON.stringify({ token: 'v', refreshToken: null }));
+  await context.addInitScript((withSession) => {
+    if (withSession) {
+      localStorage.setItem(
+        'kickflow.session.v1',
+        JSON.stringify({ token: 'v', refreshToken: null }),
+      );
+    }
     // Wie in deep-links.mjs: der Installations-Hinweis (src/pwa/) würde die
     // gemessenen Elemente sonst hinter einem Dialog verdecken.
     localStorage.setItem('kickflow.installHint.v1', '1');
-  });
+  }, session);
   const page = await context.newPage();
   await page.goto(BASE + pathname, { waitUntil: 'networkidle' });
   const serif = await page.evaluate(() =>

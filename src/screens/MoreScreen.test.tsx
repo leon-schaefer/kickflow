@@ -18,6 +18,20 @@ vi.mock('@/auth/LogoutButton', () => ({
 vi.mock('@/support/supportUrl', () => supportUrl);
 vi.mock('@/support/openExternalUrl', () => ({ openExternalUrl }));
 
+/**
+ * Ein Router ist Pflicht, seit die Feedback-Karte einen `<Link>` trägt — für
+ * JEDEN Test dieser Datei, auch die zum Teilen-Knopf. Die Einstiegs-URL ist
+ * die echte des Tabs: aus ihr baut die Karte die Herkunft, die den Zurück-Weg
+ * des Feedback-Screens hierher lenkt.
+ */
+function renderScreen() {
+  return render(
+    <MemoryRouter initialEntries={['/42/more']}>
+      <MoreScreen />
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   auth.userName = null;
   supportUrl.SUPPORT_URL = 'https://example.test/spenden';
@@ -28,57 +42,40 @@ afterEach(() => {
   openExternalUrl.mockResolvedValue(undefined);
 });
 
-/**
- * Seit Datenschutz und Nutzungsbedingungen APP-Routen sind (statt externer
- * Links), braucht der Screen einen Router: `<Link>` und `useLocation` gibt es
- * nicht ohne. Ein MemoryRouter statt `renderRoute` — der Screen selbst wird
- * hier isoliert geprüft, der echte Route-Baum in routes.test.tsx.
- *
- * Der Pfad ist ein echter Tab-Pfad, weil der Screen ihn als Herkunft für den
- * Zurück-Weg der Rechtsseiten mitgibt.
- */
-function renderMore(path = '/42/more') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <MoreScreen />
-    </MemoryRouter>,
-  );
-}
-
 describe('MoreScreen', () => {
   it('trägt den festen Titel statt des Liga-Wechslers', () => {
-    renderMore();
+    renderScreen();
     // Der einzige der fünf Tabs, auf dem nichts liga-spezifisch ist.
     expect(screen.getByRole('heading', { level: 1, name: 'Mehr' })).toBeInTheDocument();
   });
 
   it('zeigt Version und Commit aus dem Build', () => {
-    renderMore();
+    renderScreen();
     // Kommt aus `define` in vite.config.ts, vorher aus expo-constants.
     expect(screen.getByText(new RegExp(`Version ${__APP_VERSION__}`))).toBeInTheDocument();
   });
 
   it('nennt den angemeldeten Namen, wenn er bekannt ist', () => {
     auth.userName = 'Leon';
-    renderMore();
+    renderScreen();
     expect(screen.getByText('Angemeldet als Leon.')).toBeInTheDocument();
   });
 
   it('fällt zurück, wenn der Name nach einem Neustart fehlt', () => {
     // Der AuthProvider stellt aus dem Store nur den Token wieder her.
-    renderMore();
+    renderScreen();
     expect(screen.getByText('Mit deinem Kickbase-Konto angemeldet.')).toBeInTheDocument();
   });
 
   it('öffnet die Unterstützen-Seite extern', async () => {
-    renderMore();
+    renderScreen();
     await userEvent.click(screen.getByRole('button', { name: 'Unterstützen' }));
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.test/spenden');
   });
 
   it('meldet ein blockiertes Fenster, statt still zu scheitern', async () => {
     openExternalUrl.mockRejectedValue(new Error('blockiert'));
-    renderMore();
+    renderScreen();
 
     await userEvent.click(screen.getByRole('button', { name: 'Unterstützen' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -88,15 +85,23 @@ describe('MoreScreen', () => {
 
   it('lässt die Unterstützen-Karte weg, wenn keine URL konfiguriert ist', () => {
     supportUrl.SUPPORT_URL = null;
-    renderMore();
+    renderScreen();
     // Ein Spenden-Button, der ins Leere zeigt, ist schlechter als keiner —
     // und genau so verschwindet die Karte, wenn die Vercel-Env-Var fehlt.
     expect(screen.queryByRole('button', { name: 'Unterstützen' })).not.toBeInTheDocument();
     expect(screen.queryByText(/kickflow unterstützen/)).not.toBeInTheDocument();
   });
 
+  it('führt zum Feedback-Formular und gibt die Herkunft mit', () => {
+    renderScreen();
+    const link = screen.getByRole('link', { name: 'Feedback geben' });
+    // Absolut und nicht `/42/feedback`: Feedback gehört zur App, nicht zur
+    // Liga (siehe routes.tsx).
+    expect(link).toHaveAttribute('href', '/feedback');
+  });
+
   it('hält Homepage, Datenschutz und Nutzungsbedingungen erreichbar', () => {
-    renderMore();
+    renderScreen();
     // Die Homepage bleibt ein externer Link (ExternalLink rendert einen
     // <button role="link">), die beiden Rechtsseiten sind App-Routen.
     expect(screen.getByRole('link', { name: 'Homepage' })).toBeInTheDocument();
@@ -112,5 +117,76 @@ describe('MoreScreen', () => {
       'href',
       TERMS_PATH,
     );
+  });
+});
+
+/**
+ * Die Verzweigung selbst liegt in src/support/shareInvite.ts und ist dort ohne
+ * DOM geprüft. Hier geht es nur um das, was der Nutzer davon sieht.
+ */
+describe('MoreScreen: Liga-Kollegen einladen', () => {
+  /*
+   * `Partial<Navigator>` ginge nicht: die Zwischenablage müsste dafür ein
+   * vollständiges `Clipboard` sein, obwohl `browserShareTarget` nur
+   * `writeText` anfasst. Der Stub bildet genau das ab, was gelesen wird.
+   */
+  function setNavigator(extra: Record<string, unknown>) {
+    for (const [key, value] of Object.entries(extra)) {
+      Object.defineProperty(window.navigator, key, { value, configurable: true });
+    }
+  }
+
+  afterEach(() => {
+    setNavigator({ share: undefined, clipboard: undefined });
+  });
+
+  it('teilt die eigene Adresse über das Teilen-Blatt', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    setNavigator({ share });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(share.mock.calls[0][0]).toMatchObject({ url: window.location.origin });
+    // Geteilt wird die Startseite und nicht die aktuelle Route: der Empfänger
+    // hat keine Session und würde von jeder anderen URL weggeleitet.
+    expect(share.mock.calls[0][0].url).not.toContain('/more');
+  });
+
+  it('sagt es, wenn der Link nur in der Zwischenablage liegt', async () => {
+    // Ohne Teilen-Blatt (Desktop-Chrome, Firefox) bleibt die Zwischenablage —
+    // dann MUSS die App sagen, dass der Nutzer selbst einfügen muss.
+    setNavigator({ clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Link kopiert');
+  });
+
+  it('schweigt, wenn der Nutzer das Teilen-Blatt wegwischt', async () => {
+    const abort = new Error('abgebrochen');
+    abort.name = 'AbortError';
+    setNavigator({ share: vi.fn().mockRejectedValue(abort) });
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    // Wegwischen ist eine Antwort und kein Fehler.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('meldet, wenn es gar keinen Weg gibt', async () => {
+    renderScreen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Link teilen' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Teilen hat nicht funktioniert');
+    // Und der Link steht im Klartext daneben: in der installierten PWA gibt es
+    // keine Adressleiste, aus der ihn jemand ablesen könnte.
+    expect(alert).toHaveTextContent(window.location.origin);
   });
 });

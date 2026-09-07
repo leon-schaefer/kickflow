@@ -1,26 +1,23 @@
-"""Erzeugt den kompletten kickflow-Bildsatz aus einer gemeinsamen Vektor-Marke.
+"""Erzeugt alle Bild-Assets von kickflow aus einer gemeinsamen Vektor-Marke.
 
 Marke: eine steigende Marktwert-Kurve, die im Fussball als Endpunkt-Marker ausläuft.
 Aufruf: pip install pillow cairosvg && python3 scripts/generate-icons.py
 
-Erzeugt drei Gruppen, alle aus derselben Geometrie weiter unten:
+Drei Sorten Ausgabe, alle aus derselben Geometrie:
 
-  1. Die Icons (Favicon, PWA-Icons, Apple-Touch-Icon) — quadratisch.
-  2. public/favicon.svg — dieselbe Marke als VEKTOR. Moderne Browser
-     bevorzugen sie gegenüber der PNG-Variante und skalieren sie scharf auf
-     jede Tab- und Lesezeichen-Groesse; die PNG bleibt als Rueckfall fuer
-     alles, was SVG-Favicons nicht kennt.
-  3. public/og-image.png — das Vorschaubild fuer Links (Open Graph, Twitter
-     Card), 1200x630. Das Format ist nicht frei waehlbar: 1.91:1 ist das
-     Seitenverhaeltnis, das Facebook, LinkedIn, Slack, WhatsApp und Discord
-     erwarten. Wer es aendert, bekommt beschnittene Vorschauen.
+  * Der Icon-Satz (quadratisch, TARGETS) - Favicon, PWA-Icons, Apple-Touch-Icon.
+  * public/favicon.svg - dieselbe Marke als VEKTOR. Moderne Browser bevorzugen
+    sie gegenueber der PNG und skalieren sie scharf auf jede Tab- und
+    Lesezeichen-Groesse; die PNG bleibt als Rueckfall.
+  * Das Share-Bild public/og-image.png (1200x630, OG_TARGET) - das Vorschaubild,
+    das WhatsApp, Discord, Reddit & Co. zu einem geteilten Link zeigen. Es ist
+    das einzige Asset mit Text; alles andere ist reine Geometrie.
 
-Die ERZEUGNISSE sind eingecheckt, dieses Skript laeuft nicht im Build. Es
-braucht cairosvg (System-Cairo) und eine Schrift, beides in CI nicht
-garantiert — und die Marke aendert sich einmal im Jahr, nicht pro Commit.
+Das Ergebnis ist deterministisch und liegt im Repo - laufen muss das Skript nur,
+wenn sich die Marke oder der Text im Share-Bild aendert.
 """
 import math, os, cairosvg
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 BG_DARK, BG_DARK2 = "#0B0F0C", "#16231A"
@@ -87,46 +84,40 @@ def render(svg, size):
     return Image.open(io.BytesIO(cairosvg.svg2png(
         bytestring=svg.encode(), output_width=size, output_height=size))).convert("RGBA")
 
-# --------------------------------------------------------------------------
+# (Pfad, Kantenlänge, Anteil der Marke, deckender Hintergrund)
+# ---------------------------------------------------------------------------
 # Speichern
-# --------------------------------------------------------------------------
-# Alle Bilder dieses Skripts sind derselbe dunkle Radialverlauf mit einer
-# gruenen Kurve und einem weissen Ball darauf. Als 24-Bit-RGB kostet das rund
-# das Doppelte dessen, was eine 256er-Palette braucht:
-#
-#   favicon.png             11247 -> 6109 Bytes  (-46 %)
-#   icon-192.png            10762 -> 6067 Bytes  (-44 %)
-#   icon-512.png            31174 -> 15714 Bytes (-50 %)
-#   icon-maskable-512.png   28463 -> 14972 Bytes (-47 %)
-#   apple-touch-icon.png     9984 -> 5561 Bytes  (-44 %)
-#   og-image.png            64045 -> 32621 Bytes (-49 %)
+# ---------------------------------------------------------------------------
+# Alle Bilder hier sind derselbe dunkle Radialverlauf mit einer gruenen Kurve
+# und einem weissen Ball darauf. Als 24-Bit-RGB kostet das etwa das Doppelte
+# dessen, was eine 256er-Palette braucht — gemessen ueber den ganzen Satz:
+# 156 kB auf 81 kB (-48 %).
 #
 # ## Warum MIT Dithering, obwohl das die Datei groesser macht
 #
 # Die naheliegende Variante — Palette OHNE Dithering — ist deutlich kleiner
-# (og-image: 20296 statt 32621 Bytes, also -68 % statt -49 %) und sieht in der
-# Messung sogar besser aus: die groesste Abweichung EINES Kanals EINES Pixels
-# liegt bei 3 von 255.
+# (-68 % statt -48 %) und sieht in der Messung sogar besser aus: die groesste
+# Abweichung EINES Kanals EINES Pixels liegt bei 3 von 255.
 #
-# Sie ist trotzdem falsch, und das ist hier einmal ausprobiert und am Bild
+# Sie ist trotzdem falsch, und das ist einmal ausprobiert und am Bild
 # verglichen worden: bei 3/255 sind im Verlauf konzentrische Ringe SICHTBAR.
-# Der Grund ist, dass der Fehler ohne Dithering strukturiert ist — er verlaeuft
-# entlang der Linien gleicher Helligkeit und legt damit genau das Muster an,
-# fuer das das Auge am empfindlichsten ist. Der Verlauf spannt hier nur rund
-# 11 Helligkeitsstufen je Kanal (#16231A nach #0B0F0C); auf 1200px Breite
-# gedehnt liegt jede Stufengrenze als sichtbare Kante im Bild.
+# Ohne Dithering ist der Fehler strukturiert — er verlaeuft entlang der Linien
+# gleicher Helligkeit und legt genau das Muster an, fuer das das Auge am
+# empfindlichsten ist. Der Verlauf spannt hier nur rund 11 Helligkeitsstufen je
+# Kanal (#16231A nach #0B0F0C); auf 1200px Breite gedehnt liegt jede
+# Stufengrenze als sichtbare Kante im Bild.
 #
-# Dithering verteilt denselben Fehler als feines Rauschen und die Ringe sind
-# weg. Die Lehre daraus steht hier, weil die Messung in die Irre fuehrt: eine
-# Schranke auf den maximalen Kanalfehler ist fuer Banding der falsche
-# Waechter. Der Waechter unten prueft deshalb den mittleren Fehler (RMSE), fuer
-# den Dithering keine Ausrede hat.
+# Dithering verteilt denselben Fehler als feines Rauschen, und die Ringe sind
+# weg. Die Lehre steht hier, weil die Messung in die Irre fuehrt: eine Schranke
+# auf den maximalen Kanalfehler ist fuer Banding der falsche Waechter. Der
+# Waechter unten prueft deshalb den mittleren Fehler (RMSE), fuer den Dithering
+# keine Ausrede hat.
 #
-# `optimize=True` allein bringt uebrigens nichts mehr: PIL faehrt zlib dabei
-# schon auf Stufe 9, `compress_level=9` liefert byteidentische Dateien. Mehr
-# als das hier holen nur externe Optimierer (oxipng, zopflipng) heraus,
-# typischerweise weitere 5-15 % — die sind hier absichtlich keine
-# Voraussetzung, weil dieses Skript von Hand laeuft und nicht im Build.
+# `optimize=True` allein bringt nichts mehr: PIL faehrt zlib dabei schon auf
+# Stufe 9, `compress_level=9` liefert byteidentische Dateien. Mehr holen nur
+# externe Optimierer (oxipng, zopflipng) heraus, typischerweise weitere
+# 5-15 % — die sind hier absichtlich keine Voraussetzung, weil dieses Skript
+# von Hand laeuft und nicht im Build.
 MAX_RMSE = 1.5
 
 def save_png(im, rel_path, opaque_bg=(11, 15, 12)):
@@ -140,8 +131,7 @@ def save_png(im, rel_path, opaque_bg=(11, 15, 12)):
     """
     if opaque_bg is not None:
         # Ohne Alphakanal: ein Favicon mit Transparenz verschwindet in einer
-        # hellen Tab-Leiste, und einige Vorschau-Bots legen ein transparentes
-        # OG-Bild auf Schwarz oder Weiss.
+        # hellen Tab-Leiste, und Vorschaukarten kennen kein Alpha.
         flat = Image.new("RGB", im.size, opaque_bg)
         flat.paste(im, (0, 0), im if im.mode == "RGBA" else None)
         im = flat
@@ -170,7 +160,6 @@ def save_png(im, rel_path, opaque_bg=(11, 15, 12)):
     quantized.save(out, optimize=True)
     return os.path.getsize(out), rmse
 
-# (Pfad, Kantenlänge, Anteil der Marke, deckender Hintergrund)
 TARGETS = [
     ("public/favicon.png",                   196, 0.80, True),
     ("public/icons/icon-192.png",            192, 0.76, True),
@@ -187,9 +176,6 @@ for i, (path, size, ratio, bg) in enumerate(TARGETS):
 open(os.path.join(ROOT, "assets/icon.svg"), "w").write(canvas(1024, 0.76, uid="src"))
 print(f"{'assets/icon.svg':44s} (Vektorquelle)")
 
-# --------------------------------------------------------------------------
-# Vektor-Favicon
-# --------------------------------------------------------------------------
 # Derselbe Aufruf wie die Vektorquelle, nur kleiner im viewBox — bei einem SVG
 # ist die Zahl ohnehin nur der Bezugsrahmen, nicht die Ausgabegroesse. Der
 # deckende Hintergrund bleibt AN: ein Favicon mit Alphakanal verschwindet in
@@ -197,118 +183,59 @@ print(f"{'assets/icon.svg':44s} (Vektorquelle)")
 open(os.path.join(ROOT, "public/favicon.svg"), "w").write(canvas(64, 0.80, uid="fav"))
 print(f"{'public/favicon.svg':44s} (Vektor-Favicon)")
 
-# --------------------------------------------------------------------------
-# Open-Graph-Vorschaubild
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Share-Bild (Open Graph)
+# ---------------------------------------------------------------------------
+#
+# 1200x630 ist das Format, auf das WhatsApp, Discord, Slack, Reddit und X ihre
+# grosse Vorschaukarte auslegen (Seitenverhaeltnis 1.91:1). Kleinere Karten
+# beschneiden mittig, deshalb steht alles Tragende in der Mitte und nichts am
+# Rand.
+#
+# Der Text ist der einzige Teil der Marke, der nicht aus Geometrie entsteht.
+# `SHARE_FONT` ist bewusst ein Stack mit generischem Ende: gerendert wird mit
+# dem, was auf der Maschine liegt, die das Skript aufruft. Das Ergebnis liegt
+# als PNG im Repo — wer es neu erzeugt und keine der genannten Schriften hat,
+# bekommt eine andere Anmutung und sollte das Bild dann anschauen, bevor er es
+# committet.
+TEXT_MUTED, TEXT_SECONDARY = "#6B786C", "#9BAA9C"
+SHARE_FONT = "DejaVu Sans,Helvetica,Arial,sans-serif"
 OG_W, OG_H = 1200, 630
-OG_MARGIN = 80
-OG_TITLE = "kickflow"
-OG_TAGLINE = "Aufstellung, Markt und Marktwerte"
-OG_NOTE = "Inoffizielle App – nicht mit der Kickbase GmbH verbunden"
+OG_TARGET = "public/og-image.png"
 
-# Liberation Sans zuerst (metrisch wie Arial, auf Debian/Ubuntu vorhanden),
-# DejaVu als Rückfall. Absichtlich eine LISTE mit klarem Fehler am Ende statt
-# eines stillen Rückfalls auf PILs Bitmap-Default: der wäre bei 96px eine
-# unlesbare Treppe, und das fällt an einem Bild, das niemand prüfen lässt,
-# erst in einer fremden Chat-Vorschau auf.
-FONT_CANDIDATES = {
-    "bold": [
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ],
-    "regular": [
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ],
-}
+# Die Zeilen des Share-Bildes: (Text, Grundlinie y, Schriftgrad, Gewicht, Farbe).
+SHARE_LINES = [
+    ("kickflow", 408, 92, "700", WHITE),
+    ("Der Aufstellungs-Optimizer für deine Kickbase-Liga", 466, 34, "400", TEXT_SECONDARY),
+    ("Inoffiziell · kostenlos · läuft im Browser", 530, 26, "400", TEXT_MUTED),
+]
 
-def font_path(weight):
-    for path in FONT_CANDIDATES[weight]:
-        if os.path.exists(path):
-            return path
-    raise SystemExit(
-        f"Keine {weight}-Schrift gefunden. Erwartet eine von:\n  "
-        + "\n  ".join(FONT_CANDIDATES[weight])
-        + "\n(Debian/Ubuntu: apt-get install fonts-liberation)"
+
+def share_canvas(uid="og"):
+    """Das Share-Bild: Marke oben mittig, darunter Wortmarke und zwei Textzeilen."""
+    mark_h = 190
+    k = mark_h / BOX_S
+    tx, ty = OG_W / 2 - (BOX_X + BOX_S / 2) * k, 86 - BOX_Y * k
+    text = "".join(
+        f'<text x="{OG_W / 2:.0f}" y="{y}" text-anchor="middle" font-family="{SHARE_FONT}" '
+        f'font-size="{size}" font-weight="{weight}" fill="{fill}">{label}</text>'
+        for label, y, size, weight, fill in SHARE_LINES
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{OG_W}" height="{OG_H}" '
+        f'viewBox="0 0 {OG_W} {OG_H}">'
+        f'<radialGradient id="bg{uid}" cx="38%" cy="28%" r="88%">'
+        f'<stop offset="0%" stop-color="{BG_DARK2}"/>'
+        f'<stop offset="100%" stop-color="{BG_DARK}"/></radialGradient>'
+        f'<rect width="{OG_W}" height="{OG_H}" fill="url(#bg{uid})"/>'
+        f'<g transform="translate({tx:.3f},{ty:.3f}) scale({k:.6f})">{mark(uid)}</g>'
+        f"{text}</svg>"
     )
 
-def fitted(weight, text, size, max_width, floor=14):
-    """Groesste Schriftgroesse <= `size`, bei der `text` in `max_width` passt.
 
-    Das ist kein Feinschliff, sondern der Fehler, der hier schon passiert ist:
-    mit fest gesetzten 40px lief die Zeile rechts aus dem Bild heraus, und ein
-    OG-Bild sieht sich niemand an — es wird in einer fremden Chat-Vorschau
-    sichtbar, Wochen spaeter. Gemessen statt geschaetzt, weil die Metriken je
-    nach gefundener Schrift (Liberation vs. DejaVu) anders ausfallen: DejaVu
-    laeuft deutlich breiter, dieselbe Zahl kaeme dort wieder zu weit.
-    """
-    path = font_path(weight)
-    for px in range(size, floor - 1, -1):
-        f = ImageFont.truetype(path, px)
-        if f.getbbox(text)[2] <= max_width:
-            return f
-    raise SystemExit(f"{text!r} passt selbst bei {floor}px nicht in {max_width}px")
+import io as _io  # noqa: E402  — lokal, damit `render` oben unveraendert bleibt
 
-def og_background():
-    """Derselbe radiale Verlauf wie die Icons, nur im 1.91:1-Rahmen.
-
-    Ueber cairosvg und nicht per PIL-Pixelschleife: der Verlauf ist damit
-    garantiert derselbe wie auf den Icons, weil es dieselben zwei Stops sind.
-    """
-    import io
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{OG_W}" height="{OG_H}">'
-           f'<radialGradient id="bgog" cx="30%" cy="24%" r="95%">'
-           f'<stop offset="0%" stop-color="{BG_DARK2}"/>'
-           f'<stop offset="100%" stop-color="{BG_DARK}"/></radialGradient>'
-           f'<rect width="{OG_W}" height="{OG_H}" fill="url(#bgog)"/></svg>')
-    return Image.open(io.BytesIO(cairosvg.svg2png(
-        bytestring=svg.encode(), output_width=OG_W, output_height=OG_H))).convert("RGBA")
-
-def build_og():
-    img = og_background()
-
-    # Die Marke links, ohne eigenen Hintergrund (bg=False) — sie sitzt auf dem
-    # Verlauf des Bildes und braucht keine zweite Flaeche darunter.
-    mark_size = 260
-    mark = render(canvas(mark_size, 1.0, bg=False, uid="og"), mark_size)
-    mark_x, mark_y = OG_MARGIN, (OG_H - mark_size) // 2
-    img.paste(mark, (mark_x, mark_y), mark)
-
-    draw = ImageDraw.Draw(img)
-    text_x = mark_x + mark_size + 56
-    avail = OG_W - text_x - OG_MARGIN
-
-    title_f = fitted("bold", OG_TITLE, 104, avail)
-    tag_f = fitted("regular", OG_TAGLINE, 40, avail)
-    note_f = fitted("regular", OG_NOTE, 24, avail)
-
-    # Von der vertikalen Mitte aus gesetzt und nicht von oben: so bleibt der
-    # Block mittig, auch wenn eine Zeile dazukommt oder wegfaellt. Gemessen
-    # wird mit `textbbox`, weil die Oberlaenge der Wortmarke sonst nicht
-    # mitzaehlt.
-    RULE_H, GAP_TITLE, GAP_RULE, GAP_TAG = 5, 24, 24, 28
-    title_h = draw.textbbox((0, 0), OG_TITLE, font=title_f)[3]
-    tag_h = draw.textbbox((0, 0), OG_TAGLINE, font=tag_f)[3]
-    note_h = draw.textbbox((0, 0), OG_NOTE, font=note_f)[3]
-    block_h = title_h + GAP_TITLE + RULE_H + GAP_RULE + tag_h + GAP_TAG + note_h
-    y = (OG_H - block_h) // 2
-
-    draw.text((text_x, y), OG_TITLE, font=title_f, fill=WHITE)
-    y += title_h + GAP_TITLE
-    # Akzentlinie zwischen Wortmarke und Zeile — greift das Gruen der Marke auf.
-    draw.rectangle([text_x, y, text_x + 96, y + RULE_H], fill=GREEN)
-    y += RULE_H + GAP_RULE
-    draw.text((text_x, y), OG_TAGLINE, font=tag_f, fill="#9BAA9C")
-    y += tag_h + GAP_TAG
-    # Der Hinweis gehoert aufs Bild und nicht nur in die Seite: eine
-    # Chat-Vorschau zeigt oft NUR Bild und Titel, und die Abgrenzung zur
-    # Kickbase GmbH soll genau dort nicht fehlen. `--color-text-muted` aus den
-    # Tokens, das seit dem Kontrast-Fix 4.68:1 auf dieser Flaeche erreicht.
-    draw.text((text_x, y), OG_NOTE, font=note_f, fill="#849085")
-
-    written, rmse = save_png(img, "public/og-image.png")
-    print(f"{'public/og-image.png':44s} {OG_W}x{OG_H}  {written:6d} B  "
-          f"(RMSE {rmse:.2f}/255, Titel {title_f.size}px, "
-          f"Zeile {tag_f.size}px, Hinweis {note_f.size}px)")
-
-build_og()
+_png = cairosvg.svg2png(bytestring=share_canvas().encode(), output_width=OG_W, output_height=OG_H)
+_im = Image.open(_io.BytesIO(_png)).convert("RGBA")
+_written, _rmse = save_png(_im, OG_TARGET)
+print(f"{OG_TARGET:44s} {OG_W}x{OG_H}  {_written:6d} B  (RMSE {_rmse:.2f}/255)")

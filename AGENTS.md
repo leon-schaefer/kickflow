@@ -95,18 +95,28 @@ abgewichen wird.
   Schaden, den die Kopplung verhindert.
 - **Generierte Dateien unter `public/`**: `build-id.txt`, `robots.txt` und
   `sitemap.xml` schreiben Build-Skripte (`scripts/write-build-id.ts`,
-  `scripts/write-seo-files.ts`) und sind gitignored — ihr Inhalt hängt an der
-  Umgebung, nicht am Quelltext. Die kanonische Domain kommt aus `SITE_URL`,
-  sonst aus Vercels `VERCEL_PROJECT_PRODUCTION_URL`; ist keine bekannt,
-  entfallen canonical, `og:url` und die Sitemap, statt eine geratene Domain
-  einzusetzen (`scripts/siteUrl.ts`).
-- **Bildsatz**: Favicon, PWA-Icons und `og-image.png` erzeugt
-  `scripts/generate-icons.py` aus einer Vektorquelle; die Erzeugnisse sind
-  eingecheckt, das Skript läuft nicht im Build. Gespeichert wird als
-  gedithertes 256-Farben-PNG — die Variante OHNE Dithering ist kleiner und
-  messbar genauer, legt aber sichtbare Ringe in den Verlauf. Die Messung und
-  warum ein maximaler Kanalfehler dafür der falsche Wächter ist, steht im
-  Skript.
+  `scripts/write-seo-files.ts`) und sind gitignored. Die robots.txt war einmal
+  eingecheckt; generiert wird sie nur, weil die `Sitemap:`-Zeile eine absolute
+  URL braucht — ihre Politik (`Allow: /`, keine Disallows) ist unverändert.
+  Die Domain kommt für Sitemap UND Open-Graph-Tags aus derselben Quelle
+  (`scripts/siteOrigin.ts`); zwei Auflösungen wären zwei Domains, die
+  auseinanderlaufen.
+- **Farbkontrast**: `theme/contrast.test.ts` rechnet jede Textfarbe der Palette
+  gegen alle drei Flächen und verlangt 4.5:1 (WCAG 2.2 AA). Wer einen Token
+  ändert, muss dort vorbei. Eine Schranke auf den maximalen Fehler ist
+  übrigens der falsche Wächter für Farbbanding — die Begründung steht in
+  `scripts/generate-icons.py`, wo Bilder als gedithertes 256-Farben-PNG
+  gespeichert werden.
+- **Geteilte Links** sind der einzige Weg, auf dem kickflow Nutzer findet —
+  und alles daran bricht ausschließlich außerhalb des eigenen Browsers.
+  `/` zeigt ohne Session die öffentliche Startseite, aber nur im Tab: in der
+  installierten PWA ist `/` die `start_url` und führt weiter auf den Login
+  (`src/routes/IndexRoute.tsx`). Die Open-Graph-Tags im HTML-Kopf bauen ihre
+  URLs ABSOLUT aus `%SITE_ORIGIN%`, das ein Plugin in `vite.config.ts` zur
+  Build-Zeit ersetzt (`scripts/siteOrigin.ts`); ein relativer Pfad ergibt eine
+  Vorschaukarte ohne Bild, ohne dass irgendwo etwas ausfällt. Was auf der
+  Startseite steht, muss die App auch können: der Text ist das Erste, was ein
+  Fremder liest, und das Erste, was er nachprüft.
 - **Modale** liegen per `createPortal` an `document.body` (siehe
   `src/components/Modal.tsx`). Nicht optional: die Touch-Listener von
   `Refreshable` hängen mit `capture` am Wrapper, und ein im Baum gerendertes

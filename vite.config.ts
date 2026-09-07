@@ -3,9 +3,9 @@ import path from 'node:path';
 import react from '@vitejs/plugin-react';
 // defineConfig aus 'vitest/config', nicht aus 'vite': nur diese Variante kennt den
 // `test`-Block unten. Die Vite-Optionen sind identisch typisiert.
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { resolveShortGitSha } from './scripts/gitSha.ts';
-import { resolveSiteOrigin } from './scripts/siteUrl.ts';
+import { resolveSiteOrigin } from './scripts/siteOrigin.ts';
 
 /**
  * Vite-Konfiguration für die Web-Auslieferung — seit dem Cutover die einzige.
@@ -21,59 +21,32 @@ const pkg = JSON.parse(readFileSync(path.join(import.meta.dirname, 'package.json
 };
 
 /**
- * Ergänzt im HTML-Kopf die Angaben, die eine ABSOLUTE URL brauchen und
- * deshalb nicht statisch in der index.html stehen können: `og:url`,
- * `<link rel="canonical">` und die Absolutform von `og:image`.
+ * Ersetzt `%SITE_ORIGIN%` im HTML-Kopf durch die eigene Herkunft.
  *
- * Warum ein Plugin und kein fester Wert in der index.html: im Repository
- * steht nirgends eine Produktionsdomain (siehe scripts/siteUrl.ts). Eine
- * geratene wäre schlimmer als keine — ein falsches canonical weist
- * Suchmaschinen auf eine fremde Seite, ein falsches `og:image` liefert jedem
- * Vorschau-Bot einen 404. Die Domain kommt deshalb aus der Umgebung
- * (`SITE_URL`, sonst `VERCEL_PROJECT_PRODUCTION_URL`), und ohne sie bleibt
- * das HTML unverändert: relatives `og:image` (das die meisten, nicht alle
- * Bots auflösen) und gar kein canonical, statt eines falschen.
+ * Vite ersetzt in der index.html von sich aus nur `%VITE_*%` aus den
+ * Env-Variablen und lässt jeden anderen Platzhalter STEHEN. Das genügt hier
+ * nicht: die Herkunft kommt im Deploy aus einer Vercel-Variablen ohne
+ * `VITE_`-Präfix und braucht eine Normalisierung (siehe scripts/siteOrigin.ts).
+ * Ein stehengebliebenes `%SITE_ORIGIN%` wäre außerdem der stille Fehler, den
+ * die ganze Auflösung vermeiden soll — ein `og:image`, das keiner lädt.
  *
- * `transformIndexHtml` und nicht Vites `%ENV%`-Ersetzung im HTML: die greift
- * nur für Variablen, die `loadEnv` sieht — also `VITE_*`. Die
- * Vercel-Systemvariable trägt dieses Präfix nicht, und sie mit einem
- * `VITE_`-Namen zu spiegeln hieße, sie zusätzlich ins Client-Bundle zu
- * backen, wo sie niemand braucht.
+ * `order: 'pre'`, damit die Ersetzung vor Vites eigenem HTML-Durchlauf
+ * passiert und dieser den Platzhalter gar nicht erst zu sehen bekommt.
  */
-function absoluteMetaUrls() {
+function siteOriginHtml(): Plugin {
   return {
-    name: 'kickflow-absolute-meta-urls',
-    // `enforce: 'post'`, damit die Ersetzung auf dem HTML läuft, in das Vite
-    // seine Script- und Style-Tags schon eingesetzt hat.
-    enforce: 'post' as const,
-    transformIndexHtml(html: string) {
-      const origin = resolveSiteOrigin();
-      if (!origin) return html;
-
-      return {
-        // Nur dieses eine Attribut, nicht jedes `/`-Vorkommen: die Asset-URLs
-        // sollen relativ bleiben, damit ein Deploy unter einer anderen Domain
-        // (Preview) seine eigenen Dateien lädt.
-        html: html.replace('content="/og-image.png"', `content="${origin}/og-image.png"`),
-        tags: [
-          {
-            tag: 'link',
-            attrs: { rel: 'canonical', href: `${origin}/` },
-            injectTo: 'head' as const,
-          },
-          {
-            tag: 'meta',
-            attrs: { property: 'og:url', content: `${origin}/` },
-            injectTo: 'head' as const,
-          },
-        ],
-      };
+    name: 'kickflow:site-origin-html',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html.replaceAll('%SITE_ORIGIN%', resolveSiteOrigin(process.env));
+      },
     },
   };
 }
 
 export default defineConfig({
-  plugins: [react(), absoluteMetaUrls()],
+  plugins: [react(), siteOriginHtml()],
 
   resolve: {
     alias: {
@@ -139,6 +112,11 @@ export default defineConfig({
    * grün, würde aber nicht mehr auffallen, wenn der Code versehentlich das globale
    * `window` benutzt.
    *
+   * Das Logik-Projekt nimmt neben `src/` auch `scripts/` auf. Der Build-Code dort
+   * war bisher ungetestet, weil ihn kein `include` erfasste — und mit
+   * scripts/siteOrigin.ts liegt dort jetzt Logik, deren Fehlerfall (eine falsche
+   * Herkunft in den Open-Graph-Tags) im Browser unsichtbar bleibt.
+   *
    * Die Trennung nach `.ts` vs. `.tsx` hält die bestehenden Logik-Tests unangetastet:
    * `src/**\/*.test.ts` matcht `foo.test.tsx` nicht. Jeder neue Komponententest heißt
    * `.test.tsx` und landet automatisch im jsdom-Projekt. Notausgang für ein
@@ -160,7 +138,7 @@ export default defineConfig({
         test: {
           name: 'logic',
           environment: 'node',
-          include: ['src/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
         },
       },
       {
