@@ -75,6 +75,38 @@ abgewichen wird.
   `style-src 'unsafe-inline'` muss dagegen BLEIBEN: die echt dynamischen Werte
   (Positionsfarben, Zellengrößen, Pull-Offset) sind Inline-`style`-Attribute
   und fielen sonst lautlos aus.
+  **Jedes Modul, das `z` aus zod benutzt, importiert vorher
+  `@/app/zodConfig`** — nicht als Stilfrage: zod probiert sonst `new Function`
+  aus, und der abgefangene Fehlschlag wird als CSP-Verstoß gemeldet. Der
+  Import in `main.tsx` genügt dafür seit dem Route-Splitting NICHT mehr, weil
+  ein geteilter Chunk vor dem Entry ausgewertet wird. `zodConfig.test.ts`
+  bewacht es; sichtbar ist der Verstoß nur im echten Browser (jsdom hat keine
+  CSP, Build und Tests bleiben grün).
+- **Rechtsseiten** (`src/legal/`, `/datenschutz` und `/nutzungsbedingungen`)
+  hängen ÖFFENTLICH im Route-Baum, außerhalb von `RequireAuth`. Das ist die
+  Anforderung, nicht eine Bequemlichkeit: die Datenschutzerklärung muss lesbar
+  sein, bevor jemand seine Kickbase-Zugangsdaten eintippt, und der Login-Fuß
+  verlinkt sie. Verschiebt man sie hinter das Gate, leitet der Aufruf still
+  auf den Login um — `src/legal/legalPages.test.tsx` hält es fest.
+  Die Speicher-Tabelle der Datenschutzerklärung kommt aus
+  `src/storage/inventory.ts` und ist per Test an `storage/keys.ts` gekoppelt:
+  **ein neuer localStorage-Schlüssel bricht `npm test`, solange er dort nicht
+  beschrieben ist.** Absicht — eine Rechtsseite, die still veraltet, ist der
+  Schaden, den die Kopplung verhindert.
+- **Generierte Dateien unter `public/`**: `build-id.txt`, `robots.txt` und
+  `sitemap.xml` schreiben Build-Skripte (`scripts/write-build-id.ts`,
+  `scripts/write-seo-files.ts`) und sind gitignored — ihr Inhalt hängt an der
+  Umgebung, nicht am Quelltext. Die kanonische Domain kommt aus `SITE_URL`,
+  sonst aus Vercels `VERCEL_PROJECT_PRODUCTION_URL`; ist keine bekannt,
+  entfallen canonical, `og:url` und die Sitemap, statt eine geratene Domain
+  einzusetzen (`scripts/siteUrl.ts`).
+- **Bildsatz**: Favicon, PWA-Icons und `og-image.png` erzeugt
+  `scripts/generate-icons.py` aus einer Vektorquelle; die Erzeugnisse sind
+  eingecheckt, das Skript läuft nicht im Build. Gespeichert wird als
+  gedithertes 256-Farben-PNG — die Variante OHNE Dithering ist kleiner und
+  messbar genauer, legt aber sichtbare Ringe in den Verlauf. Die Messung und
+  warum ein maximaler Kanalfehler dafür der falsche Wächter ist, steht im
+  Skript.
 - **Modale** liegen per `createPortal` an `document.body` (siehe
   `src/components/Modal.tsx`). Nicht optional: die Touch-Listener von
   `Refreshable` hängen mit `capture` am Wrapper, und ein im Baum gerendertes

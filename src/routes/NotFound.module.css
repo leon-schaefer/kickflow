@@ -15,6 +15,22 @@
 }
 
 .link {
+  /*
+   * Der einzige Weg von dieser Seite weg — und mit 97x17 CSS-Pixeln der
+   * kleinste Klickbereich der App, gemessen bei 320px Viewportbreite. Das
+   * unterschreitet WCAG 2.2 AA 2.5.8 („Target Size (Minimum)", 24x24).
+   *
+   * `min-height: 44px` statt eines Slops, weil hier nichts dagegen spricht:
+   * der Link steht allein in einer zentrierten Spalte, 44px verschieben also
+   * nichts, was daneben liegt — anders als beim Liga-Wechsler in der
+   * Kopfzeile (siehe die Begründung in LeagueSwitcher.module.css). Damit
+   * trifft die Seite gleich die 44px, die diese App für Bedienelemente
+   * ansetzt, und nicht nur das Minimum.
+   */
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-sm);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-heading);
   color: var(--color-accent);

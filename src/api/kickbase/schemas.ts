@@ -10,6 +10,10 @@
  * TODO nach scripts/probe.ts: Statuscodes (st), Formationsstrings und die
  * Basierung von `lo` (0- oder 1-indexiert) gegen echte Antworten verifizieren.
  */
+// MUSS vor dem zod-Import stehen: schaltet Zods JIT ab, bevor hier das
+// erste Schema gebaut wird. Nicht optional und kein Duplikat der Zeile in
+// main.tsx — Begründung im Kopf von src/app/zodConfig.ts.
+import '@/app/zodConfig';
 import { z } from 'zod';
 
 export const rawLoginResponseSchema = z.looseObject({

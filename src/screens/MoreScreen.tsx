@@ -1,10 +1,18 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/auth/LogoutButton';
 import { ExternalLink } from '@/components/ExternalLink';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
+import {
+  PRIVACY_PATH,
+  PRIVACY_TITLE,
+  TERMS_PATH,
+  TERMS_TITLE,
+} from '@/legal/legalRoutes';
 import { AppHeader } from '@/shell/AppHeader';
-import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
+import { withOrigin } from '@/shell/useBackTarget';
+import { HOMEPAGE_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
 import { SUPPORT_URL } from '@/support/supportUrl';
 import { cx } from '@/utils/cx';
@@ -26,7 +34,17 @@ import styles from './MoreScreen.module.css';
  */
 export function MoreScreen() {
   const { userName } = useAuth();
+  const location = useLocation();
   const [linkFailed, setLinkFailed] = useState(false);
+  // Damit „Zurück" auf den Rechtsseiten in diesen Tab führt und nicht in die
+  // Ligenliste (siehe useLegalBackTarget in src/legal/LegalPage.tsx).
+  //
+  // `location.pathname` und nicht `useLeagueId()` samt zusammengebautem Pfad:
+  // der aktuelle Pfad IST das Ziel, das gesucht ist. Der Umweg über die
+  // Liga-ID würde denselben String noch einmal herstellen und dabei eine
+  // Abhängigkeit auf den LeagueIdContext einführen, die dieser Screen sonst
+  // nicht hat — er ist der einzige Tab ohne liga-spezifischen Inhalt.
+  const origin = withOrigin(location.pathname, leagueTabTitles.more).state;
 
   async function handleSupport() {
     if (!SUPPORT_URL) return;
@@ -96,12 +114,18 @@ export function MoreScreen() {
               Inoffizieller Begleiter für Kickbase. Nicht mit der Kickbase GmbH verbunden.
             </p>
             {/*
-             * Datenschutz muss aus der App heraus erreichbar sein (DSGVO).
-             * Beide Seiten liegen auf codewithleon.dev — siehe
-             * src/support/links.ts.
+             * Datenschutz muss aus der App heraus erreichbar sein (DSGVO) —
+             * und zwar seit diesem Umbau IN der App: beide Rechtsseiten sind
+             * eigene Routen (src/legal/), nur die Homepage liegt noch extern.
+             * Die Begründung für den Umzug steht in src/support/links.ts.
              */}
             <ExternalLink url={HOMEPAGE_URL} label="Homepage" />
-            <ExternalLink url={PRIVACY_URL} label="Datenschutz" />
+            <Link to={PRIVACY_PATH} className={styles.legalLink} state={origin}>
+              {PRIVACY_TITLE}
+            </Link>
+            <Link to={TERMS_PATH} className={styles.legalLink} state={origin}>
+              {TERMS_TITLE}
+            </Link>
             {/*
              * Version und Commit kommen aus `define` in vite.config.ts —
              * vorher aus expo-constants (`expoConfig.version` und

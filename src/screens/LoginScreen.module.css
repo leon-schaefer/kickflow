@@ -68,6 +68,11 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
+  /* Aus zwei Links sind drei geworden (Homepage, Datenschutz,
+     Nutzungsbedingungen) — mit „Nutzungsbedingungen" als längstem passt die
+     Zeile auf 320px nicht mehr. Ohne `wrap` schöbe der Flex-Container sie
+     zusammen, bis die Wörter abgeschnitten sind. */
+  flex-wrap: wrap;
 }
 
 .legalSeparator {
@@ -84,4 +89,47 @@
   line-height: 16px;
   color: var(--color-text-muted);
   text-align: center;
+}
+
+/*
+ * Interner Rechtsseiten-Link im Login-Fuß. Bewusst wie `ExternalLink.compact`
+ * gestaltet, damit die drei Links in der Zeile eine Reihe bilden und nicht
+ * zwei verschiedene Dinge zu sein scheinen — der Unterschied (neuer Tab vs.
+ * Navigation in der App) ist an dieser Stelle keine Information, die der
+ * Nutzer braucht.
+ *
+ * `hitSlop` vergrößert die Trefferfläche über die 32px Zeilenhöhe hinaus,
+ * ohne die Zeile auseinanderzuziehen.
+ */
+.legalLink {
+  composes: pressable from '@/theme/layout.module.css';
+  composes: hitSlop from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+}
+
+.legalLink:active {
+  opacity: 0.7;
+}
+
+/*
+ * Feld plus zugehörige Fehlermeldung. Der Wrapper existiert, damit die
+ * Meldung direkt unter IHREM Feld sitzt und nicht am Ende des Formulars —
+ * `.form` hat `gap: md`, was zwischen Feld und Meldung zu viel wäre.
+ */
+.field {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+}
+
+.fieldError {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-danger);
 }
