@@ -26,6 +26,7 @@ const TITLED_URLS: { path: string; screen: string }[] = [
   { path: '/login', screen: 'Kickflow' },
   { path: '/leagues', screen: 'Meine Ligen' },
   { path: '/settings', screen: 'Einstellungen' },
+  { path: '/feedback', screen: 'Feedback' },
   { path: '/42/player/99', screen: 'Spieler' },
   { path: '/42/manager/7', screen: 'Manager' },
   { path: '/42/rules', screen: 'Regeln' },

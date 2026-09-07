@@ -1,4 +1,5 @@
 import { Navigate, type RouteObject } from 'react-router';
+import { FeedbackScreen } from '@/screens/FeedbackScreen';
 import { FixturesScreen } from '@/screens/FixturesScreen';
 import { LeagueScreen } from '@/screens/LeagueScreen';
 import { LeaguesScreen } from '@/screens/LeaguesScreen';
@@ -21,9 +22,9 @@ import { TabsLayout } from './TabsLayout';
 /**
  * Der Route-Baum — Ersatz für das Dateisystem-Routing von expo-router.
  *
- * Die 13 URLs bleiben unverändert: PWA-Installationen und Lesezeichen zeigen
- * darauf, und der Catch-All-Rewrite in vercel.json liefert jeden Pfad an
- * diese SPA.
+ * Die 13 URLs aus der Expo-Zeit bleiben unverändert: PWA-Installationen und
+ * Lesezeichen zeigen darauf, und der Catch-All-Rewrite in vercel.json liefert
+ * jeden Pfad an diese SPA. Hinzugekommen ist seither `/feedback`.
  *
  * Pathless Layout-Routen (Kind-Array ohne eigenen `path`) sind das exakte
  * Äquivalent zu expo-routers Klammer-Gruppen: `RequireAuth` entspricht
@@ -48,6 +49,13 @@ export const routes: RouteObject[] = [
         children: [
           { path: 'leagues', element: <LeaguesScreen /> },
           { path: 'settings', element: <SettingsScreen /> },
+          /*
+           * Feedback gehört zur App und nicht zu einer Liga — deshalb neben
+           * den Einstellungen und nicht unter `:leagueId`, obwohl der
+           * Einstieg im Mehr-Tab sitzt. Die einzige Route, die es unter
+           * expo-router noch nicht gab.
+           */
+          { path: 'feedback', element: <FeedbackScreen /> },
 
           {
             path: ':leagueId',

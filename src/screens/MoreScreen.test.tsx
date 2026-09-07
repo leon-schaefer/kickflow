@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MoreScreen } from './MoreScreen';
 
@@ -16,6 +17,19 @@ vi.mock('@/auth/LogoutButton', () => ({
 vi.mock('@/support/supportUrl', () => supportUrl);
 vi.mock('@/support/openExternalUrl', () => ({ openExternalUrl }));
 
+/**
+ * Ein Router ist Pflicht, seit die Feedback-Karte einen `<Link>` trägt. Die
+ * Einstiegs-URL ist die echte des Tabs: aus ihr baut die Karte die Herkunft,
+ * die den Zurück-Weg des Feedback-Screens hierher lenkt.
+ */
+function renderScreen() {
+  return render(
+    <MemoryRouter initialEntries={['/42/more']}>
+      <MoreScreen />
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   auth.userName = null;
   supportUrl.SUPPORT_URL = 'https://example.test/spenden';
@@ -28,38 +42,38 @@ afterEach(() => {
 
 describe('MoreScreen', () => {
   it('trägt den festen Titel statt des Liga-Wechslers', () => {
-    render(<MoreScreen />);
+    renderScreen();
     // Der einzige der fünf Tabs, auf dem nichts liga-spezifisch ist.
     expect(screen.getByRole('heading', { level: 1, name: 'Mehr' })).toBeInTheDocument();
   });
 
   it('zeigt Version und Commit aus dem Build', () => {
-    render(<MoreScreen />);
+    renderScreen();
     // Kommt aus `define` in vite.config.ts, vorher aus expo-constants.
     expect(screen.getByText(new RegExp(`Version ${__APP_VERSION__}`))).toBeInTheDocument();
   });
 
   it('nennt den angemeldeten Namen, wenn er bekannt ist', () => {
     auth.userName = 'Leon';
-    render(<MoreScreen />);
+    renderScreen();
     expect(screen.getByText('Angemeldet als Leon.')).toBeInTheDocument();
   });
 
   it('fällt zurück, wenn der Name nach einem Neustart fehlt', () => {
     // Der AuthProvider stellt aus dem Store nur den Token wieder her.
-    render(<MoreScreen />);
+    renderScreen();
     expect(screen.getByText('Mit deinem Kickbase-Konto angemeldet.')).toBeInTheDocument();
   });
 
   it('öffnet die Unterstützen-Seite extern', async () => {
-    render(<MoreScreen />);
+    renderScreen();
     await userEvent.click(screen.getByRole('button', { name: 'Unterstützen' }));
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.test/spenden');
   });
 
   it('meldet ein blockiertes Fenster, statt still zu scheitern', async () => {
     openExternalUrl.mockRejectedValue(new Error('blockiert'));
-    render(<MoreScreen />);
+    renderScreen();
 
     await userEvent.click(screen.getByRole('button', { name: 'Unterstützen' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -69,15 +83,23 @@ describe('MoreScreen', () => {
 
   it('lässt die Unterstützen-Karte weg, wenn keine URL konfiguriert ist', () => {
     supportUrl.SUPPORT_URL = null;
-    render(<MoreScreen />);
+    renderScreen();
     // Ein Spenden-Button, der ins Leere zeigt, ist schlechter als keiner —
     // und genau so verschwindet die Karte, wenn die Vercel-Env-Var fehlt.
     expect(screen.queryByRole('button', { name: 'Unterstützen' })).not.toBeInTheDocument();
     expect(screen.queryByText(/kickflow unterstützen/)).not.toBeInTheDocument();
   });
 
+  it('führt zum Feedback-Formular und gibt die Herkunft mit', () => {
+    renderScreen();
+    const link = screen.getByRole('link', { name: 'Feedback geben' });
+    // Absolut und nicht `/42/feedback`: Feedback gehört zur App, nicht zur
+    // Liga (siehe routes.tsx).
+    expect(link).toHaveAttribute('href', '/feedback');
+  });
+
   it('hält Homepage und Datenschutz erreichbar', () => {
-    render(<MoreScreen />);
+    renderScreen();
     expect(screen.getByRole('link', { name: 'Homepage' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
   });

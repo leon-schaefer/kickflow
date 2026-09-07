@@ -137,6 +137,20 @@ Die Variable hieß bis zum Umzug auf Vite `EXPO_PUBLIC_SUPPORT_URL`. Wie
 damals gilt: der Wert wird zur Build-Zeit eingebacken und ist damit
 öffentlich.
 
+Das Feedback-Formular im Mehr-Tab (`/feedback`) braucht dagegen **keine**
+Env-Var: der Empfänger steht als `FEEDBACK_EMAIL` in `src/support/links.ts`,
+neben Homepage- und Datenschutz-Link und aus demselben Grund — ein
+Feedback-Weg, der je nach Environment fehlt, ist keiner. Wer die Adresse
+ändert, muss dafür sorgen, dass das Postfach existiert: die App verschickt
+nicht selbst, sie öffnet das Mail-Programm des Nutzers mit fertigem Betreff
+und Text (`src/support/feedback.ts`), und ob eine Mail ankommt, kann sie nicht
+erkennen.
+
+Mailto und kein Formular-Dienst, weil kickflow keinen eigenen Server hat: ein
+Endpunkt bei Formspree & Co. bräuchte einen dritten Host in `connect-src`.
+Der Preis ist ein Nutzer ohne eingerichtetes Mail-Programm — für den steht
+Betreff und Text auf dem Screen zum Kopieren daneben.
+
 CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
 Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
 Vercels `deployment_status` eintrifft.
