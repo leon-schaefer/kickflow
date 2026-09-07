@@ -73,6 +73,25 @@
   color: var(--color-text-primary);
   /* Nur senkrecht: waagerecht würde das Feld aus der Karte laufen. */
   resize: vertical;
+  /*
+   * Der Fokusring des Browsers muss weg, weil er BLAU ist: Chrome zeichnet
+   * ihn in der Systemakzentfarbe, und die hat mit der Palette der App nichts
+   * zu tun — er war das einzige Blau im ganzen Screen. Ersatzlos wäre das
+   * falsch (ein Fokus, den man nicht sieht), deshalb übernimmt der Rahmen
+   * unten die Anzeige.
+   */
+  outline: none;
+}
+
+/*
+ * Dieselbe Zusage wie am Rahmen von TextField (`.field:focus-within`, siehe
+ * src/components/TextField.module.css): ein fokussiertes Eingabefeld dieser
+ * App trägt einen Rahmen in der Akzentfarbe. Hier `:focus` statt
+ * `:focus-within`, weil der Rahmen am <textarea> selbst sitzt und nicht an
+ * einem Container mit Kindern.
+ */
+.message:focus {
+  border-color: var(--color-accent);
 }
 
 .message::placeholder {
@@ -187,6 +206,50 @@
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-caption);
   color: var(--color-positive);
+}
+
+/*
+ * Die Ergebnis-Tafel nach dem Absenden. Rahmen, Fläche und eine fette Zeile,
+ * weil sie unter mehreren Zeilen grauen Hinweistexts landet — dort geht alles
+ * unter, was aussieht wie noch ein Hinweis.
+ *
+ * Die Variante hängt an `role` statt an einer zweiten Klasse: das Attribut
+ * ist ohnehin verschieden (status vs. alert), und ein Attributselektor gewinnt
+ * über die Basisregel unabhängig von der Emissionsreihenfolge — bei zwei
+ * gleich spezifischen Klassen am selben Element entscheidet sie (siehe den
+ * Docblock in src/theme/layout.module.css).
+ */
+.result {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+}
+
+.result[role='alert'] {
+  border-color: var(--color-danger);
+  background: var(--color-surface-raised);
+}
+
+.resultTitle {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.result[role='alert'] .resultTitle {
+  color: var(--color-danger);
+}
+
+.resultBody {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  line-height: 17px;
+  color: var(--color-text-secondary);
 }
 
 .error {

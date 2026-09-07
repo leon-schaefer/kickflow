@@ -138,15 +138,77 @@ describe('FeedbackScreen', () => {
     expect(body).not.toMatch(/Liga|Kader|Kickbase-Konto|Token/);
   });
 
-  it('behauptet nichts, was es nicht weiß — der Hinweis nennt das Mail-Programm', async () => {
+  it('behauptet nichts, was es nicht weiß — die Tafel nennt das Mail-Programm', async () => {
     renderScreen();
     await type('Kaputt.');
     await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
 
     // Ob eine Mail wirklich rausgeht, ist von der Seite aus nicht feststellbar
-    // (siehe src/support/openMailto.ts) — deshalb „sollte sich geöffnet haben"
-    // und kein „gesendet".
-    expect(await screen.findByRole('status')).toHaveTextContent(/Mail-Programm sollte sich/);
+    // (siehe src/support/openMailto.ts) — deshalb „Text liegt bereit" und
+    // „sollte sich geöffnet haben", kein „gesendet".
+    const result = await screen.findByRole('status');
+    expect(result).toHaveTextContent('Text liegt bereit');
+    expect(result).toHaveTextContent(/Mail-Programm sollte sich/);
+    expect(result).not.toHaveTextContent(/gesendet|verschickt|abgeschickt wurde/);
+  });
+
+  /*
+   * Der Grund für die Tafel: vorher war das Ergebnis eine Zeile in
+   * Kleingedruckt-Größe, direkt unter vier Zeilen grauen Hinweistexts — im
+   * Browser sah der Klick wirkungslos aus, obwohl er wirkte. Diese drei Tests
+   * halten die drei sichtbaren Änderungen fest.
+   */
+  it('wechselt die Beschriftung des Knopfs, den man gedrückt hat', async () => {
+    renderScreen();
+    await type('Kaputt.');
+    await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
+
+    expect(await screen.findByRole('button', { name: 'Nochmal öffnen' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Feedback senden' })).not.toBeInTheDocument();
+  });
+
+  it('nimmt den Vorab-Hinweis weg, sobald die Tafel dasteht', async () => {
+    renderScreen();
+    await type('Kaputt.');
+    expect(screen.getByText(/Öffnet dein Mail-Programm mit dem fertigen Text/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
+
+    // Zwei Absätze, die dasselbe erzählen, und der längere zuerst — genau das
+    // hat die Meldung untergehen lassen.
+    await screen.findByRole('status');
+    expect(
+      screen.queryByText(/Öffnet dein Mail-Programm mit dem fertigen Text/),
+    ).not.toBeInTheDocument();
+  });
+
+  it('räumt das Ergebnis weg, sobald der Text ein anderer ist', async () => {
+    renderScreen();
+    await type('Kaputt.');
+    await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
+    await screen.findByRole('status');
+
+    await type(' Und zwar hier.');
+
+    // Sonst stünde „Text liegt bereit" über einem Text, der inzwischen ein
+    // anderer ist — und der Knopf verspräche „nochmal", obwohl es diesmal
+    // etwas Neues zu öffnen gibt.
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Feedback senden' })).toBeInTheDocument();
+  });
+
+  it('räumt das Ergebnis auch bei einem Wechsel der Kategorie weg', async () => {
+    renderScreen();
+    await type('Kaputt.');
+    await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
+    await screen.findByRole('status');
+
+    // Die Kategorie steht im Betreff — nach dem Wechsel wäre die geöffnete
+    // Mail eine andere als die, die die Tafel behauptet.
+    await userEvent.click(screen.getByRole('button', { name: 'Fehler' }));
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Feedback senden' })).toBeInTheDocument();
   });
 
   it('meldet ein verweigertes Öffnen, statt still zu scheitern', async () => {
@@ -155,10 +217,11 @@ describe('FeedbackScreen', () => {
     await type('Kaputt.');
     await userEvent.click(screen.getByRole('button', { name: 'Feedback senden' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /Mail-Programm ließ sich nicht öffnen/,
-    );
-    expect(screen.queryByText(/sollte sich jetzt/)).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Mail-Programm ging nicht auf/);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // Der geschriebene Text bleibt stehen — er ist die Grundlage des
+    // Kopieren-Wegs, auf den die Meldung verweist.
+    expect(screen.getByRole('textbox', { name: 'Dein Feedback' })).toHaveValue('Kaputt.');
   });
 
   it('kopiert Betreff und Text für den Fall ohne Mail-Programm', async () => {
