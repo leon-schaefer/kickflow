@@ -92,3 +92,31 @@
   font-weight: var(--font-weight-caption);
   color: var(--color-text-muted);
 }
+
+/*
+ * Interner Rechtsseiten-Link in der „Über kickflow"-Karte. Gleiche Optik wie
+ * `ExternalLink.full` (44px Trefferfläche, Akzentfarbe, halbfett), damit die
+ * drei Zeilen der Karte eine Liste bilden — dass eine davon einen neuen Tab
+ * öffnet und zwei in der App navigieren, ist hier keine Information, die der
+ * Nutzer vorher braucht.
+ */
+.legalLink {
+  composes: pressable from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: start;
+}
+
+.legalLink:active {
+  opacity: 0.7;
+}
+
+@media (hover: hover) {
+  .legalLink:hover {
+    text-decoration: underline;
+  }
+}

@@ -75,6 +75,38 @@ abgewichen wird.
   `style-src 'unsafe-inline'` muss dagegen BLEIBEN: die echt dynamischen Werte
   (Positionsfarben, Zellengrößen, Pull-Offset) sind Inline-`style`-Attribute
   und fielen sonst lautlos aus.
+  **Jedes Modul, das `z` aus zod benutzt, importiert vorher
+  `@/app/zodConfig`** — nicht als Stilfrage: zod probiert sonst `new Function`
+  aus, und der abgefangene Fehlschlag wird als CSP-Verstoß gemeldet. Der
+  Import in `main.tsx` genügt dafür seit dem Route-Splitting NICHT mehr, weil
+  ein geteilter Chunk vor dem Entry ausgewertet wird. `zodConfig.test.ts`
+  bewacht es; sichtbar ist der Verstoß nur im echten Browser (jsdom hat keine
+  CSP, Build und Tests bleiben grün).
+- **Rechtsseiten** (`src/legal/`, `/datenschutz` und `/nutzungsbedingungen`)
+  hängen ÖFFENTLICH im Route-Baum, außerhalb von `RequireAuth`. Das ist die
+  Anforderung, nicht eine Bequemlichkeit: die Datenschutzerklärung muss lesbar
+  sein, bevor jemand seine Kickbase-Zugangsdaten eintippt, und der Login-Fuß
+  verlinkt sie. Verschiebt man sie hinter das Gate, leitet der Aufruf still
+  auf den Login um — `src/legal/legalPages.test.tsx` hält es fest.
+  Die Speicher-Tabelle der Datenschutzerklärung kommt aus
+  `src/storage/inventory.ts` und ist per Test an `storage/keys.ts` gekoppelt:
+  **ein neuer localStorage-Schlüssel bricht `npm test`, solange er dort nicht
+  beschrieben ist.** Absicht — eine Rechtsseite, die still veraltet, ist der
+  Schaden, den die Kopplung verhindert.
+- **Generierte Dateien unter `public/`**: `build-id.txt`, `robots.txt` und
+  `sitemap.xml` schreiben Build-Skripte (`scripts/write-build-id.ts`,
+  `scripts/write-seo-files.ts`) und sind gitignored. Die robots.txt war einmal
+  eingecheckt; generiert wird sie nur, weil die `Sitemap:`-Zeile eine absolute
+  URL braucht — ihre Politik (`Allow: /`, keine Disallows) ist unverändert.
+  Die Domain kommt für Sitemap UND Open-Graph-Tags aus derselben Quelle
+  (`scripts/siteOrigin.ts`); zwei Auflösungen wären zwei Domains, die
+  auseinanderlaufen.
+- **Farbkontrast**: `theme/contrast.test.ts` rechnet jede Textfarbe der Palette
+  gegen alle drei Flächen und verlangt 4.5:1 (WCAG 2.2 AA). Wer einen Token
+  ändert, muss dort vorbei. Eine Schranke auf den maximalen Fehler ist
+  übrigens der falsche Wächter für Farbbanding — die Begründung steht in
+  `scripts/generate-icons.py`, wo Bilder als gedithertes 256-Farben-PNG
+  gespeichert werden.
 - **Geteilte Links** sind der einzige Weg, auf dem kickflow Nutzer findet —
   und alles daran bricht ausschließlich außerhalb des eigenen Browsers.
   `/` zeigt ohne Session die öffentliche Startseite, aber nur im Tab: in der

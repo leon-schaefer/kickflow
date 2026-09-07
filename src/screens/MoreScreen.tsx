@@ -6,7 +6,13 @@ import { ExternalLink } from '@/components/ExternalLink';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
-import { HOMEPAGE_URL, PRIVACY_URL } from '@/support/links';
+import {
+  PRIVACY_PATH,
+  PRIVACY_TITLE,
+  TERMS_PATH,
+  TERMS_TITLE,
+} from '@/legal/legalRoutes';
+import { HOMEPAGE_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
 import {
   browserShareTarget,
@@ -177,12 +183,30 @@ export function MoreScreen() {
               Inoffizieller Begleiter für Kickbase. Nicht mit der Kickbase GmbH verbunden.
             </p>
             {/*
-             * Datenschutz muss aus der App heraus erreichbar sein (DSGVO).
-             * Beide Seiten liegen auf codewithleon.dev — siehe
-             * src/support/links.ts.
+             * Datenschutz muss aus der App heraus erreichbar sein (DSGVO) —
+             * und zwar seit diesem Umbau IN der App: beide Rechtsseiten sind
+             * eigene Routen (src/legal/), nur die Homepage liegt noch extern.
+             * Die Begründung für den Umzug steht in src/support/links.ts.
+             *
+             * Der `withOrigin`-State sorgt dafür, dass „Zurück" auf den
+             * Rechtsseiten in diesen Tab führt und nicht in die Ligenliste
+             * (siehe useLegalBackTarget in src/legal/LegalPage.tsx).
              */}
             <ExternalLink url={HOMEPAGE_URL} label="Homepage" />
-            <ExternalLink url={PRIVACY_URL} label="Datenschutz" />
+            <Link
+              to={PRIVACY_PATH}
+              className={styles.legalLink}
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+            >
+              {PRIVACY_TITLE}
+            </Link>
+            <Link
+              to={TERMS_PATH}
+              className={styles.legalLink}
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+            >
+              {TERMS_TITLE}
+            </Link>
             {/*
              * Version und Commit kommen aus `define` in vite.config.ts —
              * vorher aus expo-constants (`expoConfig.version` und

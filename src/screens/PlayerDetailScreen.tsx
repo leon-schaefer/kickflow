@@ -258,11 +258,19 @@ export function PlayerDetailScreen() {
               {nextOpponentRatings.length > 0 && (
                 <section className={styles.section}>
                   <h3 className={styles.sectionTitle}>Nächste Gegner</h3>
+                  {/*
+                   * `opponentNames` gibt jeder Zelle ihre Textalternative —
+                   * ohne die Map wäre der Gegner nur das Logo, und das trägt
+                   * (richtigerweise) ein leeres `alt`. Die Map liegt hier
+                   * ohnehin schon, weil die Spielplan-Zeilen darunter sie
+                   * brauchen.
+                   */}
                   <FixtureDifficultyStrip
                     ratings={nextOpponentRatings}
                     lens={nextOpponentLens}
                     size={44}
                     showOpponentLogos
+                    opponentNames={teamNames}
                   />
                 </section>
               )}

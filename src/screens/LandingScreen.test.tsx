@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
+import { PRIVACY_PATH, TERMS_PATH } from '@/legal/legalRoutes';
 import { LandingScreen } from './LandingScreen';
 
 function setup() {
@@ -41,7 +42,20 @@ describe('LandingScreen', () => {
       screen.getByRole('heading', { name: 'Was mit deinen Daten passiert' }),
     ).toBeInTheDocument();
     expect(screen.getByText(/verlassen dieses Gerät ausschließlich/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Datenschutzerklärung lesen' })).toBeInTheDocument();
+    // Auf den href geprüft und nicht nur auf die Existenz: die Erklärung ist
+    // jetzt eine App-Route (src/legal/) statt eines externen Links, und für
+    // DIESE Seite ist das mehr als Kosmetik — sie wirbt damit, dass nichts
+    // nachgeladen wird. Ein Absprung auf eine fremde Domain wäre unter dem
+    // Satz „die App lädt von keiner anderen Stelle etwas nach" der falsche
+    // Beweis, und ein Test auf den reinen Linktext bliebe dabei grün.
+    expect(screen.getByRole('link', { name: 'Datenschutzerklärung lesen' })).toHaveAttribute(
+      'href',
+      PRIVACY_PATH,
+    );
+    expect(screen.getByRole('link', { name: 'Nutzungsbedingungen' })).toHaveAttribute(
+      'href',
+      TERMS_PATH,
+    );
   });
 
   it('trägt den Hinweis auf die fehlende Verbindung zu Kickbase', () => {

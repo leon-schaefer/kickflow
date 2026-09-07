@@ -35,3 +35,8 @@ scripts/.probe-output/
 
 # written by scripts/write-build-id.ts before each web export
 /public/build-id.txt
+
+# Erzeugt von scripts/write-seo-files.ts vor jedem Web-Build — Inhalt haengt an
+# der Umgebung (Domain, Production vs. Preview), nicht am Quelltext.
+/public/robots.txt
+/public/sitemap.xml

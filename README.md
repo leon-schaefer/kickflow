@@ -98,8 +98,10 @@ Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
 | `outputDirectory` | `dist` |
 | `rewrites` | `/:path*` → `/` |
 
-`npm run build:web` macht zwei Dinge: `scripts/write-build-id.ts` schreibt
-`public/build-id.txt`, dann baut `vite build` nach `dist/`. Alles unter
+`npm run build:web` macht drei Dinge: `scripts/write-build-id.ts` schreibt
+`public/build-id.txt`, `scripts/write-seo-files.ts` schreibt `public/robots.txt`
+und `public/sitemap.xml`, dann baut `vite build` nach `dist/`. Alle drei sind
+gitignored: sie enthalten die Domain bzw. die Build-ID und nicht Quelltext. Alles unter
 `public/` (Manifest, Service Worker, Icons, Favicon, Build-ID) kopiert Vite
 unverändert mit, `index.html` im Projekt-Root ist der Einstieg.
 

@@ -2,12 +2,14 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  APP_KEY_PREFIX,
   INSTALL_HINT_KEY,
   LAST_LEAGUE_KEY,
   SESSION_KEY,
   excludedFromSaleKey,
   leagueRulesKey,
 } from './keys';
+import * as keys from './keys';
 
 /**
  * Wächter über die localStorage-Schlüssel.
@@ -41,6 +43,28 @@ describe('localStorage-Schlüssel', () => {
   it('sind pro Liga getrennt', () => {
     expect(leagueRulesKey('1')).not.toBe(leagueRulesKey('2'));
     expect(excludedFromSaleKey('1')).not.toBe(excludedFromSaleKey('2'));
+  });
+
+  it('tragen ALLE das App-Präfix', () => {
+    // Nicht Kosmetik: `localStore.clearAppData()` und die Speicher-Auskunft in
+    // storage/inventory.ts arbeiten beide über dieses Präfix, weil die
+    // Schlüsselmenge wegen der pro-Liga-Schlüssel nicht endlich ist. Ein
+    // Schlüssel ohne Präfix wäre von beidem ausgenommen — er bliebe beim
+    // Löschen liegen und fehlte in der Datenschutzerklärung, ohne dass
+    // irgendetwas bricht.
+    //
+    // Über die Exporte des Moduls und nicht über eine Aufzählung, damit auch
+    // ein Schlüssel erfasst ist, den es beim Schreiben dieses Tests noch nicht
+    // gab.
+    const offenders = Object.entries(keys)
+      .filter(([name]) => name !== 'APP_KEY_PREFIX')
+      .map(([name, value]) => ({
+        name,
+        key: typeof value === 'function' ? (value as (id: string) => string)('42') : value,
+      }))
+      .filter(({ key }) => typeof key !== 'string' || !key.startsWith(APP_KEY_PREFIX));
+
+    expect(offenders.map((o) => o.name)).toEqual([]);
   });
 
   it('werden nirgends sonst als Literal gebaut', () => {

@@ -1,3 +1,5 @@
+import { APP_KEY_PREFIX } from './keys';
+
 /**
  * Ersatz für `@react-native-async-storage/async-storage`.
  *
@@ -51,6 +53,37 @@ async function removeItem(key: string): Promise<void> {
   }
 }
 
-export const localStore = { getItem, getItemSync, setItem, removeItem };
+/**
+ * Löscht ALLES, was kickflow im localStorage angelegt hat — die Auskunft
+ * „meine Daten löschen" aus dem Einstellungen-Screen.
+ *
+ * Über das Präfix und nicht über eine Liste von Schlüsseln, weil die Liste
+ * nicht endlich ist: Regeln und Verkaufs-Ausschlüsse gibt es je Liga (siehe
+ * `APP_KEY_PREFIX` in keys.ts). Eine Aufzählung wäre genau die Art von
+ * Duplikat, die still veraltet — der nächste neue Schlüssel bliebe liegen,
+ * und ein „gelöscht", das nicht alles löscht, ist schlimmer als keines.
+ *
+ * Fremde Schlüssel bleiben unangetastet: `localStorage.clear()` würde auf
+ * derselben Origin alles wegräumen, auch was nicht uns gehört.
+ *
+ * Erst sammeln, dann löschen. Ein `removeItem` während des Index-Durchlaufs
+ * verschiebt die nachfolgenden Indizes und überspränge jeden zweiten Treffer.
+ */
+function clearAppData(): number {
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(APP_KEY_PREFIX)) doomed.push(key);
+    }
+    for (const key of doomed) window.localStorage.removeItem(key);
+    return doomed.length;
+  } catch {
+    // Kein Speicher verfügbar — dann gibt es auch nichts zu löschen.
+    return 0;
+  }
+}
+
+export const localStore = { getItem, getItemSync, setItem, removeItem, clearAppData };
 
 export default localStore;
