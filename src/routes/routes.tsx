@@ -4,6 +4,7 @@ import { Spinner } from '@/components/Spinner';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { PRIVACY_PATH, PRIVACY_TITLE, TERMS_PATH, TERMS_TITLE } from '@/legal/legalRoutes';
 import { LoginScreen } from '@/screens/LoginScreen';
+import { AppErrorScreen } from './AppErrorScreen';
 import { IndexRoute } from './IndexRoute';
 import { LeagueLayout } from './LeagueLayout';
 import { NotFound } from './NotFound';
@@ -148,6 +149,19 @@ export const routes: RouteObject[] = [
   {
     path: '/',
     element: <RootLayout />,
+    /*
+     * Die einzige Auffangstelle für Render-Fehler im ganzen Baum — und der
+     * Grund, warum sie hier steht und nicht an den Screens: React Router legt
+     * ohnehin nur um die WURZEL eine Default-Boundary (`index === 0` in
+     * `_renderMatches`), jeder Fehler landet also hier. Ohne eigenes
+     * `errorElement` wäre das Ergebnis die englische Standardseite
+     * „Unexpected Application Error!" ohne Bedienelement.
+     *
+     * Der häufigste Fall, der hier ankommt, ist nicht einmal ein Absturz: ein
+     * `lazy()`-Import, dessen Chunk nach einem Redeploy nicht mehr existiert.
+     * Siehe src/updates/moduleLoadError.ts.
+     */
+    errorElement: <AppErrorScreen />,
     children: [
       { index: true, element: <IndexRoute /> },
       { path: 'login', element: <LoginScreen />, handle: { title: 'Anmelden' } },
