@@ -1,0 +1,246 @@
+/*
+ * Die einzige Seite der App, die gelesen und nicht bedient wird. Sie darf
+ * deshalb als Einzige mit Fließtext arbeiten — überall sonst sind Listen und
+ * Karten die Form.
+ *
+ * `line-height` steht hier an jedem Textblock von Hand: tokens.css führt
+ * bewusst keine line-height-Tokens (Begründung dort), und ein Absatz über
+ * mehrere Zeilen braucht mehr als das geerbte `normal`.
+ */
+
+.page {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-xl) var(--space-lg) var(--space-xxl);
+  gap: var(--space-xxl);
+}
+
+.hero {
+  composes: v from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+}
+
+.mark {
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  margin: var(--space-sm) 0 0;
+  font-size: 32px;
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+}
+
+.claim {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  line-height: 23px;
+  color: var(--color-accent);
+}
+
+.lead {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 22px;
+  color: var(--color-text-secondary);
+}
+
+/*
+ * Ein echtes `<a>` aus dem Router und kein Button: das Ziel liegt in derselben
+ * App, ein Link ist also die richtige Semantik — und der Nutzer bekommt
+ * „In neuem Tab öffnen" und die Vorschau der Ziel-URL, was auf einer Seite,
+ * die um Vertrauen wirbt, mehr wert ist als anderswo.
+ *
+ * 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt.
+ */
+.cta {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 44px;
+  margin-top: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-background);
+  text-decoration: none;
+}
+
+.ctaHint {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  line-height: 18px;
+  color: var(--color-text-muted);
+}
+
+.section {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-md);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+}
+
+.sectionBody {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 22px;
+  color: var(--color-text-secondary);
+}
+
+.features {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  gap: var(--space-md);
+  list-style: none;
+}
+
+/* Kartenaufbau wie im Mehr- und Regel-Screen: surface + 1px Rand + radius.lg. */
+.feature {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-md);
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.featureTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.featureBody {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.facts {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  gap: var(--space-sm);
+  list-style: none;
+}
+
+/* Der Punkt als Pseudo-Element statt als `list-style`: der Marker sitzt damit
+   in der Textfarbe und auf der Grundlinie der ersten Zeile. */
+.fact {
+  position: relative;
+  padding-left: var(--space-lg);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.fact::before {
+  content: '·';
+  position: absolute;
+  left: var(--space-xs);
+  color: var(--color-accent);
+}
+
+.footer {
+  composes: v from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-md);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.footerCta {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: var(--space-xl);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.legal {
+  /* Aus zwei Links sind drei geworden (Homepage, Datenschutz,
+     Nutzungsbedingungen) — auf 320px passt die Zeile sonst nicht. */
+  flex-wrap: wrap;
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.legalSeparator {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  line-height: 16px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/*
+ * Interne Rechtsseiten-Links. Bewusst wie ihre externen Nachbarn gestaltet
+ * (`ExternalLink` mit bzw. ohne `compact`), damit die Zeilen eine Reihe
+ * bilden — dass zwei davon in der App navigieren und einer einen neuen Tab
+ * öffnet, ist an dieser Stelle keine Information, die der Besucher braucht.
+ */
+.privacyLink {
+  composes: pressable from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: start;
+}
+
+.legalLink {
+  composes: pressable from '@/theme/layout.module.css';
+  composes: hitSlop from '@/theme/layout.module.css';
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+}
+
+.privacyLink:active,
+.legalLink:active {
+  opacity: 0.7;
+}

@@ -100,13 +100,10 @@ Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
 
 `npm run build:web` macht drei Dinge: `scripts/write-build-id.ts` schreibt
 `public/build-id.txt`, `scripts/write-seo-files.ts` schreibt `public/robots.txt`
-und (nur in Production, siehe unten) `public/sitemap.xml`, dann baut
-`vite build` nach `dist/`. Alles unter `public/` (Manifest, Service Worker,
-Icons, Favicon, Vorschaubild, Build-ID, robots/sitemap) kopiert Vite
+und `public/sitemap.xml`, dann baut `vite build` nach `dist/`. Alle drei sind
+gitignored: sie enthalten die Domain bzw. die Build-ID und nicht Quelltext. Alles unter
+`public/` (Manifest, Service Worker, Icons, Favicon, Build-ID) kopiert Vite
 unverändert mit, `index.html` im Projekt-Root ist der Einstieg.
-
-Alle drei generierten Dateien sind gitignored: ihr Inhalt hängt an der
-Umgebung, nicht am Quelltext.
 
 Der Script-NAME ist festgenagelt: `vercel.json` (`buildCommand`) und
 `.github/workflows/pr.yml` rufen ihn so auf. Unter `public/` darf außerdem nie
@@ -131,36 +128,6 @@ sonst ein Inline-`<script>` injizieren), und `src/app/zodConfig.ts` schaltet
 Zods JIT-Kompilierung ab (Zod prüft sonst per `new Function`, ob eval erlaubt
 ist, und der abgefangene Fehler wird trotzdem als CSP-Verstoß gemeldet).
 
-Beim zweiten Punkt kommt es auf die Reihenfolge an, und der Import in
-`main.tsx` allein reicht dafür nicht mehr: seit die Screens per `lazy()`
-gesplittet sind, legt Rolldown zod in einen GETEILTEN Chunk, und den wertet der
-Browser vor dem Body des Entry-Chunks aus — `config({ jitless: true })` liefe
-also nach dem ersten Schema. Deshalb importiert **jedes Modul, das `z`
-benutzt**, `@/app/zodConfig` selbst und vor zod (`schemas.ts`, `rules.ts`,
-`excludedFromSale.ts`). `src/app/zodConfig.test.ts` bewacht das. Nachprüfbar
-ist der Verstoß nur im echten Browser unter der echten CSP — der Deep-Link-Lauf
-unten sammelt ihn über `securitypolicyviolation`.
-
-### Kanonische Domain (`SITE_URL`)
-
-Vier Angaben brauchen eine absolute URL und können sie nicht zur Laufzeit
-bilden: `<link rel="canonical">`, `og:url`, `og:image` und die
-`Sitemap:`-Zeile in der robots.txt. Die Domain kommt zur Build-Zeit aus
-`SITE_URL`, sonst aus Vercels `VERCEL_PROJECT_PRODUCTION_URL` (das Vercel
-selbst setzt, auch in Previews, und zwar auf die Produktionsdomain — genau
-richtig, damit ein Preview-canonical auf Production zeigt).
-
-Ist keine Domain bekannt, entfallen canonical, `og:url` und die Sitemap. Das
-ist Absicht: eine geratene Domain wäre schlimmer als keine — ein falsches
-canonical weist Suchmaschinen auf eine fremde Seite. Ein Production-Build auf
-Vercel ohne Domain warnt beim Build.
-
-Preview-Deploys bekommen eine robots.txt, die ALLES sperrt, und keine Sitemap;
-sonst konkurriert jeder Feature-Branch mit der Produktionsdomain um dieselben
-Inhalte. Nur Startseite, `/datenschutz` und `/nutzungsbedingungen` sind
-überhaupt für Crawler freigegeben — alles andere braucht ein Kickbase-Konto und
-liefert ohne Session eine Weiterleitung auf den Login.
-
 `VITE_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
 Environment, Production und Preview getrennt. Ohne den Wert erscheint die
 Unterstützen-Karte im Mehr-Tab gar nicht (`src/support/supportUrl.ts`), eine
@@ -171,6 +138,27 @@ anstoßen.
 Die Variable hieß bis zum Umzug auf Vite `EXPO_PUBLIC_SUPPORT_URL`. Wie
 damals gilt: der Wert wird zur Build-Zeit eingebacken und ist damit
 öffentlich.
+
+`VITE_SITE_URL` ist die zweite Build-Variable und betrifft die Vorschaukarte
+(siehe „Geteilte Links" unten). Sie ist optional: ohne sie nimmt der Build
+`VERCEL_PROJECT_PRODUCTION_URL`, das Vercel selbst in jeden Build legt.
+Gebraucht wird sie erst, wenn die App unter einer Domain läuft, die Vercel
+nicht als Produktions-Domain des Projekts kennt. Fehlen im Vercel-Build beide,
+schlägt der Build fehl — mit Absicht (`scripts/siteOrigin.ts`).
+
+Das Feedback-Formular im Mehr-Tab (`/feedback`) braucht dagegen **keine**
+Env-Var: der Empfänger steht als `FEEDBACK_EMAIL` in `src/support/links.ts`,
+neben Homepage- und Datenschutz-Link und aus demselben Grund — ein
+Feedback-Weg, der je nach Environment fehlt, ist keiner. Wer die Adresse
+ändert, muss dafür sorgen, dass das Postfach existiert: die App verschickt
+nicht selbst, sie öffnet das Mail-Programm des Nutzers mit fertigem Betreff
+und Text (`src/support/feedback.ts`), und ob eine Mail ankommt, kann sie nicht
+erkennen.
+
+Mailto und kein Formular-Dienst, weil kickflow keinen eigenen Server hat: ein
+Endpunkt bei Formspree & Co. bräuchte einen dritten Host in `connect-src`.
+Der Preis ist ein Nutzer ohne eingerichtetes Mail-Programm — für den steht
+Betreff und Text auf dem Screen zum Kopieren daneben.
 
 CI (`.github/workflows/pr.yml`) fährt bei jedem PR Typecheck, Tests und den
 Web-Build. `vercel-qr.yml` kommentiert den QR-Code zur Preview-URL, sobald
@@ -223,14 +211,15 @@ damit die lokale Prüfung nicht von Produktion abdriften kann. Der häufigste
 Fehler bei so einer Verifikation ist `serve -s dist`: das sendet keine CSP —
 und genau die CSP ist der Ort, an dem ein Bundler überrascht.
 
-`deep-links.mjs` ruft alle 13 URLs direkt auf und prüft Status, Überschrift,
+`deep-links.mjs` ruft alle 14 URLs direkt auf und prüft Status, Überschrift,
 Konsolenfehler und CSP-Verstöße. Letztere über das DOM-Event
 `securitypolicyviolation`, nicht über eine Konsolen-Textsuche: nur so werden
 auch stille Verstöße sichtbar. Genau daran ist aufgefallen, dass Zods
 JIT-Kompilierung `eval` probiert (siehe `src/app/zodConfig.ts`) — die Konsole
 zeigte davon nur einen abgefangenen Fehler.
 
-Dazu sechs Sonderfälle: Deep Link ohne Session (muss auf `/login`), nackte
+Dazu sieben Sonderfälle: Deep Link ohne Session (muss auf `/login`), `/` MIT
+Session (muss auf die Ligenliste, die Startseite ist für Fremde), nackte
 Liga-URL (muss auf den ersten Tab), unbekannte Unterseite (404-Route),
 Zurück-Label per Deep Link (Fallback „Aufstellung"), Tab-Leiste mit
 Aktivmarkierung, und dass der Service Worker `/assets/` aus `kickflow-v2`
@@ -238,7 +227,7 @@ bedient.
 
 `computed-styles.mjs` vergleicht `getComputedStyle` gegen die Absicht — die
 Schriftgröße, das Gewicht, den Hintergrund und das Padding einiger tragender
-Elemente, plus die Zusicherung, dass auf keiner der 12 Seiten ein Element eine
+Elemente, plus die Zusicherung, dass auf keiner der 14 Seiten ein Element eine
 Schrift außerhalb des Basis-Stacks berechnet. Das ist der einzige Test, der die
 Kaskade misst statt sie zu lesen: welche Regel bei gleicher Spezifität gewinnt,
 entscheidet die Emissionsreihenfolge im Bundle, und daran sind schon zwei
@@ -249,6 +238,41 @@ das jeden Button der App überschrieb. Beides sah im Diff korrekt aus.
 Playwright ist bewusst KEINE Dependency des Projekts — das Skript erwartet eine
 globale Installation und läuft nicht in CI. Es ist ein Werkzeug für den Moment
 vor einem Deploy, nicht für jeden Commit.
+
+## Geteilte Links und die öffentliche Startseite
+
+kickflow wird nicht gefunden, sondern weitergereicht: der Weg zu neuen Nutzern
+führt über einen Link im Gruppenchat einer Liga. Daran hängen drei Dinge, die
+alle im Browser unsichtbar brechen.
+
+**Die Startseite.** `/` zeigt ohne Session eine öffentliche Seite
+(`src/screens/LandingScreen.tsx`) statt sofort den Login. Vorher stand ein
+Fremder als Erstes vor einem Feld für sein KICKBASE-Passwort — die Frage, die
+er an dieser Stelle nicht beantworten kann. Die Verzweigung liegt in
+`src/routes/IndexRoute.tsx`: mit Session auf die Ligenliste, ohne Session in
+der installierten PWA auf den Login (dort ist `/` die `start_url`, und wer die
+App auf dem Startbildschirm hat, ist geworben), sonst die Startseite. Was dort
+steht, muss der App entsprechen — jeder Punkt nennt eine Funktion, die es
+gibt.
+
+**Die Vorschaukarte.** Die Open-Graph-Tags in der `index.html` füllen die
+Karte, die WhatsApp, Discord, Signal und Reddit zu einem Link zeigen. Ihre
+URLs müssen ABSOLUT sein; die Herkunft dafür setzt ein Plugin in
+`vite.config.ts` zur Build-Zeit für `%SITE_ORIGIN%` ein (Herleitung und
+Reihenfolge der Quellen in `scripts/siteOrigin.ts`, Env-Variable siehe oben).
+Das Bild ist `public/og-image.png`, 1200x630. `src/updates/indexHtml.test.ts`
+hält Tags, Absolutheit und die Maße des Bildes fest — geprüft am PNG selbst,
+nicht an einer Notiz.
+
+**Der Weg hinaus.** Der Mehr-Tab hat eine Karte „Liga-Kollegen einladen"
+(`src/support/shareInvite.ts`): `navigator.share`, sonst die Zwischenablage,
+sonst der Link im Klartext. Der letzte Fall ist kein Beiwerk — in der
+installierten PWA gibt es keine Adressleiste, aus der jemand die URL ablesen
+könnte.
+
+`public/robots.txt` erlaubt alles. Die Datei muss trotzdem existieren: der
+Catch-All-Rewrite liefert für einen fehlenden Pfad die `index.html` mit Status
+200, ein Crawler bekäme unter `/robots.txt` sonst HTML.
 
 ## PWA
 
@@ -275,12 +299,17 @@ dahinter ist schlechter als keiner.
 Die Entscheidung selbst steht ohne DOM-Zugriff in `src/pwa/installHint.ts`
 und ist dort ohne Browser geprüft.
 
-Den Icon-Satz erzeugt `scripts/generate-icons.py` aus einer gemeinsamen
-Vektor-Marke:
+Den Icon-Satz und das Share-Bild erzeugt `scripts/generate-icons.py` aus einer
+gemeinsamen Vektor-Marke:
 
 ```bash
 pip install pillow cairosvg && python3 scripts/generate-icons.py
 ```
+
+Die Ausgabe ist deterministisch und liegt im Repo; laufen muss das Skript nur,
+wenn sich die Marke ändert — oder der Text im Share-Bild, dem einzigen Asset
+mit Schrift. Wer es neu erzeugt, sollte `public/og-image.png` danach ansehen:
+gerendert wird mit der Schrift, die auf der eigenen Maschine liegt.
 
 Benachrichtigungen gibt es nicht. Aufstellungs-Deadline und ablaufende Gebote
 liefen früher über `expo-notifications` und damit nur nativ; Web Push bräuchte

@@ -17,12 +17,15 @@
 export const APP_NAME = 'kickflow';
 
 /**
- * Der Titel der Startseite. Deckungsgleich mit dem `<title>` in der
- * index.html — das ist die Fassung, die ein Crawler ohne
- * JavaScript-Ausführung sieht, und sie soll sich nicht davon unterscheiden,
- * was React eine Sekunde später einsetzt.
+ * Der Titel der Startseite.
+ *
+ * MUSS wörtlich mit dem `<title>` in der index.html übereinstimmen: das ist
+ * die Fassung, die ein Crawler ohne JavaScript-Ausführung sieht, und es wäre
+ * ein sichtbarer Fehler, wenn React eine Sekunde später einen anderen Text
+ * einsetzt. `documentTitle.test.ts` liest die index.html von der Platte und
+ * vergleicht — die Zeile hier ist die einzige Kopie, und sie ist bewacht.
  */
-export const DEFAULT_TITLE = `${APP_NAME} – Aufstellung, Markt und Marktwerte für Kickbase`;
+export const DEFAULT_TITLE = 'kickflow – Aufstellungs-Optimizer für deine Kickbase-Liga';
 
 /**
  * Trennzeichen zwischen Seitentitel und Produktname. Ein Gedankenstrich mit

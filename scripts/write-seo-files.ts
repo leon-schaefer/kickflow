@@ -2,51 +2,68 @@
  * Schreibt public/robots.txt und public/sitemap.xml vor jedem Web-Build.
  *
  * Läuft aus `build:web` heraus, genau wie write-build-id.ts, und beide
- * Ausgaben sind aus demselben Grund gitignored: ihr Inhalt hängt an der
- * Umgebung (Domain, Production vs. Preview) und nicht am Quelltext. Eine
- * eingecheckte robots.txt wäre in einem Preview-Deploy falsch.
+ * Ausgaben sind aus demselben Grund gitignored: sie enthalten die Domain, und
+ * die kennt erst der Build (scripts/siteOrigin.ts).
  *
- * ## Was hier indexiert wird — und was nicht
+ * ## Warum die robots.txt hier entsteht, obwohl sie vorher eingecheckt war
  *
- * kickflow ist eine App hinter einem Login. Von den 15 Routen haben genau
- * vier für einen Crawler überhaupt Inhalt: die Startseite, der Login und die
- * beiden Rechtsseiten. Alle anderen (`/:leagueId/lineup`,
- * `/:leagueId/player/:playerId` …) verlangen ein Kickbase-Konto und liefern
- * ohne Session nur eine Weiterleitung auf den Login.
+ * Die eingecheckte Fassung hatte genau einen Nachteil, und der ist
+ * unvermeidbar: die `Sitemap:`-Zeile verlangt laut Spezifikation eine
+ * ABSOLUTE URL, ein relativer Pfad wird ignoriert. Eine statische Datei kann
+ * sie deshalb nicht enthalten.
  *
- * Sie zu sperren ist deshalb nicht Geheimniskrämerei, sondern korrekt: ein
- * Crawler, der `/42/market` abruft, bekommt denselben Login wie bei
- * `/99/market` und indexiert dieselbe Seite unter beliebig vielen URLs. Der
- * Catch-All-Rewrite in vercel.json macht diese Menge unendlich — jeder Pfad
- * liefert HTTP 200 mit dem App-Rumpf, auch `/gibt-es-nicht`. Ohne `Disallow`
- * lädt ein Crawler beliebig viele URLs mit identischem Inhalt.
+ * Die POLITIK der eingecheckten Fassung bleibt dabei unverändert und
+ * absichtlich: `User-agent: * / Allow: /`. Sie stammt aus der Runde, die die
+ * öffentliche Startseite gebracht hat, mit der Begründung, dass hinter jeder
+ * anderen Route der Login liegt und ein Crawler dort nichts als die leere SPA
+ * bekommt — das stimmt, und es ist nicht meine Entscheidung, sie zu ändern.
+ *
+ * Eine `Disallow`-Liste für die App-Routen hätte man erwägen können: der
+ * Catch-All-Rewrite in vercel.json beantwortet JEDEN Pfad mit HTTP 200 und der
+ * index.html, die Menge indexierbarer URLs ist also unbegrenzt. Dagegen
+ * sprechen zwei Dinge, und beide sind stärker: Suchmaschinen indexieren
+ * identische leere Hüllen nicht, und für eine Seite dieser Größe ist
+ * Crawl-Budget kein Thema. Wer die Liste doch will, sollte sie mit dem
+ * Argument einführen, nicht als Beifang einer Sitemap.
  *
  * ## Preview-Deploys
  *
- * Auf einer Preview-URL wird ALLES gesperrt. Sonst konkurriert jeder
- * Feature-Branch mit der Produktionsdomain um dieselben Inhalte — der
- * klassische Weg, sich seine eigene Seite aus dem Index zu verdrängen. Das
- * canonical zeigt zwar auf Produktion (siehe scripts/siteUrl.ts), aber
- * `Disallow` ist die verlässlichere Bremse.
+ * Hier steht bewusst KEINE Sonderbehandlung. Der naheliegende Reflex — auf
+ * einer Preview-URL alles sperren, damit kein Feature-Branch mit der
+ * Produktionsdomain um dieselben Inhalte konkurriert — wäre doppelte Arbeit:
+ * Vercel setzt auf Preview-Deployments von sich aus `X-Robots-Tag: noindex`
+ * (nachgemessen: die Preview antwortet mit dem Header, die Produktionsdomain
+ * nicht). Ein Header ist dabei die verlässlichere Bremse als eine robots.txt,
+ * denn er wirkt auch auf einen bereits abgerufenen Pfad.
+ *
+ * Die Sitemap entsteht trotzdem in jedem Build und trägt die
+ * PRODUKTIONS-Domain — auch im Preview. Das ist richtig und derselbe Gedanke
+ * wie beim canonical: `VERCEL_PROJECT_PRODUCTION_URL` zeigt immer auf
+ * Produktion (siehe scripts/siteOrigin.ts), und eine Sitemap soll die
+ * dauerhaften URLs nennen, nicht die eines Deploys.
  */
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { PRIVACY_PATH, TERMS_PATH } from '../src/legal/legalRoutes';
-import { isProductionDeploy, isVercelBuild, resolveSiteOrigin } from './siteUrl';
+import { resolveSiteOrigin } from './siteOrigin';
 
 const PUBLIC_DIR = path.join(import.meta.dirname, '..', 'public');
 
 /**
  * Die öffentlich sinnvollen Pfade, in der Reihenfolge ihrer Wichtigkeit.
  *
+ * Genau drei — dieselben drei, die im Route-Baum außerhalb von `RequireAuth`
+ * hängen: die Startseite (seit der Landing-Page echter Inhalt und nicht nur
+ * eine Weiterleitung) und die beiden Rechtsseiten.
+ *
  * `/login` steht bewusst NICHT drin: die Seite hat für eine Suchanfrage keinen
- * Wert („kickflow anmelden" führt genauso gut auf `/`), und `/` leitet
- * ohnehin dorthin um, wenn niemand angemeldet ist. Ein Formular als
+ * Wert („kickflow anmelden" führt genauso gut auf `/`), und ein Formular als
  * Suchergebnis ist ein schlechtes Suchergebnis.
  *
  * Die Rechtsseiten kommen aus legalRoutes.ts und nicht als Literal: sonst
  * zeigt die sitemap.xml nach einem Umbenennen auf einen 404, und zwar bei
- * genau den zwei Seiten, deren Erreichbarkeit gefordert ist.
+ * genau den zwei Seiten, deren Erreichbarkeit gefordert ist. seoFiles.test.ts
+ * prüft die Kopplung gegen den echten Route-Baum.
  */
 const PUBLIC_PATHS = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
@@ -54,75 +71,26 @@ const PUBLIC_PATHS = [
   { path: TERMS_PATH, changefreq: 'yearly', priority: '0.3' },
 ] as const;
 
-/**
- * Pfad-Präfixe, die kein Crawler abrufen soll.
- *
- * `/:leagueId` ist ein dynamisches Segment und als Präfix nicht ausdrückbar —
- * deshalb steht in den Mustern unten eine Wildcard an seiner Stelle, gefolgt
- * vom Tab-Namen (Slash, Stern, Slash, `lineup` usw.). Ausgeschrieben ließe
- * sich das hier nicht notieren: die Zeichenfolge Stern-Slash würde diesen
- * Kommentarblock beenden — was sie einmal getan hat und den Build mit einem
- * Syntaxfehler zehn Zeilen weiter unten zum Stehen brachte.
- * Wildcards mitten im Muster versteht jeder relevante Crawler
- * (Google, Bing, DuckDuckGo); ältere Robots ignorieren die Zeile, und der
- * Schaden ist dann eine Login-Seite im Index, nicht ein Datenleck — hinter
- * diesen Pfaden liegt ohne Token nichts.
- */
-const DISALLOWED = [
-  '/login',
-  '/leagues',
-  '/settings',
-  '/*/lineup',
-  '/*/players',
-  '/*/market',
-  '/*/league',
-  '/*/more',
-  '/*/player/',
-  '/*/manager/',
-  '/*/rules',
-  '/*/fixtures',
-];
-
-export function renderRobotsTxt(origin: string | null, indexable: boolean): string {
-  const lines = ['# Erzeugt von scripts/write-seo-files.ts — nicht von Hand editieren.', ''];
-
-  if (!indexable) {
-    lines.push(
-      '# Preview-Deploy: nichts indexieren, damit kein Feature-Branch mit der',
-      '# Produktionsdomain um dieselben Inhalte konkurriert.',
-      'User-agent: *',
-      'Disallow: /',
-      '',
-    );
-    return lines.join('\n');
-  }
-
-  lines.push(
-    '# kickflow ist eine App hinter einem Kickbase-Login. Öffentlich sinnvoll sind',
-    '# nur die Startseite und die beiden Rechtsseiten; alles andere liefert ohne',
-    '# Session eine Weiterleitung auf den Login. Weil der Catch-All-Rewrite in',
-    '# vercel.json JEDEN Pfad mit HTTP 200 beantwortet, wären das sonst beliebig',
-    '# viele URLs mit identischem Inhalt.',
+export function renderRobotsTxt(origin: string): string {
+  return [
+    '# Erzeugt von scripts/write-seo-files.ts vor jedem Build — nicht von Hand',
+    '# editieren. Generiert und nicht eingecheckt, weil die Sitemap-Zeile unten',
+    '# eine absolute URL braucht und die Domain erst der Build kennt.',
+    '#',
+    '# Alles erlaubt — öffentlich sind die Startseite und die beiden',
+    '# Rechtsseiten. Jede andere Route liegt hinter dem Login und liefert einem',
+    '# Crawler nichts als die leere SPA.',
+    '#',
+    '# Die Datei muss existieren, obwohl sie nichts verbietet: der',
+    '# Catch-All-Rewrite in vercel.json beantwortet einen fehlenden Pfad mit der',
+    '# index.html und Status 200 (siehe README). Ohne sie bekäme jeder Crawler',
+    '# unter /robots.txt eine HTML-Seite als vermeintliche robots.txt geliefert.',
     'User-agent: *',
-    ...DISALLOWED.map((p) => `Disallow: ${p}`),
-    'Allow: /$',
-    `Allow: ${PRIVACY_PATH}`,
-    `Allow: ${TERMS_PATH}`,
+    'Allow: /',
     '',
-  );
-
-  if (origin) {
-    lines.push(`Sitemap: ${origin}/sitemap.xml`, '');
-  } else {
-    lines.push(
-      '# Keine Sitemap-Zeile: die Spezifikation verlangt dort eine ABSOLUTE URL,',
-      '# und zur Build-Zeit war keine Domain bekannt (weder SITE_URL noch',
-      '# VERCEL_PROJECT_PRODUCTION_URL gesetzt).',
-      '',
-    );
-  }
-
-  return lines.join('\n');
+    `Sitemap: ${origin}/sitemap.xml`,
+    '',
+  ].join('\n');
 }
 
 export function renderSitemapXml(origin: string, lastmod: string): string {
@@ -144,45 +112,17 @@ ${entries}
 }
 
 if (import.meta.filename === process.argv[1]) {
-  const origin = resolveSiteOrigin();
-  // Nur ein Production-Deploy darf indexiert werden. Ein lokaler Build ist
-  // kein Deploy — dort ist `VERCEL_ENV` nicht gesetzt, und die Dateien werden
-  // trotzdem geschrieben, damit `npm run preview` dasselbe ausliefert wie
-  // Produktion.
-  const indexable = !isVercelBuild() || isProductionDeploy();
+  // Dieselbe Auflösung wie für die Open-Graph-Tags, damit canonical, og:url
+  // und die Sitemap nicht auseinanderlaufen können. Wirft im Vercel-Build ohne
+  // auflösbare Domain — ein roter Build ist billiger als eine Sitemap, die auf
+  // localhost zeigt (Begründung in scripts/siteOrigin.ts).
+  const origin = resolveSiteOrigin(process.env);
+  // Nur das Datum, keine Uhrzeit: `lastmod` mit Sekundengenauigkeit behauptet
+  // eine Änderung, die ein Build ohne Inhaltsänderung nicht hergibt.
+  const lastmod = new Date().toISOString().slice(0, 10);
 
   mkdirSync(PUBLIC_DIR, { recursive: true });
-  writeFileSync(path.join(PUBLIC_DIR, 'robots.txt'), renderRobotsTxt(origin, indexable), 'utf8');
-  console.log(`robots.txt geschrieben (indexierbar: ${indexable}, Domain: ${origin ?? 'unbekannt'})`);
-
-  const sitemapPath = path.join(PUBLIC_DIR, 'sitemap.xml');
-
-  if (origin && indexable) {
-    const lastmod = new Date().toISOString().slice(0, 10);
-    writeFileSync(sitemapPath, renderSitemapXml(origin, lastmod), 'utf8');
-    console.log(`sitemap.xml geschrieben: ${PUBLIC_PATHS.length} URLs unter ${origin}`);
-  } else {
-    // Bewusst KEINE Datei mit relativen Pfaden: eine sitemap.xml ohne
-    // absolute `<loc>` ist ungültig, und eine für einen Preview-Deploy soll
-    // es gar nicht geben.
-    //
-    // LÖSCHEN und nicht bloß nicht schreiben: die Datei ist gitignored, ein
-    // frischer Klon hat sie also nicht — ein Arbeitsverzeichnis, in dem schon
-    // einmal mit gesetzter SITE_URL gebaut wurde, aber schon. Ohne das hier
-    // liegt sie noch da, `vite build` kopiert public/ unverändert nach dist/,
-    // und der Preview-Deploy liefert eine Sitemap mit Produktions-URLs aus,
-    // während seine robots.txt alles sperrt.
-    rmSync(sitemapPath, { force: true });
-    console.log(
-      'sitemap.xml übersprungen — ' +
-        (origin ? 'kein Production-Deploy' : 'keine Domain bekannt (SITE_URL setzen)'),
-    );
-    if (isVercelBuild() && indexable && !origin) {
-      console.warn(
-        'WARNUNG: Production-Build auf Vercel ohne bekannte Domain. ' +
-          'VERCEL_PROJECT_PRODUCTION_URL fehlt — canonical, og:url, og:image und ' +
-          'die Sitemap-Zeile entfallen. SITE_URL in den Projekt-Env-Vars setzen.',
-      );
-    }
-  }
+  writeFileSync(path.join(PUBLIC_DIR, 'robots.txt'), renderRobotsTxt(origin), 'utf8');
+  writeFileSync(path.join(PUBLIC_DIR, 'sitemap.xml'), renderSitemapXml(origin, lastmod), 'utf8');
+  console.log(`robots.txt und sitemap.xml geschrieben: ${PUBLIC_PATHS.length} URLs unter ${origin}`);
 }

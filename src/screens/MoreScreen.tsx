@@ -4,16 +4,22 @@ import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/auth/LogoutButton';
 import { ExternalLink } from '@/components/ExternalLink';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
+import { AppHeader } from '@/shell/AppHeader';
+import { withOrigin } from '@/shell/useBackTarget';
 import {
   PRIVACY_PATH,
   PRIVACY_TITLE,
   TERMS_PATH,
   TERMS_TITLE,
 } from '@/legal/legalRoutes';
-import { AppHeader } from '@/shell/AppHeader';
-import { withOrigin } from '@/shell/useBackTarget';
 import { HOMEPAGE_URL } from '@/support/links';
 import { openExternalUrl } from '@/support/openExternalUrl';
+import {
+  browserShareTarget,
+  type InviteOutcome,
+  inviteUrl,
+  shareInvite,
+} from '@/support/shareInvite';
 import { SUPPORT_URL } from '@/support/supportUrl';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
@@ -34,17 +40,19 @@ import styles from './MoreScreen.module.css';
  */
 export function MoreScreen() {
   const { userName } = useAuth();
-  const location = useLocation();
+  const { pathname } = useLocation();
   const [linkFailed, setLinkFailed] = useState(false);
-  // Damit „Zurück" auf den Rechtsseiten in diesen Tab führt und nicht in die
-  // Ligenliste (siehe useLegalBackTarget in src/legal/LegalPage.tsx).
-  //
-  // `location.pathname` und nicht `useLeagueId()` samt zusammengebautem Pfad:
-  // der aktuelle Pfad IST das Ziel, das gesucht ist. Der Umweg über die
-  // Liga-ID würde denselben String noch einmal herstellen und dabei eine
-  // Abhängigkeit auf den LeagueIdContext einführen, die dieser Screen sonst
-  // nicht hat — er ist der einzige Tab ohne liga-spezifischen Inhalt.
-  const origin = withOrigin(location.pathname, leagueTabTitles.more).state;
+  const [invite, setInvite] = useState<InviteOutcome | null>(null);
+
+  /*
+   * `shareInvite` MUSS direkt am Klick hängen: `navigator.share` verlangt eine
+   * frische Nutzer-Geste und wirft, wenn davor noch etwas anderes awaited
+   * wurde. Deshalb steht hier kein Aufräumen vor dem Aufruf — der alte
+   * Rückmeldungstext wird erst mit dem Ergebnis überschrieben.
+   */
+  async function handleInvite() {
+    setInvite(await shareInvite(inviteUrl(), browserShareTarget()));
+  }
 
   async function handleSupport() {
     if (!SUPPORT_URL) return;
@@ -62,6 +70,44 @@ export function MoreScreen() {
       <div className={styles.scroll}>
         <div className={styles.content}>
           {/*
+           * Ganz oben, und das mit Absicht: der Weg, auf dem kickflow Nutzer
+           * findet, führt über die Liga-Gruppenchats seiner Nutzer. Ohne diese
+           * Karte gibt es dafür nur „URL abschreiben" — in der installierten
+           * PWA nicht einmal das, dort fehlt die Adressleiste.
+           */}
+          <section className={styles.card}>
+            <h2 className={styles.cardTitle}>Liga-Kollegen einladen</h2>
+            <p className={styles.cardBody}>
+              kickflow lohnt sich am meisten, wenn deine Liga mitspielt. Teile den Link — der
+              Rest ist eine Anmeldung mit dem Kickbase-Konto.
+            </p>
+            <button
+              type="button"
+              className={cx(layout.pressableH, styles.cardButton)}
+              onClick={handleInvite}
+            >
+              Link teilen
+            </button>
+            {invite === 'copied' && (
+              <p className={styles.hint} role="status">
+                Link kopiert — jetzt in den Liga-Chat einfügen.
+              </p>
+            )}
+            {invite === 'failed' && (
+              /*
+               * Der Link steht hier im Klartext, statt dass die Meldung auf die
+               * Adressleiste verweist: in der installierten PWA gibt es keine.
+               * Ein „kopier es dir aus der Adresszeile" wäre dort genau für die
+               * Nutzer nutzlos, die am ehesten teilen wollen.
+               */
+              <p className={styles.error} role="alert">
+                Teilen hat nicht funktioniert. Der Link lautet:{' '}
+                <span className={styles.inviteUrl}>{inviteUrl()}</span>
+              </p>
+            )}
+          </section>
+
+          {/*
            * Ohne VITE_SUPPORT_URL erscheint die Karte gar nicht — ein
            * Spenden-Button, der auf einen toten Link zeigt, ist schlechter als
            * keiner (siehe src/support/supportUrl.ts).
@@ -77,7 +123,7 @@ export function MoreScreen() {
               </p>
               <button
                 type="button"
-                className={cx(layout.pressableH, styles.supportButton)}
+                className={cx(layout.pressableH, styles.cardButton)}
                 onClick={handleSupport}
               >
                 Unterstützen
@@ -92,6 +138,29 @@ export function MoreScreen() {
               )}
             </section>
           )}
+
+          {/*
+           * Ein `<Link>` und kein Button: das ist eine Navigation, und ein
+           * echtes `<a href>` erlaubt „in neuem Tab öffnen" und zeigt das
+           * Ziel in der Statusleiste. Die Herkunft geht als state mit, damit
+           * Zurück von dort hierher führt und nicht in die Ligenliste — der
+           * Feedback-Screen liegt außerhalb von `/:leagueId` und hat sonst
+           * keinen Tab, auf den er zurückfallen könnte.
+           */}
+          <section className={styles.card}>
+            <h2 className={styles.cardTitle}>Feedback & Wünsche</h2>
+            <p className={styles.cardBody}>
+              Ein Fehler, eine fehlende Funktion oder eine Idee? Schreib es mir — die App wächst
+              genau daran.
+            </p>
+            <Link
+              to="/feedback"
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+              className={cx(layout.pressableH, styles.cardButton, styles.cardLink)}
+            >
+              Feedback geben
+            </Link>
+          </section>
 
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>Konto</h2>
@@ -118,12 +187,24 @@ export function MoreScreen() {
              * und zwar seit diesem Umbau IN der App: beide Rechtsseiten sind
              * eigene Routen (src/legal/), nur die Homepage liegt noch extern.
              * Die Begründung für den Umzug steht in src/support/links.ts.
+             *
+             * Der `withOrigin`-State sorgt dafür, dass „Zurück" auf den
+             * Rechtsseiten in diesen Tab führt und nicht in die Ligenliste
+             * (siehe useLegalBackTarget in src/legal/LegalPage.tsx).
              */}
             <ExternalLink url={HOMEPAGE_URL} label="Homepage" />
-            <Link to={PRIVACY_PATH} className={styles.legalLink} state={origin}>
+            <Link
+              to={PRIVACY_PATH}
+              className={styles.legalLink}
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+            >
               {PRIVACY_TITLE}
             </Link>
-            <Link to={TERMS_PATH} className={styles.legalLink} state={origin}>
+            <Link
+              to={TERMS_PATH}
+              className={styles.legalLink}
+              state={withOrigin(pathname, leagueTabTitles.more).state}
+            >
               {TERMS_TITLE}
             </Link>
             {/*

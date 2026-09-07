@@ -1,0 +1,197 @@
+.scroll {
+  composes: scroller from '@/theme/layout.module.css';
+}
+
+.content {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.card {
+  composes: v from '@/theme/layout.module.css';
+  padding: var(--space-md);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.cardBody {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 21px;
+  color: var(--color-text-secondary);
+}
+
+.chips {
+  composes: h from '@/theme/layout.module.css';
+  /* Drei Beschriftungen, die auf einem schmalen Telefon nicht in eine Zeile
+     müssen — anders als in SortChips wird hier nicht gescrollt, sondern
+     umgebrochen: eine Kategorie darf nicht hinter dem Rand verschwinden. */
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.chip {
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.message {
+  /* `font: inherit` ist Pflicht: ein <textarea> erbt die Schrift NICHT, es
+     nimmt sonst den Monospace-Default des Browsers — die Regel am body in
+     src/theme/base.css erreicht es nicht. */
+  font: inherit;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  /* Nur senkrecht: waagerecht würde das Feld aus der Karte laufen. */
+  resize: vertical;
+}
+
+.message::placeholder {
+  color: var(--color-text-muted);
+}
+
+.counter {
+  margin: 0;
+  align-self: flex-end;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.submitButton {
+  /* 44px ist die Trefferfläche, die Apple für Bedienelemente vorgibt. */
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.submitButton:disabled {
+  /* Der Knopf bleibt sichtbar und beschriftet, statt zu verschwinden: er ist
+     das Ziel des Screens, und ein leeres Textfeld ist der Normalzustand beim
+     Betreten. */
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.copyButton {
+  min-height: 44px;
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.copyButton:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.details {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.summary {
+  /* Ein <summary> ist von sich aus anklickbar — die Trefferfläche kommt hier
+     aus dem Innenabstand, nicht aus einer min-height, die den Marker vom Text
+     löste. */
+  padding-block: var(--space-xs);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.contextBlock {
+  margin: var(--space-xs) 0 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  /* `font-family: inherit` ist Pflicht und kein Rauschen: ein <pre> trägt den
+     Monospace-Default des User-Agents, den die Regel am body in
+     src/theme/base.css nicht erreicht. Und Monospace wäre hier kein Gewinn,
+     sondern eine zweite Schriftfamilie in einer App, die genau eine hat —
+     scripts/verify/computed-styles.mjs prüft das über alle Seiten. Die Zeilen
+     sind „Label: Wert" und keine Tabelle, sie brauchen keine feste Breite. */
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+  /* Der Block geht genau so in die Mail, Zeilenumbrüche inklusive — deshalb
+     `pre-wrap` und kein Umformatieren. Die User-Agent-Zeile ist lang und
+     bricht in der Karte um, statt sie zu verbreitern. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.address {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  /* Eine Adresse zum Abtippen darf nicht mitten im Wort umbrechen und auch
+     nicht über den Kartenrand hinauslaufen. */
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.ok {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-positive);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-danger);
+}
