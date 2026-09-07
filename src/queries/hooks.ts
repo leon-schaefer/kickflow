@@ -52,12 +52,13 @@ export function useLeagues() {
   });
 }
 
-export function useLineup(leagueId: string) {
+export function useLineup(leagueId: string, options: { enabled?: boolean } = {}) {
   const { token } = useAuth();
+  const { enabled = true } = options;
   return useQuery({
     queryKey: queryKeys.lineup(leagueId),
     queryFn: () => (USE_MOCK_LINEUP ? Promise.resolve(mockLineupData) : getLineup(token!, leagueId)),
-    enabled: USE_MOCK_LINEUP || (!!token && !!leagueId),
+    enabled: USE_MOCK_LINEUP || (!!token && !!leagueId && enabled),
     staleTime: 60_000,
   });
 }

@@ -9,11 +9,15 @@ interface AuthState {
   token: string | null | undefined;
   userName: string | null;
   /**
-   * Eigene Kickbase-User-ID — nur für die Dauer der Session im Speicher, wie
-   * `userName` NICHT persistiert (tokenStore speichert nur token/refreshToken).
-   * Nach einem App-Neustart also wieder `null`, bis erneut eingeloggt wird.
-   * Gebraucht, um die eigene Zeile in der Liga-Tabelle zu markieren (siehe
-   * src/screens/LeagueScreen.tsx).
+   * Eigene Kickbase-User-ID, zusammen mit dem Token gespeichert und beim Start
+   * wieder eingelesen (siehe tokenStore.StoredSession). Gebraucht, um die
+   * eigene Zeile in der Liga-Tabelle und den Duell-Gegner zu finden (siehe
+   * src/screens/LeagueScreen.tsx) — hielte sie nur der State, wäre sie nach
+   * jedem Reload weg und beides fiele lautlos aus.
+   *
+   * `null` = unbekannt, was NICHT "nicht angemeldet" heißt: Sessions von vor
+   * der Persistierung tragen die ID nicht, und die Login-Antwort liefert sie
+   * nur laut unverifizierter Doku (siehe toAuthSession).
    */
   userId: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -32,12 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     tokenStore.getSession().then((session) => {
       setToken(session?.token ?? null);
+      setUserId(session?.userId ?? null);
+      setUserName(session?.userName ?? null);
     });
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const session = await kickbaseLogin(email, password);
-    await tokenStore.setSession({ token: session.token, refreshToken: session.refreshToken });
+    await tokenStore.setSession({
+      token: session.token,
+      refreshToken: session.refreshToken,
+      userId: session.userId,
+      userName: session.userName,
+    });
     // Cache des vorherigen Kontos wegwerfen. Nach einem 401 landet man ohne
     // Umweg über logout() wieder hier, und `useLeagues()` hat staleTime 5 min
     // bei refetchOnWindowFocus: false — ohne clear() sähe das neue Konto
@@ -56,12 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // fehlschlagenden Query den Boden weg.
     queryClient.clear();
     setUserName(null);
+    setUserId(null);
     setToken(null);
   }, []);
 
   const handleUnauthorized = useCallback(() => {
     tokenStore.clearSession();
     setToken(null);
+    setUserName(null);
+    setUserId(null);
   }, []);
 
   // Der QueryClient meldet einen 401/403 hier statt über ein Hook-onError
