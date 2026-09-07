@@ -30,7 +30,17 @@ interface RenderRouteOptions {
  */
 export function renderRoute(path: string, { session = true }: RenderRouteOptions = {}) {
   if (session) {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'test-token', refreshToken: null }));
+    // Vollständige Session, wie sie der tokenStore schreibt — inklusive
+    // Identität: an ihr hängt im Liga-Tab die eigene Zeile samt Duell.
+    window.localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        token: 'test-token',
+        refreshToken: null,
+        userId: 'test-user',
+        userName: 'Test',
+      }),
+    );
   }
 
   queryClient.clear();

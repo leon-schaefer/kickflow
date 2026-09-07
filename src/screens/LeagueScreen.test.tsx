@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import type { LeagueRanking, LeagueRankingEntry, MatchdaySchedule } from '@/api/kickbase';
+import type { LeagueRanking, LeagueRankingEntry, LineupData, MatchdaySchedule } from '@/api/kickbase';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { LeagueScreen } from './LeagueScreen';
 
@@ -13,6 +13,9 @@ const ranking = vi.hoisted(() => ({
   refetch: vi.fn().mockResolvedValue(undefined),
 }));
 const matchdays = vi.hoisted(() => ({ data: undefined as MatchdaySchedule | undefined }));
+const lineup = vi.hoisted(() => ({ data: undefined as LineupData | undefined }));
+/** Was der Screen an useLeagueRanking übergibt — geprüft für den Live-Modus. */
+const rankingCalls = vi.hoisted(() => ({ options: [] as unknown[] }));
 const rules = vi.hoisted(() => ({
   rules: [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 3 }] as never[],
   updateRule: vi.fn(),
@@ -22,8 +25,12 @@ const rules = vi.hoisted(() => ({
 
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => auth }));
 vi.mock('@/queries/hooks', () => ({
-  useLeagueRanking: () => ranking,
+  useLeagueRanking: (_leagueId: string, _day: number | undefined, options: unknown) => {
+    rankingCalls.options.push(options);
+    return ranking;
+  },
   useMatchdays: () => matchdays,
+  useLineup: () => lineup,
 }));
 vi.mock('@/lineup/LeagueRulesContext', () => ({ useLeagueRulesContext: () => rules }));
 vi.mock('@/leagues/useCompetitionId', () => ({ useCompetitionId: () => '1' }));
@@ -81,6 +88,8 @@ beforeEach(() => {
   };
   ranking.error = null;
   matchdays.data = undefined;
+  lineup.data = undefined;
+  rankingCalls.options = [];
   rules.loaded = true;
   rules.updateRule.mockClear();
 });
@@ -172,6 +181,51 @@ describe('LeagueScreen', () => {
     ranking.data = { seasonName: null, day: null, entries: [] };
     setup();
     expect(screen.getByText('Keine Liga-Tabelle gefunden.')).toBeInTheDocument();
+  });
+
+  it('findet die eigene Zeile und das Duell auch ohne bekannte User-ID', () => {
+    // Session von vor der Persistierung der User-ID: dann bleibt der eigene
+    // Kader als Erkennungsmerkmal (siehe findOwnRankingEntry).
+    auth.userId = null;
+    ranking.data!.entries[1]!.h2hOpponentUserId = 'rival';
+    ranking.data!.entries[1]!.lineupPlayerIds = ['p1', 'p2'];
+    lineup.data = { players: [{ id: 'p1' }, { id: 'p2' }] } as unknown as LineupData;
+    setup();
+
+    expect(screen.getByText(/Dein Duell/)).toBeInTheDocument();
+    const rows = screen.getAllByRole('listitem');
+    expect(rows[1]!).toHaveTextContent('Duell');
+  });
+
+  it('lässt die Duell-Karte weg, wenn die eigene Zeile nicht ableitbar ist', () => {
+    auth.userId = null;
+    ranking.data!.entries[1]!.h2hOpponentUserId = 'rival';
+    setup();
+
+    expect(screen.queryByText(/Dein Duell/)).not.toBeInTheDocument();
+  });
+
+  it('zieht die Tabelle im Hintergrund nach, während der Spieltag läuft', () => {
+    matchdays.data = {
+      currentDay: 7,
+      matchdays: [
+        { day: 7, firstKickoff: '2020-01-01T00:00:00Z', allPlayed: false, fixtures: [] },
+      ],
+    };
+    setup();
+
+    // Sonst stünde der Duell-Stand bis zum nächsten Pull-to-Refresh still.
+    expect(rankingCalls.options.at(-1)).toEqual({ live: true });
+  });
+
+  it('lässt die Tabelle ruhen, wenn kein Spieltag läuft', () => {
+    matchdays.data = {
+      currentDay: 7,
+      matchdays: [{ day: 7, firstKickoff: null, allPlayed: false, fixtures: [] }],
+    };
+    setup();
+
+    expect(rankingCalls.options.at(-1)).toEqual({ live: false });
   });
 
   it('zeigt den Fehler mit einem Weg zurück', async () => {
