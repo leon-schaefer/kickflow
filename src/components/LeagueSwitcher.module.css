@@ -1,4 +1,24 @@
 .trigger {
+  /*
+   * `hitSlop` vergrößert die Trefferfläche um 8px in jede Richtung, ohne einen
+   * Pixel Layout zu verschieben (theme/layout.module.css).
+   *
+   * Nötig, weil der Knopf am Gerät nur 45x20 CSS-Pixel groß ist — gemessen
+   * bei 320px Viewportbreite. Das unterschreitet WCAG 2.2 AA,
+   * Erfolgskriterium 2.5.8 („Target Size (Minimum)", 24x24), und zwar beim
+   * Liga-Wechsler, also dem einen Bedienelement, das auf allen vier Liga-Tabs
+   * in der Kopfzeile sitzt. Mit dem Slop sind es 61x36.
+   *
+   * Warum nicht `min-height: 44px`, die Zahl, die diese App sonst überall für
+   * Bedienelemente ansetzt: der Knopf IST der Titel der Kopfzeile, und deren
+   * Höhe ergibt sich aus ihrem Inhalt (siehe shell/AppHeader.module.css:
+   * Grid mit `padding-block: var(--space-sm)`). 44px würden die Kopfzeile von
+   * 36 auf 60px wachsen lassen — auf jedem Liga-Tab sichtbar. Das ist eine
+   * Design-Entscheidung und keine, die eine Kontrast- oder
+   * Trefferflächen-Korrektur nebenbei treffen sollte; der Slop behebt den
+   * Standard-Verstoß ohne sie.
+   */
+  composes: hitSlop from '@/theme/layout.module.css';
   align-items: center;
   gap: var(--space-xs);
   max-width: 220px;

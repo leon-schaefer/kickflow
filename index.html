@@ -31,12 +31,78 @@
          den Visual Viewport und das `100dvh`-Layout auseinander, sichtbar als weißer Balken
          unten. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
-    <title>kickflow</title>
+    <!--
+      Titel und Beschreibung.
+
+      Der Titel nennt zuerst den Namen und dann, was die App tut: das ist die
+      Zeile, die in einem Suchergebnis, in einem Lesezeichen und in einer
+      Chat-Vorschau steht. „kickflow" allein sagt dort niemandem etwas.
+
+      Zur LAUFZEIT überschreibt src/app/useDocumentTitle.ts diesen Wert pro
+      Route („Markt – kickflow"). Das hier ist der Wert, den ein Crawler und
+      der erste Frame sehen — beides Fälle, in denen kein React läuft.
+
+      Die description ist die einzige Angabe, die ein Crawler ohne
+      JavaScript-Ausführung über den Inhalt bekommt: die App ist eine SPA, der
+      Rumpf unter <div id="root"> ist leer, bis das Bundle läuft. Deshalb
+      steht sie hier statisch und nicht in einer Komponente.
+    -->
+    <title>kickflow – Aufstellung, Markt und Marktwerte für Kickbase</title>
+    <meta
+      name="description"
+      content="kickflow ist ein kostenloser, inoffizieller Begleiter für Kickbase: Aufstellung optimieren, Marktwerte verfolgen, Pflichtverkäufe planen und Kaufempfehlungen bekommen. Läuft im Browser, ohne eigenen Server, ohne Tracking."
+    />
+    <!--
+      Vorschaubild und Social-Karten (Open Graph, Twitter Card).
+
+      `og:image` steht hier als ABSOLUTER PFAD und wird beim Build zu einer
+      absoluten URL ergänzt, sobald eine Domain bekannt ist — ein Teil der
+      Vorschau-Bots (LinkedIn, ältere Slack-Versionen) ignoriert relative
+      Bildangaben still. Dasselbe Plugin ergänzt `og:url` und das canonical.
+      Beides steht deshalb NICHT hier: eine geratene Domain wäre schlimmer als
+      keine (siehe scripts/siteUrl.ts und den vite-Plugin-Block in
+      vite.config.ts).
+
+      Größe und `og:image:alt` sind nicht Beiwerk: mit den Maßen reserviert der
+      Bot den Platz, ohne sie lädt er das Bild erst und zeigt bis dahin nichts.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="kickflow" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:title" content="kickflow – Aufstellung, Markt und Marktwerte für Kickbase" />
+    <meta
+      property="og:description"
+      content="Kostenloser, inoffizieller Begleiter für Kickbase: Aufstellung optimieren, Marktwerte verfolgen, Pflichtverkäufe planen. Ohne Tracking."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Wortmarke kickflow neben einer steigenden Marktwert-Kurve, die in einem Fußball ausläuft."
+    />
+    <!-- `twitter:card` ist die EINZIGE twitter-Angabe hier, und das ist Absicht:
+         für Titel, Beschreibung und Bild fällt der Twitter-Parser auf die
+         og:-Tags darüber zurück. Ein zweiter Satz `twitter:title`/`…:description`
+         wäre eine Kopie, die beim nächsten Textwechsel zurückbleibt. Die
+         Kartenform kann er dagegen nicht erraten — ohne diese Zeile käme die
+         kleine Vorschau mit quadratischem Bild statt der großen. -->
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- theme-color und das Favicon injizierte bisher die Expo-CLI aus app.json
          (`web.themeColor` / `web.favicon`). Die Datei ist mit dem Umzug auf Vite weg,
          beide Angaben stehen deshalb hier. -->
     <meta name="theme-color" content="#0B0F0C" />
-    <link rel="icon" href="/favicon.png" />
+    <!--
+      SVG zuerst, PNG als Rückfall. Browser nehmen das erste Format, das sie
+      kennen; das SVG skaliert scharf auf jede Tab-, Lesezeichen- und
+      Verlaufs-Größe, während die 196px-PNG auf einem hochauflösenden Display
+      weichgezeichnet wird. Die PNG bleibt für alles, was SVG-Favicons nicht
+      kennt (Safari < 16, ältere Android-Browser).
+      Beide werden von scripts/generate-icons.py aus derselben Geometrie
+      erzeugt.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -99,6 +99,81 @@ describe('index.html', () => {
     expect(html).toContain('overscroll-behavior: none');
   });
 
+  /**
+   * Die SEO- und Vorschau-Angaben.
+   *
+   * Warum die auch bewacht werden müssen, obwohl sie „nur Text" sind: die App
+   * ist eine SPA. Unter `<div id="root">` steht nichts, bis das Bundle läuft —
+   * ein Crawler und jeder Chat-Vorschau-Bot sehen AUSSCHLIESSLICH diesen Kopf.
+   * Fällt eine Zeile hier weg, verschwindet die Beschreibung aus jedem
+   * Suchergebnis und das Bild aus jeder geteilten Nachricht, und im Browser
+   * zeigt nichts davon ein Symptom.
+   */
+  it('trägt Titel und Beschreibung für Suchergebnisse', () => {
+    const title = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '';
+    // Nicht bloß „kickflow": der Titel ist die Zeile im Suchergebnis und im
+    // Lesezeichen und soll sagen, was die App tut.
+    expect(title).toContain('kickflow');
+    expect(title).toContain('Kickbase');
+
+    // `\s` deckt auch den Zeilenumbruch — der Tag steht mehrzeilig
+    // formatiert, weil die Beschreibung lang ist.
+    const description =
+      /<meta\s+name="description"\s+content="([^"]*)"/.exec(html)?.[1] ?? '';
+    // Google schneidet Beschreibungen bei rund 155 Zeichen ab, zeigt aber
+    // deutlich kürzere gar nicht erst — die Untergrenze fängt ein
+    // versehentlich geleertes Attribut ab.
+    expect(description.length).toBeGreaterThan(80);
+    expect(description).toContain('Kickbase');
+  });
+
+  it('trägt die Open-Graph-Angaben samt Vorschaubild', () => {
+    for (const property of [
+      'og:type',
+      'og:site_name',
+      'og:locale',
+      'og:title',
+      'og:description',
+      'og:image',
+      'og:image:width',
+      'og:image:height',
+      'og:image:alt',
+    ]) {
+      expect(html, `${property} fehlt`).toContain(`property="${property}"`);
+    }
+    // Die Maße müssen zu dem passen, was scripts/generate-icons.py erzeugt:
+    // 1200x630 ist das 1.91:1, das die Vorschau-Bots erwarten. Stimmen sie
+    // nicht, reserviert der Bot den falschen Platz und beschneidet das Bild.
+    expect(html).toContain('content="1200"');
+    expect(html).toContain('content="630"');
+    expect(html).toContain('content="/og-image.png"');
+    // Ohne diese Zeile zeigt Twitter/X die kleine Karte mit quadratischem Bild.
+    expect(html).toContain('name="twitter:card"');
+    expect(html).toContain('summary_large_image');
+  });
+
+  it('bietet das Favicon als SVG UND als PNG an', () => {
+    // SVG zuerst (skaliert scharf), PNG als Rückfall für Browser ohne
+    // SVG-Favicon-Unterstützung. Die Reihenfolge entscheidet, welches ein
+    // Browser nimmt, der beide kennt.
+    const svgAt = html.indexOf('type="image/svg+xml"');
+    const pngAt = html.indexOf('href="/favicon.png"');
+    expect(svgAt).toBeGreaterThan(-1);
+    expect(pngAt).toBeGreaterThan(-1);
+    expect(svgAt).toBeLessThan(pngAt);
+  });
+
+  it('setzt KEINE geratene Domain', () => {
+    // canonical und og:url ergänzt das Vite-Plugin `kickflow-absolute-meta-urls`
+    // beim Build aus der Umgebung (siehe scripts/siteUrl.ts). Hier steht sie
+    // absichtlich nicht: eine falsche kanonische URL weist Suchmaschinen auf
+    // eine fremde Seite. Eine Abwesenheitsprüfung wie beim viewport-fit oben.
+    expect(html).not.toContain('rel="canonical"');
+    expect(html).not.toContain('property="og:url"');
+    // Und nirgends eine hartkodierte Deploy-Domain.
+    expect(html).not.toMatch(/https:\/\/[a-z0-9-]+\.vercel\.app/);
+  });
+
   it('hat den Mount-Point und registriert den Service Worker', () => {
     expect(html).toContain('id="root"');
     expect(html).toContain('/register-sw.js');

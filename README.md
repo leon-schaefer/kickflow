@@ -98,10 +98,15 @@ Vercel deployt über die Git-Integration, die Konfiguration steht komplett in
 | `outputDirectory` | `dist` |
 | `rewrites` | `/:path*` → `/` |
 
-`npm run build:web` macht zwei Dinge: `scripts/write-build-id.ts` schreibt
-`public/build-id.txt`, dann baut `vite build` nach `dist/`. Alles unter
-`public/` (Manifest, Service Worker, Icons, Favicon, Build-ID) kopiert Vite
+`npm run build:web` macht drei Dinge: `scripts/write-build-id.ts` schreibt
+`public/build-id.txt`, `scripts/write-seo-files.ts` schreibt `public/robots.txt`
+und (nur in Production, siehe unten) `public/sitemap.xml`, dann baut
+`vite build` nach `dist/`. Alles unter `public/` (Manifest, Service Worker,
+Icons, Favicon, Vorschaubild, Build-ID, robots/sitemap) kopiert Vite
 unverändert mit, `index.html` im Projekt-Root ist der Einstieg.
+
+Alle drei generierten Dateien sind gitignored: ihr Inhalt hängt an der
+Umgebung, nicht am Quelltext.
 
 Der Script-NAME ist festgenagelt: `vercel.json` (`buildCommand`) und
 `.github/workflows/pr.yml` rufen ihn so auf. Unter `public/` darf außerdem nie
@@ -125,6 +130,36 @@ Zwei Dinge hängen daran und dürfen nicht verloren gehen:
 sonst ein Inline-`<script>` injizieren), und `src/app/zodConfig.ts` schaltet
 Zods JIT-Kompilierung ab (Zod prüft sonst per `new Function`, ob eval erlaubt
 ist, und der abgefangene Fehler wird trotzdem als CSP-Verstoß gemeldet).
+
+Beim zweiten Punkt kommt es auf die Reihenfolge an, und der Import in
+`main.tsx` allein reicht dafür nicht mehr: seit die Screens per `lazy()`
+gesplittet sind, legt Rolldown zod in einen GETEILTEN Chunk, und den wertet der
+Browser vor dem Body des Entry-Chunks aus — `config({ jitless: true })` liefe
+also nach dem ersten Schema. Deshalb importiert **jedes Modul, das `z`
+benutzt**, `@/app/zodConfig` selbst und vor zod (`schemas.ts`, `rules.ts`,
+`excludedFromSale.ts`). `src/app/zodConfig.test.ts` bewacht das. Nachprüfbar
+ist der Verstoß nur im echten Browser unter der echten CSP — der Deep-Link-Lauf
+unten sammelt ihn über `securitypolicyviolation`.
+
+### Kanonische Domain (`SITE_URL`)
+
+Vier Angaben brauchen eine absolute URL und können sie nicht zur Laufzeit
+bilden: `<link rel="canonical">`, `og:url`, `og:image` und die
+`Sitemap:`-Zeile in der robots.txt. Die Domain kommt zur Build-Zeit aus
+`SITE_URL`, sonst aus Vercels `VERCEL_PROJECT_PRODUCTION_URL` (das Vercel
+selbst setzt, auch in Previews, und zwar auf die Produktionsdomain — genau
+richtig, damit ein Preview-canonical auf Production zeigt).
+
+Ist keine Domain bekannt, entfallen canonical, `og:url` und die Sitemap. Das
+ist Absicht: eine geratene Domain wäre schlimmer als keine — ein falsches
+canonical weist Suchmaschinen auf eine fremde Seite. Ein Production-Build auf
+Vercel ohne Domain warnt beim Build.
+
+Preview-Deploys bekommen eine robots.txt, die ALLES sperrt, und keine Sitemap;
+sonst konkurriert jeder Feature-Branch mit der Produktionsdomain um dieselben
+Inhalte. Nur Startseite, `/datenschutz` und `/nutzungsbedingungen` sind
+überhaupt für Crawler freigegeben — alles andere braucht ein Kickbase-Konto und
+liefert ohne Session eine Weiterleitung auf den Login.
 
 `VITE_SUPPORT_URL` gehört in die Vercel-Projekt-Env-Vars — und zwar pro
 Environment, Production und Preview getrennt. Ohne den Wert erscheint die

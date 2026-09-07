@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 // `test`-Block unten. Die Vite-Optionen sind identisch typisiert.
 import { defineConfig } from 'vitest/config';
 import { resolveShortGitSha } from './scripts/gitSha.ts';
+import { resolveSiteOrigin } from './scripts/siteUrl.ts';
 
 /**
  * Vite-Konfiguration für die Web-Auslieferung — seit dem Cutover die einzige.
@@ -19,8 +20,60 @@ const pkg = JSON.parse(readFileSync(path.join(import.meta.dirname, 'package.json
   version: string;
 };
 
+/**
+ * Ergänzt im HTML-Kopf die Angaben, die eine ABSOLUTE URL brauchen und
+ * deshalb nicht statisch in der index.html stehen können: `og:url`,
+ * `<link rel="canonical">` und die Absolutform von `og:image`.
+ *
+ * Warum ein Plugin und kein fester Wert in der index.html: im Repository
+ * steht nirgends eine Produktionsdomain (siehe scripts/siteUrl.ts). Eine
+ * geratene wäre schlimmer als keine — ein falsches canonical weist
+ * Suchmaschinen auf eine fremde Seite, ein falsches `og:image` liefert jedem
+ * Vorschau-Bot einen 404. Die Domain kommt deshalb aus der Umgebung
+ * (`SITE_URL`, sonst `VERCEL_PROJECT_PRODUCTION_URL`), und ohne sie bleibt
+ * das HTML unverändert: relatives `og:image` (das die meisten, nicht alle
+ * Bots auflösen) und gar kein canonical, statt eines falschen.
+ *
+ * `transformIndexHtml` und nicht Vites `%ENV%`-Ersetzung im HTML: die greift
+ * nur für Variablen, die `loadEnv` sieht — also `VITE_*`. Die
+ * Vercel-Systemvariable trägt dieses Präfix nicht, und sie mit einem
+ * `VITE_`-Namen zu spiegeln hieße, sie zusätzlich ins Client-Bundle zu
+ * backen, wo sie niemand braucht.
+ */
+function absoluteMetaUrls() {
+  return {
+    name: 'kickflow-absolute-meta-urls',
+    // `enforce: 'post'`, damit die Ersetzung auf dem HTML läuft, in das Vite
+    // seine Script- und Style-Tags schon eingesetzt hat.
+    enforce: 'post' as const,
+    transformIndexHtml(html: string) {
+      const origin = resolveSiteOrigin();
+      if (!origin) return html;
+
+      return {
+        // Nur dieses eine Attribut, nicht jedes `/`-Vorkommen: die Asset-URLs
+        // sollen relativ bleiben, damit ein Deploy unter einer anderen Domain
+        // (Preview) seine eigenen Dateien lädt.
+        html: html.replace('content="/og-image.png"', `content="${origin}/og-image.png"`),
+        tags: [
+          {
+            tag: 'link',
+            attrs: { rel: 'canonical', href: `${origin}/` },
+            injectTo: 'head' as const,
+          },
+          {
+            tag: 'meta',
+            attrs: { property: 'og:url', content: `${origin}/` },
+            injectTo: 'head' as const,
+          },
+        ],
+      };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), absoluteMetaUrls()],
 
   resolve: {
     alias: {

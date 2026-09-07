@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router';
+import { useDocumentTitle } from '@/app/useDocumentTitle';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { InstallHint } from '@/pwa/InstallHint';
 import styles from './RootLayout.module.css';
@@ -14,6 +15,10 @@ import styles from './RootLayout.module.css';
  * `position: absolute` und braucht einen positionierten Vorfahren. Unter
  * React Native positionierte ihn der nächste View-Parent automatisch.
  *
+ * `useDocumentTitle` hängt aus demselben Grund hier wie der Banner: er soll
+ * für JEDE Route gelten, auch für Login und Liga-Auswahl außerhalb der Tabs.
+ * Den Titel selbst trägt die Route (`handle.title` in routes.tsx).
+ *
  * Der UpdateBanner hängt hier und nicht in einem der Tab-Layouts, weil er
  * jede Route überlagern soll — auch Login und Liga-Auswahl, die außerhalb
  * der Tabs liegen. Er rendert `null`, solange kein Deploy erkannt wurde,
@@ -22,6 +27,8 @@ import styles from './RootLayout.module.css';
  * nur sah sie niemand. `RootLayout.test.tsx` hält das jetzt fest.
  */
 export function RootLayout() {
+  useDocumentTitle();
+
   return (
     <div className={styles.shell}>
       <UpdateBanner />

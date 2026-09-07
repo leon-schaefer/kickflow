@@ -1,14 +1,31 @@
 /**
- * Feste Projekt-Links: Produktseite und Datenschutzerklärung.
+ * Fester Projekt-Link nach außen: die Produktseite.
  *
- * Bewusst Konstanten und keine `EXPO_PUBLIC_*`-Variablen wie SUPPORT_URL
+ * Bewusst eine Konstante und keine `VITE_*`-Variable wie SUPPORT_URL
  * (src/support/supportUrl.ts): der Spenden-Anbieter wechselt pro Umgebung und
- * darf fehlen, diese beiden gehören zum Produkt und müssen in jedem Build
- * dieselben sein. Ein Datenschutz-Link, der je nach Environment verschwindet,
- * wäre für die DSGVO ein Problem.
+ * darf fehlen, die Produktseite gehört zum Produkt und muss in jedem Build
+ * dieselbe sein.
  *
- * Beide Seiten sind Teil von codewithleon.dev und werden dort gepflegt — die
- * App verlinkt nur, sie rendert keine eigene Datenschutzerklärung.
+ * HIER STAND EINMAL AUCH `PRIVACY_URL` und zeigte auf
+ * codewithleon.dev/apps/kickflow-datenschutz/. Die Begründung dafür war, dass
+ * beide Seiten auf codewithleon.dev gepflegt werden und die App nur verlinkt.
+ * Das gilt für die Homepage weiter und für den Datenschutz nicht mehr — die
+ * Erklärung liegt jetzt als eigene Route in der App
+ * (src/legal/PrivacyScreen.tsx, `/datenschutz`), zusammen mit den neuen
+ * Nutzungsbedingungen.
+ *
+ * Der Grund ist nicht Geschmack, sondern dass die Erklärung eine Tabelle
+ * enthält, die aus `src/storage/inventory.ts` kommt und per Test an
+ * `storage/keys.ts` gekoppelt ist: ein neuer localStorage-Schlüssel bricht
+ * `npm test`, solange er dort nicht beschrieben ist. Dieselbe Auskunft auf
+ * einer Seite in einem anderen Repository hätte diese Kopplung nicht — sie
+ * wäre ab dem nächsten neuen Schlüssel still falsch. Dazu kommt: die
+ * installierte PWA läuft standalone, ein externer Link reißt aus der App
+ * heraus und ist offline gar nicht erreichbar.
+ *
+ * Wer die Seite auf codewithleon.dev behält, sollte sie auf `/datenschutz`
+ * weiterleiten — zwei Fassungen derselben Erklärung driften sonst
+ * auseinander, und das ist der Fehler, den es bei einer Rechtsseite nicht
+ * geben darf.
  */
 export const HOMEPAGE_URL = 'https://codewithleon.dev/apps/kickflow/';
-export const PRIVACY_URL = 'https://codewithleon.dev/apps/kickflow-datenschutz/';
