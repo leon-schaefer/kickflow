@@ -78,9 +78,11 @@ export function MoreScreen() {
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>Konto</h2>
             {/*
-             * userName steht nur nach einem frischen Login zur Verfügung — der
-             * AuthProvider stellt aus dem Store lediglich den Token wieder her.
-             * Nach einem Neustart der App ist das Feld null, deshalb der Fallback.
+             * userName wird mit der Session gespeichert und beim Start wieder
+             * eingelesen (siehe tokenStore.StoredSession), überlebt also einen
+             * Neustart. Der Fallback bleibt trotzdem: Sessions von vor dieser
+             * Persistierung tragen den Namen nicht, und die Login-Antwort
+             * liefert ihn nur laut unverifizierter Doku (toAuthSession).
              */}
             <p className={styles.cardBody}>
               {userName ? `Angemeldet als ${userName}.` : 'Mit deinem Kickbase-Konto angemeldet.'}

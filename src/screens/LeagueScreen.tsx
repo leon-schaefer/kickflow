@@ -11,13 +11,14 @@ import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { DEFAULT_RULES, type MaxPerTeamRule } from '@/lineup/rules';
-import { useLeagueRanking, useMatchdays } from '@/queries/hooks';
+import { useLeagueRanking, useLineup, useMatchdays } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
 import { formatCurrency, formatPoints } from '@/utils/format';
 import { resolveMatchdayState } from '@/utils/matchday';
+import { findOwnRankingEntry } from '@/utils/ownRankingEntry';
 import layout from '@/theme/layout.module.css';
 import styles from './LeagueScreen.module.css';
 
@@ -37,16 +38,7 @@ export function LeagueScreen() {
   const competitionId = useCompetitionId();
   const navigate = useNavigate();
   const { userId } = useAuth();
-  const rankingQuery = useLeagueRanking(leagueId);
-  const { data } = rankingQuery;
   const matchdaysQuery = useMatchdays(competitionId);
-  const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
-  const refresh = useRefresh(rankingQuery);
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    return [...data.entries].sort((a, b) => a.seasonPlace - b.seasonPlace);
-  }, [data]);
 
   // Anders als im Restprogramm und im Aufstellungs-Tab zählt hier der
   // LAUFENDE Spieltag zuerst, nicht der nächste offene — das Duell
@@ -60,6 +52,29 @@ export function LeagueScreen() {
     matchdayState?.open?.day ??
     matchdaysQuery.data?.currentDay ??
     null;
+
+  // Läuft der Spieltag, zieht die Tabelle im Hintergrund nach: der Duell-Stand
+  // ist dann der Punktestand von zwei laufenden Elfen und wäre ohne
+  // Pull-to-Refresh minutenlang alt (siehe useLeagueRanking).
+  const rankingQuery = useLeagueRanking(leagueId, undefined, {
+    live: matchdayState?.running != null,
+  });
+  const { data } = rankingQuery;
+  // Nur als Rückfallebene, wenn die eigene User-ID fehlt — siehe
+  // findOwnRankingEntry. Ist sie bekannt, wird der Kader nicht geladen.
+  const lineupQuery = useLineup(leagueId, { enabled: !userId });
+  const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
+  const refresh = useRefresh(rankingQuery);
+
+  const rows = useMemo(() => {
+    if (!data) return [];
+    return [...data.entries].sort((a, b) => a.seasonPlace - b.seasonPlace);
+  }, [data]);
+
+  const ownPlayerIds = useMemo(
+    () => (lineupQuery.data?.players ?? []).map((player) => player.id),
+    [lineupQuery.data],
+  );
 
   const maxPerTeamRule = (rules.find((rule): rule is MaxPerTeamRule => rule.kind === 'maxPerTeam') ??
     DEFAULT_RULES[0]) as MaxPerTeamRule;
@@ -82,7 +97,7 @@ export function LeagueScreen() {
     );
   }
 
-  const own = data.entries.find((e) => e.userId === userId) ?? null;
+  const own = findOwnRankingEntry(data.entries, userId, ownPlayerIds);
   // `h2hOpponentUserId` fehlt in Ligen ohne Duell-Modus komplett (siehe
   // LeagueRankingEntry) — Karte und Zeilen-Hervorhebung entfallen dann lautlos.
   const opponent = own?.h2hOpponentUserId
@@ -125,7 +140,7 @@ export function LeagueScreen() {
                   <li key={entry.userId} className={styles.rowSlot}>
                     <ManagerRow
                       entry={entry}
-                      isOwn={entry.userId === userId}
+                      isOwn={own !== null && entry.userId === own.userId}
                       isOpponent={opponent !== null && entry.userId === opponent.userId}
                       onClick={openManager}
                     />
