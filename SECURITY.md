@@ -12,7 +12,7 @@ Bevorzugt über **Private Vulnerability Reporting** auf GitHub: Reiter
 „Security" → „Report a vulnerability". Der Bericht liegt dann nicht
 öffentlich und die Antwort hängt am Bericht statt in einem Postfach.
 
-Alternativ per Mail an **schaefer_leon@mailbox.org**.
+Alternativ per Mail an **security@kickflow.online**.
 
 Hilfreich im Bericht: welche Fassung (Version und Commit stehen unten im
 Mehr-Tab), welcher Browser, und die Schritte, mit denen es reproduzierbar ist.
