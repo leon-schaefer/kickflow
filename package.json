@@ -1,6 +1,18 @@
 {
   "name": "kickflow",
   "version": "1.0.2",
+  "private": true,
+  "description": "Inoffizieller Kickbase-Companion als React-SPA (Vite + React Router), ausgeliefert als Web-App/PWA.",
+  "license": "Apache-2.0",
+  "author": "Leon Schäfer <schaefer_leon@mailbox.org>",
+  "homepage": "https://codewithleon.dev/apps/kickflow/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leon-schaefer/kickflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/leon-schaefer/kickflow/issues"
+  },
   "type": "module",
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
@@ -36,6 +48,5 @@
     "typecheck": "tsc --noEmit",
     "probe": "tsx scripts/probe.ts",
     "seo": "tsx scripts/write-seo-files.ts"
-  },
-  "private": true
+  }
 }

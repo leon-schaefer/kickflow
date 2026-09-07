@@ -1,14 +1,86 @@
 # kickflow
 
-Kickbase-Companion als React-SPA (Vite + React Router), ausgeliefert
-**ausschließlich als Web-App/PWA** über Vercel. Diese README beschreibt
-Entwicklung und Deployment.
+Der Aufstellungs-Optimizer für die Kickbase-Liga: die beste Elf für den
+nächsten Spieltag — mit dem Restprogramm, mit den Verkäufen, die ein Konto im
+Minus ausgleichen, und mit den Regeln, die in der eigenen Liga vereinbart
+sind. Dazu Markt, Marktwerte, Kader der Mitspieler und die Tabelle. React-SPA
+(Vite + React Router), ausgeliefert **ausschließlich als Web-App/PWA** über
+Vercel. Projektseite: <https://codewithleon.dev/apps/kickflow/>.
 
-Warum keine Store-App: kickflow zeigt Inhalte von Kickbase an (Marktwerte,
-Kader, Vereinslogos) und meldet sich mit dem Kickbase-Konto des Nutzers an.
-Apple verlangt bei der Einreichung die Rechte an genau diesen Inhalten, und
-eine Genehmigung von Kickbase gibt es nicht. Die native Auslieferung — EAS,
-TestFlight, OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
+> **Inoffiziell.** kickflow ist ein privates Projekt und wird weder von der
+> Kickbase GmbH betrieben noch von ihr geprüft oder genehmigt; es besteht
+> keine geschäftliche Verbindung. „Kickbase" ist eine Marke der Kickbase GmbH
+> und steht hier ausschließlich beschreibend. Die App spricht eine nicht
+> öffentlich dokumentierte Schnittstelle an, die sich ohne Ankündigung ändern
+> darf — auch so, dass kickflow von einem Tag auf den anderen nicht mehr
+> funktioniert. Bedingungen und Datenschutzerklärung liegen als Seiten in der
+> App (`/nutzungsbedingungen`, `/datenschutz`, öffentlich und ohne Login).
+
+## Warum der Quelltext offen liegt
+
+Wer kickflow benutzt, tippt sein **Kickbase-Passwort** in ein Formular, das
+nicht von Kickbase kommt. Die Startseite behauptet dazu drei Dinge: die App
+spricht direkt aus dem Browser mit der Kickbase-API, ohne einen Server von
+kickflow dazwischen; Zugangsdaten und Token verlassen das Gerät nur in
+Richtung Kickbase; kein Tracking, keine Analyse, und nachgeladen wird von
+keiner anderen Stelle etwas.
+
+Diese drei Sätze sind der Grund für das offene Repo: hier sind sie
+nachprüfbar statt geglaubt. `src/api/kickbase/client.ts` ist ein `fetch`
+gegen genau eine Basis-URL, `src/auth/` zeigt, was mit Passwort und Token
+passiert, und die Content-Security-Policy in `vercel.json` würde jedes andere
+Ziel im Browser blockieren — `default-src 'self'`, `connect-src` mit
+Kickbase-API und Bilder-CDN, sonst nichts. Ein Versprechen, das man
+nachrechnen kann, ist mehr wert als eines, das man betont.
+
+## Selbst ausprobieren
+
+```bash
+npm ci        # nicht npm install: derselbe Baum wie in CI und bei Vercel
+npm run dev   # Vite Dev-Server
+```
+
+Mehr ist nicht nötig: kein Server, keine Datenbank, keine Secrets, kein
+API-Schlüssel. Angemeldet wird sich mit einem **eigenen** Kickbase-Konto, und
+alles, was die App danach tut, tut sie gegen die echte Liga — es gibt keinen
+Testmodus. Die vollständige Befehlsliste steht unter
+[Entwicklung](#entwicklung).
+
+## Lizenz
+
+[Apache-2.0](LICENSE). Ein Fork darf die App also nehmen, ändern und selbst
+betreiben — nur nicht unter diesem Namen: „kickflow", das Icon und das
+Vorschaubild gibt die Lizenz nicht mit (Apache-2.0 §6). Das ist kein
+juristischer Reflex, sondern folgt aus dem, was die App tut. Sie nimmt fremde
+Kickbase-Zugangsdaten an; wenn zwei Seiten mit demselben Namen und demselben
+Icon danach fragen, kann ein Nutzer nicht mehr entscheiden, welcher er sie
+geben darf.
+
+## Mitmachen, Fehler, Sicherheitslücken
+
+Fehler und Wünsche gehören in ein
+[Issue](https://github.com/leon-schaefer/kickflow/issues), Beiträge in einen
+Pull Request gegen den Default-Branch — was vorher zu lesen ist, steht in
+[CONTRIBUTING.md](CONTRIBUTING.md), die verbindlichen Konventionen in
+[AGENTS.md](AGENTS.md).
+
+**Sicherheitslücken nicht als Issue.** Die App verarbeitet fremde
+Zugangsdaten; der Meldeweg dafür steht in [SECURITY.md](SECURITY.md).
+
+## Warum keine Store-App
+
+kickflow zeigt Inhalte von Kickbase an (Marktwerte, Kader, Vereinslogos) und
+meldet sich mit dem Kickbase-Konto des Nutzers an. Apple verlangt bei der
+Einreichung die Rechte an genau diesen Inhalten, und eine Genehmigung von
+Kickbase gibt es nicht. Die native Auslieferung — EAS, TestFlight,
+OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
+
+---
+
+Alles ab hier beschreibt Entwicklung und Betrieb. Die Abschnitte
+[Branches](#branches) und [Deployment](#deployment) sind Betreiber-Wissen:
+sie setzen Zugriff auf das GitHub-Repo und das Vercel-Projekt voraus und
+gelten nicht für einen Fork.
 
 ## Entwicklung
 
@@ -67,17 +139,24 @@ Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
 JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
 dabei, was dort von Hand verstellt wurde.
 
-Ein Haken bleibt: Rulesets werden auf einem **privaten** Repo erst ab GitHub
-Pro durchgesetzt. Auf Free lässt sich das Ruleset anlegen, es greift aber
-nicht — `--check` zeigt es dann als `active`, ohne dass es etwas verhindert.
-Ohne Pro bleibt nur der Repo-Schalter:
+Ein Haken hing daran, solange das Repo privat war: Rulesets werden auf einem
+**privaten** Repo erst ab GitHub Pro durchgesetzt. Auf Free ließ sich das
+Ruleset anlegen, es griff aber nicht — `--check` zeigte es trotzdem als
+`active`, ohne dass es etwas verhinderte. Auf einem **öffentlichen** Repo
+greifen Rulesets auch im Free-Tarif; mit dem Umschalten ist der Schutz also
+echt geworden, ohne dass sich an der Datei etwas geändert hat. Ein `--check`
+nach dem Umschalten ist trotzdem einen Aufruf wert: er sagt, ob das Ruleset
+überhaupt noch existiert.
+
+Wandert das Repo je zurück auf privat (ohne Pro), bleibt nur der
+Repo-Schalter:
 
 ```bash
 scripts/protect-branches.sh --disable-auto-delete
 ```
 
 Danach bleiben auch die Feature-Branches nach dem Merge stehen und müssen von
-Hand weg. Der Tausch ist trotzdem richtig: ein verlorener `develop` kostet
+Hand weg. Der Tausch wäre trotzdem richtig: ein verlorener `develop` kostet
 mehr als ein bisschen Aufräumen.
 
 Wenn doch mal einer der beiden fehlt, ist er nicht verloren, solange der
