@@ -9,6 +9,12 @@
 # weiter auf PRs gegen develop und main (.github/workflows/pr.yml,
 # vercel-qr.yml), der Branch dahinter existierte danach nicht mehr.
 #
+# Warum genau diese zwei: `main` ist der Default-Branch und damit das, was
+# Vercel nach Production deployt — Production gegen Preview leitet Vercel aus
+# dem Default-Branch ab. `develop` ist der Integrationsbranch, aus dem heraus
+# nach `main` gemerged wird. Feature-Branches hängen darunter und sind
+# Wegwerfware, für die das automatische Löschen genau richtig ist.
+#
 # Ein Branch, der gegen Löschen geschützt ist, wird von der Automatik
 # übersprungen. Das Aufräumen der Feature-Branches bleibt also an, nur
 # develop und main sind ausgenommen — deshalb ein Ruleset und nicht der
@@ -18,6 +24,11 @@
 # Skript schreibt das Ruleset aus .github/rulesets/protected-branches.json
 # über die API. Das JSON ist die Quelle, das Skript nur der Weg dorthin —
 # Änderungen gehören in die Datei, dann Skript erneut laufen lassen.
+#
+# Fehlt einer der beiden Branches trotzdem einmal, ist er nicht verloren,
+# solange der Commit noch über `main` erreichbar ist:
+#
+#   git push origin <sha>:refs/heads/develop
 #
 # Voraussetzungen: gh (eingeloggt, Admin-Rechte auf dem Repo) und jq. Rulesets
 # auf einem *privaten* Repo brauchen mindestens GitHub Pro; auf Free werden
