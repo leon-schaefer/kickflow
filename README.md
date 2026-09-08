@@ -139,24 +139,23 @@ Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
 JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
 dabei, was dort von Hand verstellt wurde.
 
-Ein Haken hing daran, solange das Repo privat war: auf einem **privaten** Repo
-setzt GitHub Rulesets erst in den bezahlten Plänen durch. Anlegen ließ sich das
-Ruleset trotzdem, es griff aber nicht — `--check` zeigte es als `active`, ohne
-dass es etwas verhinderte. Auf einem **öffentlichen** Repo greifen Rulesets in
-jedem Plan; mit dem Umschalten ist der Schutz also echt geworden, ohne dass
-sich an der Datei etwas geändert hat. Ein `--check` nach dem Umschalten ist
-trotzdem einen Aufruf wert: er sagt, ob das Ruleset überhaupt noch existiert.
+`--check` ist der Teil, der sich auch lohnt, wenn nichts kaputt aussieht: er
+sagt, ob das Ruleset noch existiert, ob es `active` ist, ob die
+`deletion`-Regel und beide Branches drinstehen und ob jemand einen Bypass
+bekommen hat. Dazu prüft er, ob die zwei Branches überhaupt existieren — ein
+Ruleset auf einen gelöschten Branch schützt nichts, und genau das war der
+Zustand nach dem Unfall.
 
-Wandert das Repo je zurück auf privat, ohne dass der Plan Rulesets dort
-durchsetzt, bleibt nur der Repo-Schalter:
+Greift das Ruleset einmal nicht, bleibt der Repo-Schalter als das gröbere
+Werkzeug:
 
 ```bash
 scripts/protect-branches.sh --disable-auto-delete
 ```
 
 Danach bleiben auch die Feature-Branches nach dem Merge stehen und müssen von
-Hand weg. Der Tausch wäre trotzdem richtig: ein verlorener `develop` kostet
-mehr als ein bisschen Aufräumen.
+Hand weg. Der Tausch wäre richtig: ein verlorener `develop` kostet mehr als ein
+bisschen Aufräumen.
 
 Wenn doch mal einer der beiden fehlt, ist er nicht verloren, solange der
 Commit noch über `main` erreichbar ist:
