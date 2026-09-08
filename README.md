@@ -139,17 +139,16 @@ Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
 JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
 dabei, was dort von Hand verstellt wurde.
 
-Ein Haken hing daran, solange das Repo privat war: Rulesets werden auf einem
-**privaten** Repo erst ab GitHub Pro durchgesetzt. Auf Free ließ sich das
-Ruleset anlegen, es griff aber nicht — `--check` zeigte es trotzdem als
-`active`, ohne dass es etwas verhinderte. Auf einem **öffentlichen** Repo
-greifen Rulesets auch im Free-Tarif; mit dem Umschalten ist der Schutz also
-echt geworden, ohne dass sich an der Datei etwas geändert hat. Ein `--check`
-nach dem Umschalten ist trotzdem einen Aufruf wert: er sagt, ob das Ruleset
-überhaupt noch existiert.
+Ein Haken hing daran, solange das Repo privat war: auf einem **privaten** Repo
+setzt GitHub Rulesets erst in den bezahlten Plänen durch. Anlegen ließ sich das
+Ruleset trotzdem, es griff aber nicht — `--check` zeigte es als `active`, ohne
+dass es etwas verhinderte. Auf einem **öffentlichen** Repo greifen Rulesets in
+jedem Plan; mit dem Umschalten ist der Schutz also echt geworden, ohne dass
+sich an der Datei etwas geändert hat. Ein `--check` nach dem Umschalten ist
+trotzdem einen Aufruf wert: er sagt, ob das Ruleset überhaupt noch existiert.
 
-Wandert das Repo je zurück auf privat (ohne Pro), bleibt nur der
-Repo-Schalter:
+Wandert das Repo je zurück auf privat, ohne dass der Plan Rulesets dort
+durchsetzt, bleibt nur der Repo-Schalter:
 
 ```bash
 scripts/protect-branches.sh --disable-auto-delete
