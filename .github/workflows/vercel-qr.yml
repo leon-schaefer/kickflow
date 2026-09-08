@@ -26,10 +26,19 @@
 # nach dem Merge trifft nur noch geschlossene PRs und fällt damit raus.
 #
 # Der QR-Code selbst wird von api.qrserver.com gerendert. GitHub erlaubt in
-# Kommentaren keine Inline-SVGs und keine data:-URIs, und raw.githubusercontent
-# scheidet bei einem privaten Repo aus (Camo kommt ohne Token nicht dran) —
-# ein externer Renderer ist der einzige Weg, der ohne Extra-Infrastruktur
-# funktioniert. Die Deployment-URL steht dabei in der Query der Bild-URL.
+# Kommentaren keine Inline-SVGs und keine data:-URIs — ein externer Renderer
+# ist damit der Weg, der ohne Extra-Infrastruktur funktioniert. Die
+# Deployment-URL steht dabei in der Query der Bild-URL, geht also an diesen
+# Dienst.
+#
+# Auf einem privaten Repo war er der EINZIGE Weg (raw.githubusercontent
+# scheidet dort aus, Camo kommt ohne Token nicht dran). Seit das Repo
+# öffentlich ist, wäre ein ins Repo gelegtes PNG eine Alternative — nur
+# müsste man es pro Preview-URL erst erzeugen und einchecken. Solange der
+# Tausch so aussieht, bleibt der Renderer. Preisgegeben wird ohnehin nichts,
+# was der Kommentar nicht selbst öffentlich hinschreibt: die Preview-URL
+# steht im PR-Thread, und der ist auf einem öffentlichen Repo für jeden
+# lesbar.
 
 name: Vercel QR
 
@@ -59,12 +68,26 @@ permissions:
 jobs:
   comment:
     name: QR-Code kommentieren
-    # Bei deployment_status nur der Erfolgsfall mit URL; die pending- und
-    # in_progress-Meldungen tragen noch keine.
+    # Zwei Bedingungen, beide nötig:
+    #
+    # 1. Bei deployment_status nur der Erfolgsfall mit URL; die pending- und
+    #    in_progress-Meldungen tragen noch keine.
+    # 2. Nur Pull Requests aus DIESEM Repo. Bei einem PR aus einem Fork ist
+    #    der GITHUB_TOKEN read-only, `pull-requests: write` unten wird also
+    #    nicht gewährt — der Kommentar-Aufruf scheitert mit 403 und der
+    #    fremde Beitrag bekommt ein rotes Kreuz für etwas, das nichts mit
+    #    seinem Code zu tun hat. Übersprungen ist hier richtig, und es geht
+    #    nichts verloren: Vercel deployt Forks ohnehin nicht von selbst, es
+    #    gibt also gar keine Preview-URL zu verlinken. Die Bedingung ist
+    #    gegen das REPO formuliert, nicht gegen `fork` — ein Branch im
+    #    eigenen Repo bleibt damit abgedeckt, auch wenn er aus einem Fork
+    #    heraus entstanden ist.
     if: >-
-      github.event_name == 'pull_request' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment_status.environment_url != '')
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name == 'pull_request' ||
+       (github.event.deployment_status.state == 'success' &&
+        github.event.deployment_status.environment_url != ''))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v9
