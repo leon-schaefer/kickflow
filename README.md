@@ -77,10 +77,9 @@ OTA-Updates, Fingerprint — ist deshalb komplett entfernt.
 
 ---
 
-Alles ab hier beschreibt Entwicklung und Betrieb. Die Abschnitte
-[Branches](#branches) und [Deployment](#deployment) sind Betreiber-Wissen:
-sie setzen Zugriff auf das GitHub-Repo und das Vercel-Projekt voraus und
-gelten nicht für einen Fork.
+Alles ab hier beschreibt Entwicklung und Betrieb. Der Abschnitt
+[Deployment](#deployment) ist Betreiber-Wissen: er setzt Zugriff auf das
+GitHub-Repo und das Vercel-Projekt voraus und gilt nicht für einen Fork.
 
 ## Entwicklung
 
@@ -102,69 +101,6 @@ Ohne Flag liest der Probe nur. Die Flags `--save-lineup`, `--offers` und
 Gebot abgeben, Spieler auf den Markt stellen) — jeweils so, dass der
 Ausgangszustand danach wiederhergestellt ist. Scheitert das Aufräumen, sagt
 der Probe das laut; dann in der Kickbase-App nachsehen.
-
-## Branches
-
-`main` ist der Default-Branch und damit das, was Vercel nach Production
-deployt; `develop` ist der Integrationsbranch, aus dem heraus nach `main`
-gemerged wird. Beide Workflows filtern genau auf diese zwei Namen
-(`pull_request` gegen `develop` und `main`), Vercel leitet Production vs.
-Preview aus dem Default-Branch ab. Feature-Branches hängen darunter und sind
-Wegwerfware.
-
-Deshalb dürfen `main` und `develop` nicht gelöscht werden — und genau das ist
-schon passiert. GitHubs "Automatically delete head branches" löscht nach einem
-Merge den Head-Branch des Pull Requests. Bei einem Feature-Branch ist das der
-Sinn der Einstellung, bei PR #22 (`develop` -> `main`) war der Head aber
-`develop`. Der Branch war danach weg, während beide Workflows weiter auf ihn
-filterten.
-
-Der Schutz dagegen ist ein Ruleset mit der Regel `deletion` auf
-`refs/heads/main` und `refs/heads/develop`. Ein Branch, den ein Ruleset gegen
-Löschen schützt, wird von der Automatik übersprungen — das Aufräumen der
-Feature-Branches bleibt also an, nur diese zwei sind ausgenommen. Der
-Repo-Schalter wäre das gröbere Werkzeug: er würde alles stehen lassen. Und das
-Ruleset deckt zusätzlich das Löschen von Hand ab, in der UI wie über die API.
-
-Erzwingen lässt sich das nur GitHub-seitig, im Repository liegt nur die
-Vorlage. `.github/rulesets/protected-branches.json` ist die Quelle,
-`scripts/protect-branches.sh` schreibt sie über die API:
-
-```bash
-scripts/protect-branches.sh            # Ruleset anlegen oder aktualisieren
-scripts/protect-branches.sh --check    # nur berichten, nichts ändern
-```
-
-Braucht `gh` (eingeloggt, Admin-Rechte) und `jq`. Änderungen gehören in das
-JSON, nicht in die GitHub-UI: das Skript schreibt per `PUT` und überschreibt
-dabei, was dort von Hand verstellt wurde.
-
-Ein Haken hing daran, solange das Repo privat war: Rulesets werden auf einem
-**privaten** Repo erst ab GitHub Pro durchgesetzt. Auf Free ließ sich das
-Ruleset anlegen, es griff aber nicht — `--check` zeigte es trotzdem als
-`active`, ohne dass es etwas verhinderte. Auf einem **öffentlichen** Repo
-greifen Rulesets auch im Free-Tarif; mit dem Umschalten ist der Schutz also
-echt geworden, ohne dass sich an der Datei etwas geändert hat. Ein `--check`
-nach dem Umschalten ist trotzdem einen Aufruf wert: er sagt, ob das Ruleset
-überhaupt noch existiert.
-
-Wandert das Repo je zurück auf privat (ohne Pro), bleibt nur der
-Repo-Schalter:
-
-```bash
-scripts/protect-branches.sh --disable-auto-delete
-```
-
-Danach bleiben auch die Feature-Branches nach dem Merge stehen und müssen von
-Hand weg. Der Tausch wäre trotzdem richtig: ein verlorener `develop` kostet
-mehr als ein bisschen Aufräumen.
-
-Wenn doch mal einer der beiden fehlt, ist er nicht verloren, solange der
-Commit noch über `main` erreichbar ist:
-
-```bash
-git push origin <sha>:refs/heads/develop
-```
 
 ## Deployment
 

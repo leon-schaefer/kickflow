@@ -97,10 +97,10 @@ Menschen; das ist Absicht.
 
 Ziel-Branch ist der **Default-Branch** des Repos, solange das Issue nichts
 anderes sagt — er ist das, was Vercel nach Production deployt, und der Stand,
-gegen den zuletzt gemerged wurde. Der Abschnitt „Branches" in der
-[README](README.md) erklärt, warum die Branch-Namen hier festgenagelt sind;
-für einen Beitrag genügt: verzweige von dem Branch, den GitHub dir als
-Default anbietet, und stelle den Pull Request auch dorthin.
+gegen den zuletzt gemerged wurde. Für einen Beitrag genügt: verzweige von dem
+Branch, den GitHub dir als Default anbietet, und stelle den Pull Request auch
+dorthin. Warum die Namen hier festgenagelt sind, steht im Kopf von
+`scripts/protect-branches.sh`.
 
 Ein Pull Request beschreibt, was ein Nutzer danach anders erlebt, und was du
 geprüft hast. Vercel baut zu jedem Pull Request eine Preview, deren QR-Code als
