@@ -7,7 +7,7 @@ import {
   TERMS_TITLE,
 } from '@/legal/legalRoutes';
 import { withOrigin } from '@/shell/useBackTarget';
-import { HOMEPAGE_URL } from '@/support/links';
+import { HOMEPAGE_URL, REPOSITORY_URL } from '@/support/links';
 import styles from './LandingScreen.module.css';
 
 /**
@@ -145,6 +145,16 @@ export function LandingScreen() {
           </Link>
           <div className={styles.legal}>
             <ExternalLink url={HOMEPAGE_URL} label="Homepage" compact />
+            <span className={styles.legalSeparator} aria-hidden="true">
+              ·
+            </span>
+            {/*
+             * Der Quellcode ist der Beleg für den Abschnitt darüber: kein
+             * Server, kein Tracking, nichts Nachgeladenes. Das Label nennt
+             * GitHub ausdrücklich — `ExternalLink` öffnet über `window.open`
+             * und zeigt damit keine Ziel-URL, die es sonst verraten würde.
+             */}
+            <ExternalLink url={REPOSITORY_URL} label="Quellcode auf GitHub" compact />
             <span className={styles.legalSeparator} aria-hidden="true">
               ·
             </span>

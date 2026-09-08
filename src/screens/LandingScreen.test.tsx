@@ -1,8 +1,18 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRIVACY_PATH, TERMS_PATH } from '@/legal/legalRoutes';
+import { REPOSITORY_URL } from '@/support/links';
 import { LandingScreen } from './LandingScreen';
+
+const openExternalUrl = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+vi.mock('@/support/openExternalUrl', () => ({ openExternalUrl }));
+
+afterEach(() => {
+  openExternalUrl.mockClear();
+});
 
 function setup() {
   const router = createMemoryRouter(
@@ -64,5 +74,19 @@ describe('LandingScreen', () => {
     // seit es eine öffentliche Startseite gibt, ist SIE die erste Seite, die
     // ein Fremder sieht.
     expect(screen.getByText(/Nicht mit der Kickbase GmbH verbunden/)).toBeInTheDocument();
+  });
+
+  it('verweist auf das öffentliche Repository', async () => {
+    setup();
+    // Der Abschnitt darüber behauptet: kein eigener Server, kein Tracking,
+    // nichts nachgeladen. Nachprüfbar ist das nur am Quellcode — ohne diesen
+    // Link bleiben die drei Sätze ein Versprechen.
+    //
+    // Auf die Ziel-URL geprüft und nicht nur auf den Linktext: `ExternalLink`
+    // öffnet über `window.open`, es gibt also kein `href`, dessen Fehlen im
+    // Browser auffiele. Ein Test auf den Text allein bliebe grün, wenn der
+    // Link auf die Homepage zeigte.
+    await userEvent.click(screen.getByRole('link', { name: 'Quellcode auf GitHub' }));
+    expect(openExternalUrl).toHaveBeenCalledWith(REPOSITORY_URL);
   });
 });
