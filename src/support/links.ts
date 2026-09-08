@@ -42,3 +42,18 @@ export const HOMEPAGE_URL = 'https://codewithleon.dev/apps/kickflow/';
  * Feedback-Formular haben kann.
  */
 export const FEEDBACK_EMAIL = 'feedback@codewithleon.dev';
+
+/**
+ * Das öffentliche Repository. Verlinkt auf der Startseite
+ * (src/screens/LandingScreen.tsx), und zwar im selben Fuß wie die Homepage.
+ *
+ * Für diese Seite ist der Link mehr als ein Verweis: sie wirbt damit, dass
+ * kickflow ohne eigenen Server auskommt, nichts nachlädt und nicht trackt —
+ * drei Behauptungen, die ein Besucher nirgends nachprüfen kann. Am Quellcode
+ * kann er sie prüfen. Ein Absatz über Vertrauen ohne den Link daneben ist die
+ * schwächere Fassung derselben Aussage.
+ *
+ * Nur `owner/repo` und kein Deep-Link auf eine Datei oder einen Branch: der
+ * Pfad wäre der Teil, der beim ersten Umbau still ins Leere zeigt.
+ */
+export const REPOSITORY_URL = 'https://github.com/leon-schaefer/kickflow';

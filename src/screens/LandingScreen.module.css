@@ -187,7 +187,7 @@
 }
 
 .legal {
-  /* Aus zwei Links sind drei geworden (Homepage, Datenschutz,
+  /* Aus zwei Links sind vier geworden (Homepage, Quellcode, Datenschutz,
      Nutzungsbedingungen) — auf 320px passt die Zeile sonst nicht. */
   flex-wrap: wrap;
   composes: h from '@/theme/layout.module.css';
