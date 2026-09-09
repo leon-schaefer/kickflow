@@ -156,10 +156,18 @@ export interface CompetitionPlayer {
   marketValue: number;
   marketValueTrend: MarketValueTrend;
 
-  totalPoints: number;
+  /**
+   * `null` heißt „liefert der Bestand nicht" — und das ist der Normalfall:
+   * `teamprofile` trägt je Spieler nur die Ø-Punkte (siehe
+   * toCompetitionPlayer). Nachgetragen wird die Zahl nur dort, wo eine zweite
+   * Quelle sie ohnehin mitbringt (eigener Kader über `/squad`, siehe
+   * PlayersScreen); angezeigt wird sonst „—" statt einer erfundenen Null.
+   */
+  totalPoints: number | null;
   averagePoints: number;
   valueScoreAvg: number;
-  valueScoreTotal: number;
+  /** `null`, wenn `totalPoints` unbekannt ist — ohne Punkte kein Verhältnis. */
+  valueScoreTotal: number | null;
 
   status: PlayerStatus;
   imageUrl: string | null;

@@ -239,7 +239,22 @@ export function toSquadPlayer(
  */
 export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: string): CompetitionPlayer {
   const marketValue = raw.mv ?? 0;
-  const totalPoints = raw.p ?? raw.tp ?? 0;
+  /**
+   * `null`, nicht `0`: der Bestands-Endpoint trägt die Gesamtpunkte gar nicht.
+   * Seine `it`-Einträge führen je Spieler nur `ap` (Ø Punkte): ap, i, iotm,
+   * lst, mv, mvgl, mvt, n, ofc, pos, sdmvt, st, tid — kein `p`, kein `tp`. So
+   * steht `teamprofile` in der inoffiziellen v4-Doku (kickbase-api-doc,
+   * Swagger 4.5.0), und so verhält sich die echte Antwort auch;
+   * `npm run probe -- --players` legt sie zum Nachsehen ab. Ein `?? 0` daraus
+   * machte aus „weiß ich nicht" ein „hat keine Punkte" und zeigte im
+   * Spieler-Tab für JEDEN Spieler 0 Punkte, während die Ø-Punkte daneben
+   * stimmten.
+   *
+   * Beide Schlüssel bleiben gemappt: der Bestand kann über mehrere Pfade
+   * kommen (siehe TEAM_PLAYER_PATHS), und ein Pfad, der sie doch mitschickt,
+   * soll sie nicht verlieren.
+   */
+  const totalPoints = raw.p ?? raw.tp ?? null;
   const averagePoints = raw.ap ?? 0;
   const fullName = [raw.fn, raw.ln].filter(Boolean).join(' ');
   return {
@@ -254,7 +269,7 @@ export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: s
     totalPoints,
     averagePoints,
     valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
-    valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
+    valueScoreTotal: totalPoints === null ? null : pointsPerMillion(totalPoints, marketValue),
 
     status: mapStatus(raw.st),
     imageUrl: imageUrl(raw.pim),

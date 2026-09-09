@@ -876,6 +876,25 @@ describe('toCompetitionPlayers', () => {
     expect(toCompetitionPlayers({ it: [{ i: '1', tp: 250, mv: 5_000_000 }] }, '2')[0].totalPoints).toBe(250);
   });
 
+  /**
+   * Der Fehler, den die Spielerliste zeigte: `teamprofile` trägt je Spieler
+   * nur `ap`, weder `p` noch `tp`. Als `?? 0` gemappt stand dort für JEDEN
+   * Spieler „0 Punkte", während die Ø-Punkte daneben stimmten — eine Zahl, die
+   * kein Spieler hat, ist schlechter als ein Strich.
+   */
+  it('lässt die Gesamtpunkte unbekannt, wenn der Bestand sie nicht liefert', () => {
+    const [player] = toCompetitionPlayers(
+      { it: [{ i: '1', n: 'Michael Olise', pos: 3, mv: 30_000_000, ap: 120 }] },
+      '2',
+    );
+    expect(player.totalPoints).toBeNull();
+    // Ohne Punkte kein Verhältnis — sonst wäre 0/Mio eine Aussage über den Spieler.
+    expect(player.valueScoreTotal).toBeNull();
+    // Die Ø-Punkte stehen daneben und bleiben davon unberührt.
+    expect(player.averagePoints).toBe(120);
+    expect(player.valueScoreAvg).toBe(4);
+  });
+
   it('normalisiert eine numerische Spieler-ID auf einen String', () => {
     expect(toCompetitionPlayers({ it: [{ i: 4711, pos: 2, mv: 1_000_000 }] }, '2')[0].id).toBe('4711');
   });

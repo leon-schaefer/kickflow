@@ -32,6 +32,12 @@ describe('metricValue', () => {
     expect(metricValue(player, 'pointsPerMinute', undefined)).toBe(0);
     expect(metricValue(player, 'pointsPerMinute', { points: 0, minutes: 0 })).toBe(0);
   });
+
+  it('sortiert unbekannte Gesamtpunkte wie eine fehlende Spielzeit nach unten', () => {
+    const unknown: MetricPlayer = { ...player, totalPoints: null, valueScoreTotal: null };
+    expect(metricValue(unknown, 'totalPoints')).toBe(0);
+    expect(metricValue(unknown, 'totalPerMillion')).toBe(0);
+  });
 });
 
 describe('formatMetric', () => {
@@ -49,6 +55,14 @@ describe('formatMetric', () => {
   it('zeigt "—" statt eines Fake-"0,00" ohne Einsatzminuten', () => {
     expect(formatMetric(player, 'pointsPerMinute', undefined)).toBe('—');
     expect(formatMetric(player, 'pointsPerMinute', { points: 0, minutes: 0 })).toBe('—');
+  });
+
+  it('zeigt "—" statt einer "0", wenn die Quelle keine Gesamtpunkte liefert', () => {
+    // Der Bestand des Spieler-Tabs trägt sie nicht (siehe CompetitionPlayer) —
+    // eine 0 dort wäre von echten 0 Punkten nicht zu unterscheiden.
+    const unknown: MetricPlayer = { ...player, totalPoints: null, valueScoreTotal: null };
+    expect(formatMetric(unknown, 'totalPoints')).toBe('—');
+    expect(formatMetric(unknown, 'totalPerMillion')).toBe('—');
   });
 });
 

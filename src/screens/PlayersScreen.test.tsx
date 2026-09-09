@@ -52,10 +52,12 @@ function makePlayer(id: string, name: string, marketValue: number): CompetitionP
     teamId: '2',
     marketValue,
     marketValueTrend: 'up',
-    totalPoints: 400,
+    // Wie in der echten Antwort: der Vereinskader trägt nur die Ø-Punkte,
+    // die Gesamtpunkte bleiben unbekannt (siehe toCompetitionPlayer).
+    totalPoints: null,
+    valueScoreTotal: null,
     averagePoints: 120,
     valueScoreAvg: 12,
-    valueScoreTotal: 40,
     status: 'fit',
     imageUrl: null,
   };
@@ -107,7 +109,9 @@ beforeEach(() => {
     makePlayer('3', 'Kimmich', 8_000_000),
   ];
   players.error = null;
-  lineup.data = { players: [squadPlayer({ id: '2', name: 'Wirtz' })] } as LineupData;
+  lineup.data = {
+    players: [squadPlayer({ id: '2', name: 'Wirtz', totalPoints: 512 })],
+  } as LineupData;
   market.data = { players: [], marketValueUpdateAt: null };
   playtimeState.pending = 0;
   playtimeState.total = 0;
@@ -160,6 +164,46 @@ describe('PlayersScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Mein Kader' }));
     expect(screen.getByRole('button', { name: 'Punkte/Min' })).toBeInTheDocument();
+  });
+
+  it('bietet Punkte und Gesamt-Punkte/Mio NUR mit Kader-Filter an', async () => {
+    setup();
+    // Der Bestand liefert keine Gesamtpunkte (siehe toCompetitionPlayer) —
+    // über alle ~500 Spieler wäre der Chip eine Spalte aus „—", vorher stand
+    // dort für jeden Spieler eine erfundene 0.
+    expect(screen.queryByRole('button', { name: 'Punkte' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gesamt-Punkte/Mio' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mein Kader' }));
+    expect(screen.getByRole('button', { name: 'Punkte' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gesamt-Punkte/Mio' })).toBeInTheDocument();
+  });
+
+  it('trägt die Gesamtpunkte aus den Kaderdaten nach', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Mein Kader' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Punkte' }));
+
+    // Die 512 stehen NUR in den Kaderdaten — aus dem Bestand kommt für
+    // denselben Spieler `totalPoints: null`.
+    const wirtz = screen.getByRole('button', { name: /Wirtz/ });
+    expect(within(wirtz).getByText('512')).toBeInTheDocument();
+  });
+
+  it('setzt eine Punkte-Sortierung zurück, wenn der Kader-Filter fällt', async () => {
+    setup();
+    const squadToggle = screen.getByRole('button', { name: 'Mein Kader' });
+
+    await userEvent.click(squadToggle);
+    await userEvent.click(screen.getByRole('button', { name: 'Punkte' }));
+    await userEvent.click(squadToggle);
+
+    // Sonst stünde die Sortierung über einer Spalte, die es ohne Kader nicht gibt.
+    expect(screen.queryByRole('button', { name: 'Punkte' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Marktwert' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('setzt eine Punkte/Min-Sortierung zurück, wenn der Kader-Filter fällt', async () => {
