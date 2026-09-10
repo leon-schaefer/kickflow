@@ -626,6 +626,8 @@ export function LineupScreen() {
                 market={marketPlayers}
                 advice={replacement}
                 marketPending={!marketQuery.data}
+                rules={optimizer.rules}
+                onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}
                 onSelectPlayer={(player) => navigate(`/${leagueId}/player/${player.id}`, origin)}
                 onBid={setOfferTarget}
               />

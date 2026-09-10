@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
+import { describeRule, type LineupRule } from '@/lineup/rules';
 import { statusLabels } from '@/theme/tokens';
 import { formatCurrency, formatValueScore } from '@/utils/format';
 import { describeReplacement, type ReplacementAdvice } from '@/utils/replacementAdvice';
@@ -22,6 +23,15 @@ interface BuyAdviceSectionProps {
    * Aussage, keine vorläufige.
    */
   marketPending?: boolean;
+  /**
+   * Die Liga-Regeln (inkl. deaktivierter, siehe src/lineup/rules.ts) — nur um
+   * einen von einer Regel blockierten Kandidaten zu BENENNEN. Die Regel wirkt
+   * längst, bevor diese Liste entsteht: der Optimizer rechnet unter ihr
+   * (`ReplacementAdvice.blockedByRule`).
+   */
+  rules?: readonly LineupRule[];
+  /** Führt zum Regel-Screen. Ohne Handler bleibt der Hinweis ohne Ausweg. */
+  onOpenRules?: () => void;
   onSelectPlayer?: (player: MarketPlayer) => void;
   /** Öffnet den Gebots-Dialog. Ohne Handler bleibt die Sektion reine Analyse. */
   onBid?: (player: MarketPlayer) => void;
@@ -31,6 +41,17 @@ interface BuyAdviceSectionProps {
 function gapLabel(count: number): string {
   return count === 1 ? '1 Ausfall' : `${count} Ausfälle`;
 }
+
+function blockedLabel(count: number): string {
+  return count === 1 ? '1 Spieler wird' : `${count} Spieler werden`;
+}
+
+/**
+ * Wie viele blockierte Kandidaten namentlich in der Liste stehen. Ein Markt
+ * mit acht Listings desselben Vereins würde die Sektion sonst überschwemmen —
+ * und der Hinweis will die Regel erklären, nicht sie widerlegen.
+ */
+const BLOCKED_SHOWN = 3;
 
 /**
  * Die Kaufseite des Optimizers: welche Ausfälle im Kader wehtun, wer sie vom
@@ -50,6 +71,8 @@ export function BuyAdviceSection({
   market,
   advice,
   marketPending = false,
+  rules = [],
+  onOpenRules,
   onSelectPlayer,
   onBid,
 }: BuyAdviceSectionProps) {
@@ -62,6 +85,11 @@ export function BuyAdviceSection({
   const best = advice.bestGainId ? marketById.get(advice.bestGainId) : undefined;
   const bestOption = advice.options.find((option) => option.playerId === advice.bestGainId);
   const urgentGaps = advice.gaps.filter((gap) => gap.breaksLineup || gap.loss > 0);
+
+  // Die Regeln, die tatsächlich einen Kandidaten aus der Elf halten — nicht
+  // alle aktiven. Dieselbe Auflösung ID → Klartext wie in der OptimizerBar.
+  const blockingRuleIds = new Set(advice.blockedByRule.flatMap((entry) => entry.blockedByRuleIds));
+  const blockingRules = rules.filter((rule) => blockingRuleIds.has(rule.id));
 
   return (
     <div className={styles.container}>
@@ -98,7 +126,11 @@ export function BuyAdviceSection({
               ? 'Transfermarkt wird geladen …'
               : advice.consideredCount === 0
                 ? 'Kein einsatzfähiger Spieler am Transfermarkt.'
-                : `Kein Zukauf verbessert die Elf (${advice.consideredCount} geprüft).`}
+                : advice.blockedByRule.length > 0
+                  ? // Der Fall, in dem Schweigen am meisten verwirrt: es gäbe
+                    // einen Zugewinn, nur verbietet ihn eine eigene Regel.
+                    `${blockedLabel(advice.blockedByRule.length)} von deinen Regeln aus der Elf gehalten · kein anderer Zukauf verbessert sie.`
+                  : `Kein Zukauf verbessert die Elf (${advice.consideredCount} geprüft).`}
         </span>
       </button>
 
@@ -139,7 +171,9 @@ export function BuyAdviceSection({
                 ? 'Transfermarkt wird geladen …'
                 : advice.consideredCount === 0
                   ? 'Am Transfermarkt steht gerade kein einsatzfähiger Spieler.'
-                  : 'Keiner der gelisteten Spieler würde die Elf verbessern.'}
+                  : advice.blockedByRule.length > 0
+                    ? 'Kein gelisteter Spieler würde die Elf verbessern, solange deine Regeln gelten.'
+                    : 'Keiner der gelisteten Spieler würde die Elf verbessern.'}
             </p>
           ) : (
             advice.options.map((option) => {
@@ -159,6 +193,50 @@ export function BuyAdviceSection({
                 </div>
               );
             })
+          )}
+
+          {/*
+            Kein Vorschlag, sondern eine Erklärung: die Regel ist hart, und ein
+            Spieler, der nicht spielen darf, bringt keine Punkte. Ohne diesen
+            Block fehlte der beste Stürmer der Liga kommentarlos in der Liste.
+          */}
+          {advice.blockedByRule.length > 0 && (
+            <div className={styles.blocked}>
+              <p className={styles.blockedTitle}>
+                {blockingRules.length > 0
+                  ? `${blockingRules.map(describeRule).join(', ')} — deshalb nicht empfohlen:`
+                  : 'Von einer aktiven Liga-Regel aus der Elf gehalten:'}
+              </p>
+              {advice.blockedByRule.slice(0, BLOCKED_SHOWN).map((entry) => {
+                const player = marketById.get(entry.playerId);
+                if (!player) return null;
+                return (
+                  <p key={entry.playerId} className={styles.blockedRow}>
+                    <span className={styles.blockedName}>{player.name}</span>
+                    <span className={styles.gapNote}>
+                      +{formatValueScore(entry.gainWithoutRule)} Ø-Punkte ohne die Regel ·{' '}
+                      {formatCurrency(player.price)}
+                    </span>
+                  </p>
+                );
+              })}
+              {advice.blockedByRule.length > BLOCKED_SHOWN && (
+                <p className={styles.blockedRow}>
+                  <span className={styles.gapNote}>
+                    und {advice.blockedByRule.length - BLOCKED_SHOWN} weitere
+                  </span>
+                </p>
+              )}
+              {onOpenRules && (
+                <button
+                  type="button"
+                  className={cx(layout.pressable, styles.blockedAction)}
+                  onClick={onOpenRules}
+                >
+                  Regeln ansehen ›
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

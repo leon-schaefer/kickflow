@@ -40,20 +40,27 @@ function squad(overrides: Partial<SquadPlayer>[] = []): SquadPlayer[] {
   return players.map((player, index) => ({ ...player, ...overrides[index] }));
 }
 
-function setup(players: SquadPlayer[], market: MarketPlayer[]) {
+function setup(
+  players: SquadPlayer[],
+  market: MarketPlayer[],
+  constraints?: { maxPerTeam: number },
+) {
   const onBid = vi.fn();
   const onSelectPlayer = vi.fn();
-  const advice = deriveReplacementAdvice({ players, market, metric: 'points' });
+  const onOpenRules = vi.fn();
+  const advice = deriveReplacementAdvice({ players, market, metric: 'points', constraints });
   render(
     <BuyAdviceSection
       players={players}
       market={market}
       advice={advice}
+      rules={[{ kind: 'maxPerTeam', id: 'maxPerTeam', enabled: true, max: 2 }]}
+      onOpenRules={onOpenRules}
       onBid={onBid}
       onSelectPlayer={onSelectPlayer}
     />,
   );
-  return { onBid, onSelectPlayer, advice };
+  return { onBid, onSelectPlayer, onOpenRules, advice };
 }
 
 function toggle() {
@@ -141,6 +148,34 @@ describe('BuyAdviceSection', () => {
     await userEvent.click(toggle());
     expect(screen.getByText('★ bester Zugewinn')).toBeInTheDocument();
     expect(screen.getByText('⚡ effizientester')).toBeInTheDocument();
+  });
+
+  /**
+   * Die Regel wirkt längst in der Rechnung (siehe
+   * src/utils/replacementAdvice.test.ts) — hier geht es darum, dass man sie
+   * SIEHT. Ohne diesen Hinweis fehlt der beste Spieler am Markt kommentarlos
+   * in der Liste, und niemand kann erkennen warum.
+   */
+  it('erklärt einen von der Vereins-Obergrenze geblockten Spieler', async () => {
+    // Zwei starke Spieler desselben Vereins in der Elf, ein dritter am Markt.
+    const players = squad().map((player) =>
+      player.id === 'MID0' || player.id === 'MID1'
+        ? { ...player, teamId: 'BAY', averagePoints: 200 }
+        : { ...player, teamId: `T-${player.id}` },
+    );
+    const market = [marketPlayer({ name: 'Harry Kane', teamId: 'BAY', averagePoints: 120 })];
+    const { advice, onOpenRules } = setup(players, market, { maxPerTeam: 2 });
+
+    expect(advice.blockedByRule).toHaveLength(1);
+    expect(screen.getByText(/1 Spieler wird von deinen Regeln aus der Elf gehalten/)).toBeInTheDocument();
+
+    await userEvent.click(toggle());
+    expect(screen.getByText(/Max. 2 Spieler pro Verein — deshalb nicht empfohlen/)).toBeInTheDocument();
+    expect(screen.getByText('Harry Kane')).toBeInTheDocument();
+    expect(screen.getByText(/Ø-Punkte ohne die Regel/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Regeln ansehen/ }));
+    expect(onOpenRules).toHaveBeenCalled();
   });
 
   it('öffnet über den Knopf das Gebot, über die Zeile das Spielerprofil', async () => {

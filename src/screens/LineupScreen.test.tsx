@@ -87,6 +87,8 @@ vi.mock('@/leagues/useBudgetLimit', () => ({ useBudgetLimit: () => null }));
 const rulesValue = vi.hoisted(() => ({
   rules: [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: false, max: 3 }] as never[],
 }));
+/** Der Ausgangszustand von `rulesValue.rules` — beforeEach stellt ihn wieder her. */
+const DEFAULT_RULES = rulesValue.rules;
 const excludedValue = vi.hoisted(() => ({
   excludedIds: new Set<string>(),
   toggleExcluded: vi.fn(),
@@ -168,6 +170,10 @@ beforeEach(() => {
   // Der Markt speist die Kaufempfehlung (BuyAdviceSection) — leer als
   // Voreinstellung, damit ein Test ihn nicht für den nächsten stehen lässt.
   market.data = { players: [], marketValueUpdateAt: null };
+  // Ein Test, der eine Regel einschaltet, darf sie nicht für den nächsten
+  // stehen lassen. Weiter EIN stabiles Array pro Render — nur ausgetauscht,
+  // nicht pro Aufruf neu gebaut (siehe Kommentar am Mock).
+  rulesValue.rules = DEFAULT_RULES;
   matchdays.data = openSchedule();
   saveLineup.isPending = false;
   saveLineup.mutateAsync.mockReset().mockResolvedValue(undefined);
@@ -420,6 +426,48 @@ describe('LineupScreen', () => {
 
     // Der Dialog ist derselbe wie im Markt-Tab (OfferModal, per Portal am body).
     expect(screen.getByRole('dialog', { name: 'Gebot für Nico Bauer' })).toBeInTheDocument();
+  });
+
+  /**
+   * Die Liga-Regel muss auf BEIDEN Seiten des Optimizers gelten. Dass der
+   * Kaufvorschlag unter derselben Schranke rechnet wie die angezeigte Elf,
+   * hängt an einer Verdrahtung (`optimizer.constraints` → useReplacementAdvice)
+   * und ist genau deshalb hier geprüft und nicht nur in den Unit-Tests.
+   *
+   * Im Mock-Kader stehen vier Spieler bei Verein '1', darunter mit Jannik Voss
+   * (150 Ø-Punkte) und Leon Krause (140) die zwei besten des Kaders. Unter
+   * „max. 2 pro Verein" ist die Quote damit von Spielern gefüllt, die stärker
+   * sind als der Kandidat — er kommt nicht aufs Feld und ist keine Empfehlung.
+   */
+  it('hält die Vereins-Obergrenze auch beim Zukauf ein', async () => {
+    rulesValue.rules = [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 2 }] as never[];
+    market.data = {
+      players: [marketPlayer({ name: 'Nico Bauer', teamId: '1', averagePoints: 120 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.queryByText(/Bester Ersatz/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/1 Spieler wird von deinen Regeln aus der Elf gehalten/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+    expect(
+      screen.getByText(/Max. 2 Spieler pro Verein — deshalb nicht empfohlen/),
+    ).toBeInTheDocument();
+  });
+
+  it('empfiehlt denselben Spieler, sobald er bei einem anderen Verein steht', async () => {
+    rulesValue.rules = [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 2 }] as never[];
+    // Verein '99' kommt im Mock-Kader nicht vor — die Quote ist dort frei.
+    market.data = {
+      players: [marketPlayer({ name: 'Nico Bauer', teamId: '99', averagePoints: 120 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toBeInTheDocument();
   });
 
   it('nennt die Ausfälle des Kaders, auch ohne Ersatz am Markt', async () => {

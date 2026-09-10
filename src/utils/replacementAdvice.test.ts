@@ -68,6 +68,26 @@ function baseSquad(
   return players;
 }
 
+/**
+ * Kader für die Regel-Tests: jeder Spieler bei einem EIGENEN Verein, damit die
+ * Vereins-Obergrenze nur dort greift, wo der Test sie greifen lassen will —
+ * bei MID0/MID1, die beide bei 'BAY' stehen und mit 100/99 Ø-Punkten die
+ * Quote von 2 mit Spielern füllen, die stärker sind als jeder Kandidat.
+ */
+function squadWithFullTeamQuota(): OptimizerPlayer[] {
+  const players = baseSquad({
+    MID: [
+      { averagePoints: 100, valueScoreAvg: 100 },
+      { averagePoints: 99, valueScoreAvg: 99 },
+    ],
+  });
+  return players.map((player) =>
+    player.id === 'MID0' || player.id === 'MID1'
+      ? { ...player, teamId: 'BAY' }
+      : { ...player, teamId: `T-${player.id}` },
+  );
+}
+
 function advise(
   players: OptimizerPlayer[],
   market: ReplacementCandidatePlayer[],
@@ -267,6 +287,97 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
 
     expect(unconstrained.options).toHaveLength(1);
     expect(constrained.options.some((option) => option.playerId === 'M-neu')).toBe(false);
+  });
+
+  /**
+   * Der realistische Fall: ein Kader mit Spielern aus vielen Vereinen, davon
+   * zwei vom selben — und die zwei sind BESSER als jeder Kandidat. Nur dann
+   * ist ein dritter Spieler dieses Vereins wirklich blockiert. Gegen zwei
+   * schwache Vereinskollegen wäre er es NICHT: der Optimizer verdrängt dann
+   * einfach einen von ihnen, und die Regel ist gar nicht das Hindernis. (Erste
+   * Fassung dieses Tests lag genau daran falsch.)
+   */
+  it('empfiehlt bei voller Vereinsquote den Spieler eines anderen Vereins', () => {
+    const players = squadWithFullTeamQuota();
+    const market = [
+      makeCandidate({ id: 'BAY-neu', position: 'MID', averagePoints: 50, teamId: 'BAY' }),
+      makeCandidate({ id: 'BVB-neu', position: 'MID', averagePoints: 50, teamId: 'BVB' }),
+    ];
+    const constraints = { maxPerTeam: 2 };
+
+    const result = deriveReplacementAdvice({ players, market, metric: 'points', constraints });
+
+    expect(result.options.map((option) => option.playerId)).toEqual(['BVB-neu']);
+    // Ohne die Regel wären beide gleich gut — sie ist der ganze Unterschied.
+    const open = deriveReplacementAdvice({ players, market, metric: 'points' });
+    expect(open.options.map((option) => option.playerId).sort()).toEqual(['BAY-neu', 'BVB-neu']);
+  });
+
+  it('benennt den von der Regel geblockten Kandidaten samt entgangenem Zugewinn', () => {
+    const players = squadWithFullTeamQuota();
+    const market = [makeCandidate({ id: 'BAY-neu', position: 'MID', averagePoints: 50, teamId: 'BAY' })];
+
+    const result = deriveReplacementAdvice({
+      players,
+      market,
+      metric: 'points',
+      constraints: { maxPerTeam: 2 },
+    });
+
+    expect(result.options).toHaveLength(0);
+    expect(result.blockedByRule).toHaveLength(1);
+    expect(result.blockedByRule[0]!.playerId).toBe('BAY-neu');
+    expect(result.blockedByRule[0]!.blockedByRuleIds).toEqual(['maxPerTeam']);
+    // Genau der Zugewinn, den die unbeschränkte Rechnung für ihn ausweist —
+    // die Zahl, die die Regel den Nutzer kostet.
+    const open = deriveReplacementAdvice({ players, market, metric: 'points' });
+    expect(result.blockedByRule[0]!.gainWithoutRule).toBe(open.options[0]!.gain);
+    expect(result.blockedByRule[0]!.gainWithoutRule).toBeGreaterThan(0);
+  });
+
+  it('nennt einen schwachen Kandidaten NICHT als von der Regel geblockt', () => {
+    // Er käme auch ohne Regel in keine Elf — die Regel ist nicht sein Problem.
+    const players = squadWithFullTeamQuota();
+    const market = [
+      makeCandidate({ id: 'BAY-schwach', position: 'MID', averagePoints: 1, teamId: 'BAY' }),
+    ];
+
+    const result = deriveReplacementAdvice({
+      players,
+      market,
+      metric: 'points',
+      constraints: { maxPerTeam: 2 },
+    });
+
+    expect(result.options).toHaveLength(0);
+    expect(result.blockedByRule).toHaveLength(0);
+  });
+
+  it('sortiert die Geblockten nach dem, was sie ohne die Regel gebracht hätten', () => {
+    const players = squadWithFullTeamQuota();
+    const market = [
+      makeCandidate({ id: 'BAY-mittel', position: 'MID', averagePoints: 40, teamId: 'BAY' }),
+      makeCandidate({ id: 'BAY-stark', position: 'MID', averagePoints: 60, teamId: 'BAY' }),
+    ];
+
+    const result = deriveReplacementAdvice({
+      players,
+      market,
+      metric: 'points',
+      constraints: { maxPerTeam: 2 },
+    });
+
+    expect(result.blockedByRule.map((entry) => entry.playerId)).toEqual([
+      'BAY-stark',
+      'BAY-mittel',
+    ]);
+  });
+
+  it('meldet ohne aktive Regel nie eine Blockade', () => {
+    const players = baseSquad();
+    const market = [makeCandidate({ id: 'M-schwach', position: 'MID', averagePoints: 1 })];
+
+    expect(advise(players, market).blockedByRule).toEqual([]);
   });
 
   it('reicht den Budgetrahmen an die Gebotsempfehlung durch', () => {

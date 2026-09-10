@@ -62,6 +62,23 @@ export function isUnconstrained(constraints: LineupConstraints): boolean {
   return constraints.maxPerTeam === Infinity;
 }
 
+/**
+ * IDs der Regeln, die diese Schranken überhaupt erzeugen können — der Rückweg
+ * von `toConstraints`. Wer feststellt, dass eine Auswahl nur wegen der
+ * Schranken scheitert, kann damit sagen, WELCHE Regel dafür verantwortlich
+ * ist, ohne selbst über Schranken-Felder zu urteilen.
+ *
+ * Mit heute einer Regeldimension ist die Antwort eindeutig. Kommt eine zweite
+ * dazu, muss der Aufrufer je Regel einzeln relaxieren und neu lösen — dann
+ * liefert diese Funktion die Kandidatenliste dafür.
+ *
+ * Genutzt von constrainedLineup.ts (welche Regel eine Formation blockiert) und
+ * von utils/replacementAdvice.ts (welche Regel einen Zukauf aus der Elf hält).
+ */
+export function constrainingRuleIds(constraints: LineupConstraints): LineupRule['id'][] {
+  return constraints.maxPerTeam < Infinity ? ['maxPerTeam'] : [];
+}
+
 export function describeRule(rule: LineupRule): string {
   switch (rule.kind) {
     case 'maxPerTeam':

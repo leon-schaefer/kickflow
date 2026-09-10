@@ -1,5 +1,10 @@
 import type { Position } from '@/api/kickbase';
-import { UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
+import {
+  constrainingRuleIds,
+  isUnconstrained,
+  UNCONSTRAINED_CONSTRAINTS,
+  type LineupConstraints,
+} from '@/lineup/rules';
 import { deriveBidAdvice, type BidAdvice } from './bidAdvice';
 import { optimizeLineupWithRules } from './constrainedLineup';
 import { AVAILABLE_FORMATIONS } from './formations';
@@ -21,12 +26,22 @@ import { median } from './median';
  * — eine vollständige Neuoptimierung je Kandidat (`optimizeLineupWithRules`,
  * also inklusive Liga-Regeln wie der Vereins-Obergrenze). Das ist teurer als
  * eine Heuristik und dafür exakt: es berücksichtigt automatisch, dass ein
- * Ersatz nichts bringt, wenn die Bank den Ausfall schon auffängt, dass ein
- * Formationswechsel einen Zugewinn erst möglich macht, und dass ein dritter
- * Bayern-Spieler unter aktiver Regel gar nicht spielen darf. Bei ~25
- * Kaderspielern und ~30 Listings sind das ~30 Optimierungen — der Grund,
- * warum der Aufrufer das Ergebnis memoisiert (siehe
- * src/lineup/useReplacementAdvice.ts).
+ * Ersatz nichts bringt, wenn die Bank den Ausfall schon auffängt, und dass ein
+ * Formationswechsel einen Zugewinn erst möglich macht. Bei ~25 Kaderspielern
+ * und ~30 Listings sind das ~30 Optimierungen — der Grund, warum der Aufrufer
+ * das Ergebnis memoisiert (siehe src/lineup/useReplacementAdvice.ts).
+ *
+ * DIE LIGA-REGELN GELTEN HIER GENAUSO HART wie bei der Aufstellung, und aus
+ * demselben Grund: eine Empfehlung, die eine Regel bricht, empfiehlt Punkte,
+ * die es nicht gibt. Darf höchstens zwei Spieler eines Vereins aufs Feld, dann
+ * bringt der dritte nichts — die Neuoptimierung oben rechnet das automatisch
+ * mit, denn sie läuft unter denselben Schranken wie die angezeigte Elf. Weil
+ * ihn stillschweigend weglassen aber nicht erklärt, WARUM der beste Stürmer
+ * der Liga fehlt, wird für jeden so abgelehnten Kandidaten ein zweites Mal
+ * OHNE Schranken gerechnet: hätte er ohne die Regel geholfen, steht er als
+ * `blockedByRule` mit genau dem Zugewinn da, den die Regel kostet. Damit kann
+ * die Anzeige die Wahl benennen, statt sie zu verschweigen — die Regel selbst
+ * bleibt unangetastet.
  *
  * DIE METRIK ENTSCHEIDET HIER NUR ÜBER DIE SORTIERUNG, nicht über die
  * Messgröße. Der Zugewinn wird immer in Ø-Punkten (bzw. erwarteten Punkten)
@@ -95,12 +110,37 @@ export interface ReplacementOption {
   enablesLineup: boolean;
 }
 
+/**
+ * Ein Marktspieler, der die Elf verbessern WÜRDE, den eine aktive Liga-Regel
+ * aber nicht aufs Feld lässt (siehe src/lineup/rules.ts).
+ *
+ * Er ist kein Vorschlag — die Regel ist hart, und ein Spieler, der nicht
+ * spielen darf, bringt keine Punkte. Er wird trotzdem benannt, weil die
+ * Alternative Schweigen wäre: der beste Stürmer der Liga steht am Markt, die
+ * Kaufliste erwähnt ihn nicht, und niemand kann sehen warum. Genau dieselbe
+ * Diagnose macht die OptimizerBar für blockierte Formationen
+ * (`FormationResult.blockedByRuleIds`).
+ */
+export interface RuleBlockedCandidate {
+  playerId: string;
+  /** Zugewinn, den er OHNE die Regel gebracht hätte — was die Regel hier kostet. */
+  gainWithoutRule: number;
+  /** IDs der Regeln, die dafür verantwortlich sind (siehe `constrainingRuleIds`). */
+  blockedByRuleIds: string[];
+}
+
 export interface ReplacementAdvice {
   gaps: SquadGap[];
   /** Summe der Verluste aller Ausfälle — die Punkte, um die es beim Nachkaufen geht. */
   totalLoss: number;
   /** Kandidaten mit echtem Zugewinn, sortiert nach der aktiven Metrik (siehe Modul-Doku). */
   options: ReplacementOption[];
+  /**
+   * Kandidaten, die nur eine aktive Liga-Regel aus der Elf hält, absteigend
+   * nach dem Zugewinn, den sie ohne die Regel gebracht hätten. Immer leer,
+   * solange keine Regel aktiv ist.
+   */
+  blockedByRule: RuleBlockedCandidate[];
   /** Größter absoluter Zugewinn — „am besten". */
   bestGainId: string | null;
   /** Größter Zugewinn je Mio — „am effizientesten". */
@@ -254,7 +294,20 @@ export function deriveReplacementAdvice({
     (player) => !squadIds.has(player.id) && isAvailableForLineup(player.status),
   );
 
+  // Zweite Bezugsgröße, NUR wenn eine Regel aktiv ist: dieselbe Rechnung ohne
+  // Schranken. Sie beantwortet für einen abgelehnten Kandidaten die Frage
+  // "hätte er ohne die Regel geholfen?" exakt, statt sie zu schätzen — und sie
+  // ist der billige Pfad: ohne Schranken delegiert optimizeLineupWithRules an
+  // das reine Sortier-Verfahren in lineupOptimizer.ts, nicht an die DP.
+  const ruleIds = constrainingRuleIds(constraints);
+  const rulesActive = !isUnconstrained(constraints);
+  const openBaselineScore = rulesActive
+    ? (optimizeLineupWithRules(players, scoreMetric, formations, UNCONSTRAINED_CONSTRAINTS).best
+        ?.score ?? null)
+    : baselineScore;
+
   const options: ReplacementOption[] = [];
+  const blockedByRule: RuleBlockedCandidate[] = [];
   for (const candidate of candidates) {
     const withCandidate = optimizeLineupWithRules(
       [...players, candidate],
@@ -267,7 +320,27 @@ export function deriveReplacementAdvice({
     const gain = baselineScore === null ? withScore : withScore - baselineScore;
     // Nur echte Verbesserungen. Ein Kandidat, der die Elf nicht anhebt, ist
     // keine Kaufempfehlung — er wäre nur eine teurere Bank.
-    if (gain <= 0) continue;
+    if (gain <= 0) {
+      if (!rulesActive) continue;
+      // Läge er ohne die Regel vorn, ist nicht er das Problem, sondern sie.
+      const withoutRule = optimizeLineupWithRules(
+        [...players, candidate],
+        scoreMetric,
+        formations,
+        UNCONSTRAINED_CONSTRAINTS,
+      );
+      const openScore = withoutRule.best?.score ?? null;
+      if (openScore === null) continue;
+      const openGain = openBaselineScore === null ? openScore : openScore - openBaselineScore;
+      if (openGain > 0) {
+        blockedByRule.push({
+          playerId: candidate.id,
+          gainWithoutRule: openGain,
+          blockedByRuleIds: ruleIds,
+        });
+      }
+      continue;
+    }
 
     const bid = deriveBidAdvice({
       price: candidate.price,
@@ -306,6 +379,9 @@ export function deriveReplacementAdvice({
     gaps,
     totalLoss: gaps.reduce((sum, gap) => sum + gap.loss, 0),
     options: options.sort(metric === 'valuePerMillion' ? compareByEfficiency : compareByGain),
+    blockedByRule: blockedByRule.sort(
+      (a, b) => b.gainWithoutRule - a.gainWithoutRule || a.playerId.localeCompare(b.playerId),
+    ),
     bestGainId,
     bestEfficiencyId,
     baselineScore,
