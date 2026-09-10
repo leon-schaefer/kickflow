@@ -34,8 +34,10 @@ import styles from './LandingScreen.module.css';
  * Was hier steht, muss der App entsprechen. Jeder Punkt unten ist eine
  * Funktion, die es gibt: der Optimizer je Formation
  * (src/lineup/useLineupOptimizer.ts), der Verkaufsplan gegen ein negatives
- * Konto (src/utils/sellPlan.ts), die liga-eigenen Regeln (src/lineup/rules.ts)
- * und das Restprogramm (src/utils/fixtureDifficulty.ts). Eine Zeile, die mehr
+ * Konto (src/utils/sellPlan.ts), der Ersatz für Ausfälle samt Gebotsempfehlung
+ * (src/utils/replacementAdvice.ts, src/utils/bidAdvice.ts), die liga-eigenen
+ * Regeln (src/lineup/rules.ts) und das Restprogramm
+ * (src/utils/fixtureDifficulty.ts). Eine Zeile, die mehr
  * verspricht, ist hier teurer als anderswo — sie steht am Anfang und wird
  * sofort geprüft.
  */
@@ -81,6 +83,14 @@ export function LandingScreen() {
               <p className={styles.featureBody}>
                 kickflow sucht die Verkäufe, die dein Defizit decken und die Elf am wenigsten
                 schwächen — statt dass du raten musst, wer gehen kann.
+              </p>
+            </li>
+            <li className={styles.feature}>
+              <h3 className={styles.featureTitle}>Spieler verletzt? Ersatz vom Markt.</h3>
+              <p className={styles.featureBody}>
+                kickflow rechnet für jeden gelisteten Spieler aus, wie viele Punkte deine Elf mit
+                ihm gewinnt — und nennt den besten, den effizientesten und das Gebot, mit dem du
+                ihn bekommst, ohne dich zu überzahlen.
               </p>
             </li>
             <li className={styles.feature}>

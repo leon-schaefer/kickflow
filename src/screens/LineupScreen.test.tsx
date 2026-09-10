@@ -7,6 +7,7 @@ import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
 import { mockLineupData } from '@/mock/mockLineup';
 import { fakeLayout } from '@/test/fakeLayout';
+import { marketPlayer } from '@/test/marketPlayer';
 import pitchStyles from '@/components/Pitch.module.css';
 import { LineupScreen } from './LineupScreen';
 
@@ -44,6 +45,14 @@ const listPlayer = vi.hoisted(() => ({
   mutateAsync: vi.fn().mockResolvedValue(undefined),
   isPending: false,
 }));
+const placeOffer = vi.hoisted(() => ({
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+}));
+const removeOffer = vi.hoisted(() => ({
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+}));
 
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
@@ -58,6 +67,11 @@ vi.mock('@/queries/hooks', () => ({
   // (er rendert erst bei `open` etwas, siehe MarketListingModal) — sein
   // Mutations-Hook läuft damit in jedem Render mit.
   useListPlayerOnMarket: () => listPlayer,
+  // Wie der Listing-Dialog hängt auch der Gebots-Dialog der Kaufempfehlung
+  // dauerhaft im Baum (siehe OfferModal) — seine Mutations-Hooks laufen damit
+  // in jedem Render mit, auch wenn kein Spieler ausgewählt ist.
+  usePlaceOffer: () => placeOffer,
+  useRemoveOffer: () => removeOffer,
 }));
 vi.mock('@/leagues/useCompetitionId', () => ({ useCompetitionId: () => '1' }));
 const currentLeague = vi.hoisted(() => ({ id: '42', name: 'Kickerrunde', budget: 5_000_000 }));
@@ -151,6 +165,9 @@ beforeEach(() => {
   fakeLayout();
   lineup.data = mockLineupData;
   lineup.error = null;
+  // Der Markt speist die Kaufempfehlung (BuyAdviceSection) — leer als
+  // Voreinstellung, damit ein Test ihn nicht für den nächsten stehen lässt.
+  market.data = { players: [], marketValueUpdateAt: null };
   matchdays.data = openSchedule();
   saveLineup.isPending = false;
   saveLineup.mutateAsync.mockReset().mockResolvedValue(undefined);
@@ -379,6 +396,41 @@ describe('LineupScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Regeln|Keine Regeln aktiv/ }));
     expect(router.state.location.pathname).toBe('/42/rules');
+  });
+
+  /**
+   * Die Kaufseite hängt am selben Optimizer wie die Verkaufsseite, holt ihre
+   * Kandidaten aber aus der Markt-Query. Hier geht es nur um dieses
+   * Zusammenspiel — die Rechnung liegt in src/utils/replacementAdvice.test.ts,
+   * die Sektion in src/components/BuyAdviceSection.test.tsx.
+   */
+  it('empfiehlt einen Zukauf vom Markt und öffnet dafür den Gebots-Dialog', async () => {
+    // 200 Ø-Punkte im Mittelfeld — im Mock-Kader liefert der beste 150, der
+    // Zugewinn ist also unabhängig von der gewählten Formation echt.
+    market.data = {
+      players: [marketPlayer({ averagePoints: 200, marketValue: 5_000_000 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Gebot für Nico Bauer abgeben' }));
+
+    // Der Dialog ist derselbe wie im Markt-Tab (OfferModal, per Portal am body).
+    expect(screen.getByRole('dialog', { name: 'Gebot für Nico Bauer' })).toBeInTheDocument();
+  });
+
+  it('nennt die Ausfälle des Kaders, auch ohne Ersatz am Markt', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+
+    // Der Mock-Kader hat drei nicht einsatzfähige Spieler, alle auf der Bank:
+    // Marco Fels (verletzt), Fabian Roth (gesperrt), Youssef Amara (abwesend).
+    // Keiner stünde in der Elf, also warnt die Kopfzeile auch nicht.
+    expect(screen.getAllByText(/ohne Folgen — die Bank fängt ihn auf/)).toHaveLength(3);
+    expect(screen.queryByText(/Ausfälle in der Elf/)).not.toBeInTheDocument();
   });
 
   it('zeigt den Fehler der Aufstellung mit einem Weg zurück', async () => {

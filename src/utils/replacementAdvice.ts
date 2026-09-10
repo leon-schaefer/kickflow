@@ -1,0 +1,316 @@
+import type { Position } from '@/api/kickbase';
+import { UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
+import { deriveBidAdvice, type BidAdvice } from './bidAdvice';
+import { optimizeLineupWithRules } from './constrainedLineup';
+import { AVAILABLE_FORMATIONS } from './formations';
+import { isAvailableForLineup, type OptimizerMetric, type OptimizerPlayer } from './lineupOptimizer';
+import { median } from './median';
+
+/**
+ * Die Kaufseite des Aufstellungs-Optimizers: WELCHEN Spieler vom Markt hole
+ * ich, wenn einer meiner eigenen ausfällt — und was ist er mir wert?
+ *
+ * Das Gegenstück zu utils/sellAdvice.ts, und bewusst nach einem anderen
+ * Verfahren. Die Verkaufsseite kann sich auf die Differenz zweier
+ * Optimal-Elfen stützen, weil beide Elfen aus demselben Kader kommen. Für
+ * einen Zukauf gibt es diesen Vergleich nicht: der Spieler ist noch nicht da.
+ * Gemessen wird deshalb direkt, was er ändern WÜRDE —
+ *
+ *     Zugewinn = beste Elf mit ihm im Kader − beste Elf ohne ihn
+ *
+ * — eine vollständige Neuoptimierung je Kandidat (`optimizeLineupWithRules`,
+ * also inklusive Liga-Regeln wie der Vereins-Obergrenze). Das ist teurer als
+ * eine Heuristik und dafür exakt: es berücksichtigt automatisch, dass ein
+ * Ersatz nichts bringt, wenn die Bank den Ausfall schon auffängt, dass ein
+ * Formationswechsel einen Zugewinn erst möglich macht, und dass ein dritter
+ * Bayern-Spieler unter aktiver Regel gar nicht spielen darf. Bei ~25
+ * Kaderspielern und ~30 Listings sind das ~30 Optimierungen — der Grund,
+ * warum der Aufrufer das Ergebnis memoisiert (siehe
+ * src/lineup/useReplacementAdvice.ts).
+ *
+ * DIE METRIK ENTSCHEIDET HIER NUR ÜBER DIE SORTIERUNG, nicht über die
+ * Messgröße. Der Zugewinn wird immer in Ø-Punkten (bzw. erwarteten Punkten)
+ * gemessen, auch wenn der Optimizer auf Ø-Punkte/Mio steht: die Effizienz
+ * eines ZUKAUFS ist Zugewinn je Mio GEBOT, nicht die Quotientensumme über die
+ * Elf. Genau diese Unterscheidung steht in lineupOptimizer.ts als Rangfolge
+ * der Zielwerte — Punkte sind das Ziel, Effizienz ist das Transfer-Signal.
+ * Beides ist hier gleichzeitig sichtbar: `bestGainId` beantwortet „wer ist am
+ * besten", `bestEfficiencyId` „wer ist am effizientesten", und beide dürfen
+ * verschiedene Spieler nennen.
+ */
+
+/**
+ * Die Feldmenge, die ein Marktkandidat über `OptimizerPlayer` hinaus braucht
+ * — `MarketPlayer` (src/api/kickbase/types.ts) erfüllt sie strukturell.
+ */
+export interface ReplacementCandidatePlayer extends OptimizerPlayer {
+  /** Angebotspreis des Verkäufers, nicht der Marktwert. */
+  price: number;
+  isBotListing: boolean;
+  offerCount: number;
+  expiresInSeconds: number | null;
+}
+
+/** Ein Ausfall im eigenen Kader — der Anlass, überhaupt nachzukaufen. */
+export interface SquadGap {
+  playerId: string;
+  position: Position;
+  /**
+   * Was die Optimalelf durch den Ausfall verliert. 0 heißt: er würde ohnehin
+   * nicht starten, die Bank fängt ihn auf — kein Grund für einen Zukauf.
+   */
+  loss: number;
+  /**
+   * true, wenn die Elf ohne ihn überhaupt nicht mehr besetzbar ist. Dann ist
+   * `loss` keine Differenz mehr (es gibt keine Elf, von der man abziehen
+   * könnte), sondern 0 — die Dringlichkeit steckt in diesem Flag.
+   */
+  breaksLineup: boolean;
+}
+
+export interface ReplacementOption {
+  playerId: string;
+  /**
+   * Zugewinn der Optimalelf in Ø-Punkten. Bei nicht besetzbarer Ausgangself
+   * (`ReplacementAdvice.baselineFeasible === false`) ist es stattdessen der
+   * Punktwert der Elf, die er erst möglich macht — vergleichbar innerhalb der
+   * Liste, aber keine Differenz.
+   */
+  gain: number;
+  /** Zugewinn je Mio des Preises, den der Zukauf kostet — die Effizienz des Transfers. */
+  gainPerMillion: number;
+  /** Woran `gainPerMillion` gerechnet ist: das empfohlene Gebot, sonst die Wettbewerbs-Untergrenze. */
+  cost: number;
+  bid: BidAdvice;
+  /** Die Formation der Elf MIT ihm — kann von der bisherigen abweichen. */
+  formation: string | null;
+  /** Wer durch ihn aus der Elf fällt. Leer, wenn er eine unbesetzte Position füllt. */
+  replacesPlayerIds: string[];
+  /**
+   * Ausfälle, deren Position er abdeckt — der direkte Ersatz. Nur Ausfälle,
+   * die die Elf wirklich schwächen; ein verletzter Bankspieler zählt nicht.
+   */
+  coversGapPlayerIds: string[];
+  /** true, wenn die Elf erst mit ihm überhaupt besetzbar ist. */
+  enablesLineup: boolean;
+}
+
+export interface ReplacementAdvice {
+  gaps: SquadGap[];
+  /** Summe der Verluste aller Ausfälle — die Punkte, um die es beim Nachkaufen geht. */
+  totalLoss: number;
+  /** Kandidaten mit echtem Zugewinn, sortiert nach der aktiven Metrik (siehe Modul-Doku). */
+  options: ReplacementOption[];
+  /** Größter absoluter Zugewinn — „am besten". */
+  bestGainId: string | null;
+  /** Größter Zugewinn je Mio — „am effizientesten". */
+  bestEfficiencyId: string | null;
+  /** Punktwert der Elf ohne Zukauf, Bezugsgröße jedes `gain`. `null` = nicht besetzbar. */
+  baselineScore: number | null;
+  baselineFeasible: boolean;
+  /** Ø-Punkte/Mio, die der eigene Kader im Median liefert — Basis jeder Wertobergrenze. */
+  referenceValueScore: number;
+  /** Wie viele Listings überhaupt geprüft wurden (nach Abzug eigener und ausgefallener). */
+  consideredCount: number;
+}
+
+/**
+ * Was der Zukauf mit der Elf macht, in einem Satz — die sportliche Hälfte der
+ * Begründung, neben der preislichen aus `BidAdvice.reason`.
+ *
+ * Hier und nicht in der Komponente, aus demselben Grund wie `SellAdvice.reason`:
+ * die Fallunterscheidung ist Logik (füllt eine Lücke / ersetzt einen Ausfall /
+ * verdrängt einen Gesunden) und gehört in ein testbares Modul. `nameById`
+ * liefert Anzeigenamen; für eine unbekannte ID fällt der Satz auf die
+ * allgemeine Formulierung zurück, statt eine ID anzuzeigen.
+ */
+export function describeReplacement(
+  option: ReplacementOption,
+  nameById: (id: string) => string | undefined,
+): string {
+  const names = (ids: readonly string[]) =>
+    ids.map(nameById).filter((name): name is string => !!name);
+
+  if (option.enablesLineup) {
+    return 'Macht die Elf überhaupt erst besetzbar.';
+  }
+  const covered = names(option.coversGapPlayerIds);
+  if (covered.length > 0) {
+    return `Direkter Ersatz für ${covered.join(', ')} — dieselbe Position.`;
+  }
+  const replaced = names(option.replacesPlayerIds);
+  if (replaced.length === 1) {
+    return `Kommt für ${replaced[0]} in die Elf.`;
+  }
+  if (replaced.length > 1) {
+    return `Verändert die Elf an ${replaced.length} Stellen (${replaced.join(', ')}).`;
+  }
+  return 'Hebt die Elf an, ohne einen Ausfall zu ersetzen.';
+}
+
+export interface ReplacementAdviceInput {
+  players: readonly OptimizerPlayer[];
+  /** Der Transfermarkt der Liga. Eigene (schon gelistete) Spieler dürfen drin bleiben, sie fallen hier heraus. */
+  market: readonly ReplacementCandidatePlayer[];
+  /** Die aktive Optimizer-Metrik — bestimmt Messgröße (Punkte vs. erwartete Punkte) und Sortierung. */
+  metric: OptimizerMetric;
+  formations?: readonly string[];
+  constraints?: LineupConstraints;
+  /** `BudgetLimit.available`, siehe utils/budget.ts. `null` = unbekannt, dann wird kein Gebot gedeckelt. */
+  available?: number | null;
+}
+
+/**
+ * Ø-Punkte oder erwartete Punkte — nie Ø-Punkte/Mio. Siehe Modul-Doku: die
+ * Effizienz eines Zukaufs entsteht erst durch die Division mit dem Preis.
+ */
+function scoreMetricFor(metric: OptimizerMetric): OptimizerMetric {
+  return metric === 'expectedPoints' ? 'expectedPoints' : 'points';
+}
+
+function compareByGain(a: ReplacementOption, b: ReplacementOption): number {
+  return (
+    b.gain - a.gain ||
+    b.gainPerMillion - a.gainPerMillion ||
+    a.playerId.localeCompare(b.playerId)
+  );
+}
+
+function compareByEfficiency(a: ReplacementOption, b: ReplacementOption): number {
+  return (
+    b.gainPerMillion - a.gainPerMillion ||
+    b.gain - a.gain ||
+    a.playerId.localeCompare(b.playerId)
+  );
+}
+
+/**
+ * Effizienz-Maßstab des eigenen Kaders: der Median der Ø-Punkte/Mio über die
+ * Spieler, die tatsächlich spielen (die Optimalelf). Bewusst nicht über den
+ * ganzen Kader — Bankspieler drücken den Median und würden jeden Zukauf zu
+ * teuer erscheinen lassen. Ist keine Elf besetzbar, bleiben alle
+ * einsatzfähigen Spieler als Rückfall.
+ */
+function squadEfficiency(players: readonly OptimizerPlayer[], bestXiIds: readonly string[]): number {
+  const inXi = new Set(bestXiIds);
+  const relevant = bestXiIds.length > 0
+    ? players.filter((p) => inXi.has(p.id))
+    : players.filter((p) => isAvailableForLineup(p.status));
+  return median(relevant.map((p) => p.valueScoreAvg));
+}
+
+export function deriveReplacementAdvice({
+  players,
+  market,
+  metric,
+  formations = AVAILABLE_FORMATIONS,
+  constraints = UNCONSTRAINED_CONSTRAINTS,
+  available = null,
+}: ReplacementAdviceInput): ReplacementAdvice {
+  const scoreMetric = scoreMetricFor(metric);
+  const baseline = optimizeLineupWithRules(players, scoreMetric, formations, constraints);
+  const baselineScore = baseline.best?.score ?? null;
+  const baselineFeasible = baseline.best !== null;
+  const baselineIds = baseline.best?.playerIds ?? [];
+  const referenceValueScore = squadEfficiency(players, baselineIds);
+
+  // Ein Ausfall ist so teuer, wie die Elf MIT ihm besser wäre. Das ist keine
+  // Schätzung, sondern dieselbe Optimierung ein zweites Mal — nur mit `fit`
+  // statt seines echten Status. Kostet eine Optimierung je Ausfall; in einem
+  // echten Kader sind das null bis drei.
+  const gaps: SquadGap[] = players
+    .filter((player) => !isAvailableForLineup(player.status))
+    .map((player) => {
+      const asFit = players.map((p) => (p.id === player.id ? { ...p, status: 'fit' as const } : p));
+      const withHim = optimizeLineupWithRules(asFit, scoreMetric, formations, constraints);
+      const withScore = withHim.best?.score ?? null;
+      return {
+        playerId: player.id,
+        position: player.position,
+        loss:
+          baselineScore !== null && withScore !== null ? Math.max(0, withScore - baselineScore) : 0,
+        breaksLineup: !baselineFeasible && withScore !== null,
+      };
+    });
+
+  // Nur Ausfälle, die WEHTUN, machen einen Kandidaten zum „direkten Ersatz".
+  // Ein verletzter Bankspieler teilt zwar die Position, aber ihn zu ersetzen
+  // ist keine Aufgabe — die Elf hat ihn nie gebraucht. Alle Ausfälle bleiben
+  // in `gaps` sichtbar, samt ihrer Folgenlosigkeit.
+  const gapPositions = new Map<Position, string[]>();
+  for (const gap of gaps) {
+    if (gap.loss <= 0 && !gap.breaksLineup) continue;
+    const list = gapPositions.get(gap.position);
+    if (list) list.push(gap.playerId);
+    else gapPositions.set(gap.position, [gap.playerId]);
+  }
+
+  const squadIds = new Set(players.map((p) => p.id));
+  // Eigene Listings (die tauchen im Markt mit auf) und ausgefallene Kandidaten
+  // fallen heraus: der eine ist schon da, der andere hilft am Spieltag nicht.
+  // Ein verletzter Kandidat käme über `optimizeLineupWithRules` ohnehin mit
+  // Zugewinn 0 heraus — ihn hier zu überspringen spart nur die Optimierung.
+  const candidates = market.filter(
+    (player) => !squadIds.has(player.id) && isAvailableForLineup(player.status),
+  );
+
+  const options: ReplacementOption[] = [];
+  for (const candidate of candidates) {
+    const withCandidate = optimizeLineupWithRules(
+      [...players, candidate],
+      scoreMetric,
+      formations,
+      constraints,
+    );
+    const withScore = withCandidate.best?.score ?? null;
+    if (withScore === null) continue;
+    const gain = baselineScore === null ? withScore : withScore - baselineScore;
+    // Nur echte Verbesserungen. Ein Kandidat, der die Elf nicht anhebt, ist
+    // keine Kaufempfehlung — er wäre nur eine teurere Bank.
+    if (gain <= 0) continue;
+
+    const bid = deriveBidAdvice({
+      price: candidate.price,
+      marketValue: candidate.marketValue,
+      offerCount: candidate.offerCount,
+      isBotListing: candidate.isBotListing,
+      expiresInSeconds: candidate.expiresInSeconds,
+      averagePoints: candidate.averagePoints,
+      referenceValueScore,
+      available,
+    });
+    // Am Budget gedeckelte Gebote dürfen die Effizienz nicht schönrechnen —
+    // deshalb die Wettbewerbs-Untergrenze als Rückfall und nicht das gekürzte
+    // Gebot. `competitiveBid` ist immer ≥ Angebotspreis, also nie zu billig.
+    const cost = bid.verdict === 'kein-budget' || bid.cappedByBudget ? bid.competitiveBid : bid.bid!;
+
+    const withIds = new Set(withCandidate.best!.playerIds);
+    options.push({
+      playerId: candidate.id,
+      gain,
+      gainPerMillion: cost > 0 ? gain / (cost / 1_000_000) : 0,
+      cost,
+      bid,
+      formation: withCandidate.best!.formation,
+      replacesPlayerIds: baselineIds.filter((id) => !withIds.has(id)),
+      coversGapPlayerIds: gapPositions.get(candidate.position) ?? [],
+      enablesLineup: !baselineFeasible,
+    });
+  }
+
+  const bestGainId = options.length > 0 ? [...options].sort(compareByGain)[0]!.playerId : null;
+  const bestEfficiencyId =
+    options.length > 0 ? [...options].sort(compareByEfficiency)[0]!.playerId : null;
+
+  return {
+    gaps,
+    totalLoss: gaps.reduce((sum, gap) => sum + gap.loss, 0),
+    options: options.sort(metric === 'valuePerMillion' ? compareByEfficiency : compareByGain),
+    bestGainId,
+    bestEfficiencyId,
+    baselineScore,
+    baselineFeasible,
+    referenceValueScore,
+    consideredCount: candidates.length,
+  };
+}

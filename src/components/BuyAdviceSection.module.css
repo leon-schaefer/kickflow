@@ -1,0 +1,93 @@
+/*
+ * Rahmen und Kopfzeile bewusst wie SellAdviceSection.module.css: die beiden
+ * Sektionen stehen untereinander auf demselben Screen und sind zwei Hälften
+ * derselben Entscheidung.
+ */
+
+.container {
+  composes: v from '@/theme/layout.module.css';
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.header {
+  padding: var(--space-md);
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
+  color: var(--color-text-primary);
+}
+
+.summary {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
+
+.warning {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  border-top: 1px solid var(--color-border);
+}
+
+.disclaimer {
+  margin: 0;
+  padding-inline: var(--space-md);
+  padding-block: var(--space-xs);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+/* Die Ausfälle als eigener Block über der Liste: sie sind der Anlass, nicht
+   eine der Empfehlungen. */
+.gaps {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-xs);
+  padding-inline: var(--space-md);
+  padding-block: var(--space-sm);
+  border-block: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.gapRow {
+  composes: h from '@/theme/layout.module.css';
+  margin: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.gapName {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.gapNote {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}
+
+.rowWrap:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-md);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-secondary);
+}
