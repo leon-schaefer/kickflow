@@ -111,8 +111,13 @@ const MIN_STALL_MS = 250;
  * Eine Runde durch einen eigenen `MessageChannel` — dieselbe Primitive, an
  * der React hängt (siehe Dateikopf). Der Kanal wird pro Sonde neu angelegt
  * und über die Closure am Leben gehalten, bis die Nachricht ankommt.
+ *
+ * Exportiert nur für den einen Test, der die eingebaute Sonde selbst benutzt:
+ * er muss WISSEN, wann ihre Runde durch ist, statt es an einem Timer zu
+ * schätzen — Timer und `MessagePort` sind zwei verschiedene Aufgabenquellen
+ * ohne garantierte Reihenfolge (siehe resumeGuard.test.ts).
  */
-function messageChannelProbe(onDrained: () => void): void {
+export function messageChannelProbe(onDrained: () => void): void {
   const channel = new MessageChannel();
   channel.port1.onmessage = () => {
     channel.port1.close();
