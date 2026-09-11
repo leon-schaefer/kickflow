@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  messageChannelProbe,
   startResumeGuard,
   type ResumeGuardDocument,
   type ResumeGuardWindow,
@@ -248,18 +249,38 @@ describe('startResumeGuard', () => {
    * eingereichten: er hält fest, dass sie durch einen ECHTEN `MessageChannel`
    * läuft und dass ihre Rückmeldung wirklich beim Wächter ankommt. Die
    * Verdrahtung ist der Teil, den die Fakes oben nicht prüfen können.
+   *
+   * `messageChannelProbe` ist deshalb die echte Sonde aus der Produktion, nur
+   * mit einem Haken daran, der dem Test sagt, WANN ihre Runde durch ist. Das
+   * ist keine Bequemlichkeit: vorher wartete der Test eine Makrotask
+   * (`setTimeout(0)`) ab und nahm an, die Nachricht sei bis dahin da. Timer
+   * und `MessagePort` sind aber zwei verschiedene Aufgabenquellen ohne
+   * garantierte Reihenfolge — unter Last (voll parallel laufende Suite) kam
+   * der Timer zuerst, die Sonde stand beim Tap noch offen, und der Wächter
+   * schlug völlig korrekt Alarm. Der Test war rot, der Code nicht.
    */
   it('bleibt mit der eingebauten MessageChannel-Sonde still', async () => {
     const doc = createTarget();
     const win = createTarget();
     const onStalled = vi.fn();
     let clock = 1_000_000;
+    let probeDone!: () => void;
+    const probed = new Promise<void>((resolve) => {
+      probeDone = resolve;
+    });
 
     startResumeGuard({
       doc: doc as unknown as ResumeGuardDocument,
       win: win as unknown as ResumeGuardWindow,
       now: () => clock,
       onStalled,
+      probe: (onDrained) =>
+        messageChannelProbe(() => {
+          // Erst den Wächter bedienen, dann den Test wecken — sonst könnte er
+          // weiterlaufen, bevor die Rückmeldung angekommen ist.
+          onDrained();
+          probeDone();
+        }),
     });
 
     doc.visibilityState = 'hidden';
@@ -268,8 +289,8 @@ describe('startResumeGuard', () => {
     doc.visibilityState = 'visible';
     doc.emit('visibilitychange');
 
-    // Eine Makrotask abwarten — so lange braucht die Runde durch den Kanal.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Auf die Sonde selbst warten, nicht auf einen Timer daneben.
+    await probed;
     clock += 2_000;
     win.emit('pointerdown');
 

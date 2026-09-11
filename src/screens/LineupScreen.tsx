@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import type { Position, SquadPlayer } from '@/api/kickbase';
+import type { MarketPlayer, Position, SquadPlayer } from '@/api/kickbase';
+import { BuyAdviceSection } from '@/components/BuyAdviceSection';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MarketListingModal } from '@/components/MarketListingModal';
+import { OfferModal } from '@/components/OfferModal';
 import { OptimizerBar } from '@/components/OptimizerBar';
 import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
@@ -20,6 +22,7 @@ import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
 import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
+import { useReplacementAdvice } from '@/lineup/useReplacementAdvice';
 import {
   useLeagues,
   useLineup,
@@ -61,6 +64,15 @@ import styles from './LineupScreen.module.css';
 
 /** Wie viele kommende Spieltage in die 'expectedPoints'-Metrik einfließen (siehe fixtureDifficulty.ts). */
 const FIXTURE_LOOKAHEAD = 5;
+
+/*
+ * Stabile Leer-Listen als Modul-Konstanten. Ein `?? []` an der Aufrufstelle
+ * erzeugt bei JEDEM Render eine neue Referenz und entwertet damit die
+ * Memoisierung in useLineupOptimizer/useReplacementAdvice — bei der Kaufseite
+ * ist das keine Kosmetik, dort hängt eine Optimierung pro Listing daran.
+ */
+const NO_SQUAD_PLAYERS: SquadPlayer[] = [];
+const NO_MARKET_PLAYERS: MarketPlayer[] = [];
 
 export function LineupScreen() {
   const leagueId = useLeagueId();
@@ -113,6 +125,10 @@ export function LineupScreen() {
   // (siehe usePurchases), also erst holen, wenn die Liste wirklich offen ist.
   const [sellAdviceOpen, setSellAdviceOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Gebots-Dialog der Kaufempfehlung — derselbe wie im Markt-Tab. Er hängt wie
+  // die Verkaufsseite bewusst NICHT am Edit-Modus: ein Ausfall will auch nach
+  // der Aufstellungs-Deadline ersetzt werden, das nächste Spiel kommt.
+  const [offerTarget, setOfferTarget] = useState<MarketPlayer | null>(null);
 
   // Kaufpreise für die Kaufen/Verkaufen-Liste — ein Request PRO Kaderspieler
   // (siehe usePurchases), deshalb erst wenn die Liste aufgeklappt ist.
@@ -161,12 +177,26 @@ export function LineupScreen() {
   }, [matchdaysQuery.data, data, matchdayState]);
 
   const optimizer = useLineupOptimizer(
-    data?.players ?? [],
+    data?.players ?? NO_SQUAD_PLAYERS,
     draftIds,
     budgetLimit?.deficit ?? 0,
     rules,
     fixtureDifficultyByTeam,
     excludedIds,
+  );
+
+  // Die Kaufseite. `optimizer.constraints` und `optimizer.metric` bewusst
+  // durchgereicht statt hier neu abgeleitet: der Zugewinn eines Zukaufs wird
+  // gegen die ANGEZEIGTE Elf gemessen, also muss er unter denselben Schranken
+  // rechnen — inklusive eines Session-„Ignorieren" (siehe useReplacementAdvice).
+  const marketPlayers = marketQuery.data?.players ?? NO_MARKET_PLAYERS;
+  const replacement = useReplacementAdvice(
+    data?.players ?? NO_SQUAD_PLAYERS,
+    marketPlayers,
+    optimizer.metric,
+    optimizer.constraints,
+    budgetLimit?.available ?? null,
+    fixtureDifficultyByTeam,
   );
 
   const fallbackDeadlineMs = data ? msUntil(data.lineupDeadline) : null;
@@ -589,6 +619,19 @@ export function LineupScreen() {
                 onExpandedChange={setSellAdviceOpen}
               />
 
+              {/* Direkt unter der Verkaufsseite: erst „wer muss weg", dann „wer
+                  kommt dafür". Beide unabhängig vom Edit-Modus. */}
+              <BuyAdviceSection
+                players={data.players}
+                market={marketPlayers}
+                advice={replacement}
+                marketPending={!marketQuery.data}
+                rules={optimizer.rules}
+                onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}
+                onSelectPlayer={(player) => navigate(`/${leagueId}/player/${player.id}`, origin)}
+                onBid={setOfferTarget}
+              />
+
               {/* Portal nach document.body (siehe Modal.tsx) — liegt hier nur
                   im Baum, nicht im Refreshable-Wisch. */}
               <MarketListingModal
@@ -598,6 +641,10 @@ export function LineupScreen() {
                 plan={optimizer.budgetPlan}
                 budget={league?.budget ?? 0}
               />
+
+              {/* Derselbe Dialog wie im Markt-Tab, ebenfalls per Portal am
+                  document.body. `null` heißt zu — er rendert dann nichts. */}
+              <OfferModal player={offerTarget} onClose={() => setOfferTarget(null)} />
 
               {editing && (
                 <div className={styles.saveBar}>

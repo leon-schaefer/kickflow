@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SquadPlayer } from '@/api/kickbase';
 import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
-import { DEFAULT_RULES, toConstraints, violatedRules, type LineupRule } from '@/lineup/rules';
+import {
+  DEFAULT_RULES,
+  toConstraints,
+  violatedRules,
+  type LineupConstraints,
+  type LineupRule,
+} from '@/lineup/rules';
 import { optimizeLineupWithRules } from '@/utils/constrainedLineup';
 import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
-import { difficultyFactor, positionDifficulty } from '@/utils/fixtureDifficulty';
+import { withExpectedPoints } from '@/utils/fixtureDifficulty';
 import { AVAILABLE_FORMATIONS } from '@/utils/formations';
 import type { OptimizationResult, OptimizerMetric } from '@/utils/lineupOptimizer';
 import { deriveSellAdvice, type SellAdvice } from '@/utils/sellAdvice';
@@ -38,6 +44,14 @@ export interface LineupOptimizer {
   budgetPlan: SellPlan | null;
   /** Liga-eigene Optimizer-Regeln (src/lineup/rules.ts) — inkl. dauerhaft deaktivierter. */
   rules: readonly LineupRule[];
+  /**
+   * Die Schranken, unter denen dieser Optimizer gerade rechnet — inklusive
+   * eines Session-„Ignorieren" (siehe `ignoreRule`). Nach außen gegeben, damit
+   * die Kaufseite (src/lineup/useReplacementAdvice.ts) garantiert unter
+   * DENSELBEN Schranken rechnet: ein Zugewinn, der eine ignorierte Regel wieder
+   * erzwingt, wäre gegen eine andere Elf gemessen als die angezeigte.
+   */
+  constraints: LineupConstraints;
   /** Einmalig für diese Optimierung ignorieren (Session-only) — zurückgesetzt bei Regeländerung oder Liga-Wechsel. */
   ignoreRule: (id: LineupRule['id']) => void;
   /** Aktive Regeln, die die AKTUELLE (manuell bearbeitete) Elf verletzen. Der Optimizer bindet nur sich selbst hart — manuelle Eingriffe bleiben immer erlaubt. */
@@ -116,15 +130,10 @@ export function useLineupOptimizer(
   // Nur für die neue 'expectedPoints'-Metrik angereichert — efficiencyResult/
   // pointsResult unten bleiben bewusst auf den unveränderten `players`, damit
   // diese Erweiterung ihr bisheriges Verhalten unter keinen Umständen ändert.
-  const playersWithExpectedPoints = useMemo(() => {
-    if (!fixtureDifficultyByTeam) return players;
-    return players.map((player) => {
-      const avg = fixtureDifficultyByTeam.get(player.teamId);
-      if (!avg) return player;
-      const factor = difficultyFactor(positionDifficulty(player.position, avg));
-      return { ...player, expectedPoints: player.averagePoints * factor };
-    });
-  }, [players, fixtureDifficultyByTeam]);
+  const playersWithExpectedPoints = useMemo(
+    () => withExpectedPoints(players, fixtureDifficultyByTeam),
+    [players, fixtureDifficultyByTeam],
+  );
 
   const efficiencyResult = useMemo(
     () => optimizeLineupWithRules(players, 'valuePerMillion', AVAILABLE_FORMATIONS, constraints),
@@ -205,6 +214,7 @@ export function useLineupOptimizer(
     sellPlan,
     budgetPlan,
     rules,
+    constraints,
     ignoreRule,
     draftViolations,
   };

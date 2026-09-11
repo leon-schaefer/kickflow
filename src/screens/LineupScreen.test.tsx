@@ -7,6 +7,7 @@ import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
 import { mockLineupData } from '@/mock/mockLineup';
 import { fakeLayout } from '@/test/fakeLayout';
+import { marketPlayer } from '@/test/marketPlayer';
 import pitchStyles from '@/components/Pitch.module.css';
 import { LineupScreen } from './LineupScreen';
 
@@ -44,6 +45,14 @@ const listPlayer = vi.hoisted(() => ({
   mutateAsync: vi.fn().mockResolvedValue(undefined),
   isPending: false,
 }));
+const placeOffer = vi.hoisted(() => ({
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+}));
+const removeOffer = vi.hoisted(() => ({
+  mutateAsync: vi.fn().mockResolvedValue(undefined),
+  isPending: false,
+}));
 
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
@@ -58,6 +67,11 @@ vi.mock('@/queries/hooks', () => ({
   // (er rendert erst bei `open` etwas, siehe MarketListingModal) — sein
   // Mutations-Hook läuft damit in jedem Render mit.
   useListPlayerOnMarket: () => listPlayer,
+  // Wie der Listing-Dialog hängt auch der Gebots-Dialog der Kaufempfehlung
+  // dauerhaft im Baum (siehe OfferModal) — seine Mutations-Hooks laufen damit
+  // in jedem Render mit, auch wenn kein Spieler ausgewählt ist.
+  usePlaceOffer: () => placeOffer,
+  useRemoveOffer: () => removeOffer,
 }));
 vi.mock('@/leagues/useCompetitionId', () => ({ useCompetitionId: () => '1' }));
 const currentLeague = vi.hoisted(() => ({ id: '42', name: 'Kickerrunde', budget: 5_000_000 }));
@@ -73,6 +87,8 @@ vi.mock('@/leagues/useBudgetLimit', () => ({ useBudgetLimit: () => null }));
 const rulesValue = vi.hoisted(() => ({
   rules: [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: false, max: 3 }] as never[],
 }));
+/** Der Ausgangszustand von `rulesValue.rules` — beforeEach stellt ihn wieder her. */
+const DEFAULT_RULES = rulesValue.rules;
 const excludedValue = vi.hoisted(() => ({
   excludedIds: new Set<string>(),
   toggleExcluded: vi.fn(),
@@ -151,6 +167,13 @@ beforeEach(() => {
   fakeLayout();
   lineup.data = mockLineupData;
   lineup.error = null;
+  // Der Markt speist die Kaufempfehlung (BuyAdviceSection) — leer als
+  // Voreinstellung, damit ein Test ihn nicht für den nächsten stehen lässt.
+  market.data = { players: [], marketValueUpdateAt: null };
+  // Ein Test, der eine Regel einschaltet, darf sie nicht für den nächsten
+  // stehen lassen. Weiter EIN stabiles Array pro Render — nur ausgetauscht,
+  // nicht pro Aufruf neu gebaut (siehe Kommentar am Mock).
+  rulesValue.rules = DEFAULT_RULES;
   matchdays.data = openSchedule();
   saveLineup.isPending = false;
   saveLineup.mutateAsync.mockReset().mockResolvedValue(undefined);
@@ -379,6 +402,83 @@ describe('LineupScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Regeln|Keine Regeln aktiv/ }));
     expect(router.state.location.pathname).toBe('/42/rules');
+  });
+
+  /**
+   * Die Kaufseite hängt am selben Optimizer wie die Verkaufsseite, holt ihre
+   * Kandidaten aber aus der Markt-Query. Hier geht es nur um dieses
+   * Zusammenspiel — die Rechnung liegt in src/utils/replacementAdvice.test.ts,
+   * die Sektion in src/components/BuyAdviceSection.test.tsx.
+   */
+  it('empfiehlt einen Zukauf vom Markt und öffnet dafür den Gebots-Dialog', async () => {
+    // 200 Ø-Punkte im Mittelfeld — im Mock-Kader liefert der beste 150, der
+    // Zugewinn ist also unabhängig von der gewählten Formation echt.
+    market.data = {
+      players: [marketPlayer({ averagePoints: 200, marketValue: 5_000_000 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Gebot für Nico Bauer abgeben' }));
+
+    // Der Dialog ist derselbe wie im Markt-Tab (OfferModal, per Portal am body).
+    expect(screen.getByRole('dialog', { name: 'Gebot für Nico Bauer' })).toBeInTheDocument();
+  });
+
+  /**
+   * Die Liga-Regel muss auf BEIDEN Seiten des Optimizers gelten. Dass der
+   * Kaufvorschlag unter derselben Schranke rechnet wie die angezeigte Elf,
+   * hängt an einer Verdrahtung (`optimizer.constraints` → useReplacementAdvice)
+   * und ist genau deshalb hier geprüft und nicht nur in den Unit-Tests.
+   *
+   * Im Mock-Kader stehen vier Spieler bei Verein '1', darunter mit Jannik Voss
+   * (150 Ø-Punkte) und Leon Krause (140) die zwei besten des Kaders. Unter
+   * „max. 2 pro Verein" ist die Quote damit von Spielern gefüllt, die stärker
+   * sind als der Kandidat — er kommt nicht aufs Feld und ist keine Empfehlung.
+   */
+  it('hält die Vereins-Obergrenze auch beim Zukauf ein', async () => {
+    rulesValue.rules = [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 2 }] as never[];
+    market.data = {
+      players: [marketPlayer({ name: 'Nico Bauer', teamId: '1', averagePoints: 120 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.queryByText(/Bester Ersatz/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/1 Spieler wird von deinen Regeln aus der Elf gehalten/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+    expect(
+      screen.getByText(/Max. 2 Spieler pro Verein — deshalb nicht empfohlen/),
+    ).toBeInTheDocument();
+  });
+
+  it('empfiehlt denselben Spieler, sobald er bei einem anderen Verein steht', async () => {
+    rulesValue.rules = [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 2 }] as never[];
+    // Verein '99' kommt im Mock-Kader nicht vor — die Quote ist dort frei.
+    market.data = {
+      players: [marketPlayer({ name: 'Nico Bauer', teamId: '99', averagePoints: 120 })],
+      marketValueUpdateAt: null,
+    };
+    setup();
+
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toBeInTheDocument();
+  });
+
+  it('nennt die Ausfälle des Kaders, auch ohne Ersatz am Markt', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: /Zukauf/ }));
+
+    // Der Mock-Kader hat drei nicht einsatzfähige Spieler, alle auf der Bank:
+    // Marco Fels (verletzt), Fabian Roth (gesperrt), Youssef Amara (abwesend).
+    // Keiner stünde in der Elf, also warnt die Kopfzeile auch nicht.
+    expect(screen.getAllByText(/ohne Folgen — die Bank fängt ihn auf/)).toHaveLength(3);
+    expect(screen.queryByText(/Ausfälle in der Elf/)).not.toBeInTheDocument();
   });
 
   it('zeigt den Fehler der Aufstellung mit einem Weg zurück', async () => {

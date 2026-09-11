@@ -2,7 +2,8 @@
 
 Der Aufstellungs-Optimizer für die Kickbase-Liga: die beste Elf für den
 nächsten Spieltag — mit dem Restprogramm, mit den Verkäufen, die ein Konto im
-Minus ausgleichen, und mit den Regeln, die in der eigenen Liga vereinbart
+Minus ausgleichen, mit dem Ersatz vom Transfermarkt für einen Ausfall samt
+Gebotsempfehlung, und mit den Regeln, die in der eigenen Liga vereinbart
 sind. Dazu Markt, Marktwerte, Kader der Mitspieler und die Tabelle. React-SPA
 (Vite + React Router), ausgeliefert **ausschließlich als Web-App/PWA** über
 Vercel. Projektseite: <https://codewithleon.dev/apps/kickflow/>.

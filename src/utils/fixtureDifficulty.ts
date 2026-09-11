@@ -216,3 +216,39 @@ export function positionDifficulty(position: Position, avg: AverageDifficulty): 
 export function difficultyFactor(difficulty: number, strength = 0.4): number {
   return 1 + (0.5 - difficulty) * strength;
 }
+
+/** Die Feldmenge, aus der sich `expectedPoints` ableiten lässt — von `SquadPlayer` und `MarketPlayer` gleichermaßen erfüllt. */
+interface ExpectedPointsSource {
+  teamId: string;
+  position: Position;
+  averagePoints: number;
+}
+
+/**
+ * Hängt jedem Spieler seine `expectedPoints` an — Ø-Punkte, gewichtet mit der
+ * Härte seines Restprogramms (siehe `difficultyFactor`). Genau das, was die
+ * Optimizer-Metrik 'expectedPoints' liest (utils/lineupOptimizer.ts).
+ *
+ * Generisch und hier statt im Optimizer, weil BEIDE Seiten der Empfehlung sie
+ * brauchen: die eigene Elf (useLineupOptimizer.ts) und die Marktkandidaten
+ * (useReplacementAdvice.ts). Zwei Kopien wären zwei Gewichtungen, die
+ * auseinanderlaufen können — und ein Zugewinn, der mit einer anderen
+ * Gewichtung gerechnet ist als die Elf, gegen die er gemessen wird, ist keine
+ * Aussage mehr.
+ *
+ * Ohne Map (Spielplan noch nicht geladen) kommt die EINGABE-Referenz zurück,
+ * nicht eine Kopie: die Aufrufer memoisieren darauf, und ein neues Array pro
+ * Render würde jede Optimierung neu auslösen.
+ */
+export function withExpectedPoints<T extends ExpectedPointsSource>(
+  players: readonly T[],
+  byTeam: ReadonlyMap<string, AverageDifficulty> | undefined,
+): readonly T[] {
+  if (!byTeam) return players;
+  return players.map((player) => {
+    const avg = byTeam.get(player.teamId);
+    if (!avg) return player;
+    const factor = difficultyFactor(positionDifficulty(player.position, avg));
+    return { ...player, expectedPoints: player.averagePoints * factor };
+  });
+}

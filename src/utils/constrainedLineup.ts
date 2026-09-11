@@ -1,5 +1,10 @@
 import type { Position } from '@/api/kickbase';
-import { isUnconstrained, UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
+import {
+  constrainingRuleIds,
+  isUnconstrained,
+  UNCONSTRAINED_CONSTRAINTS,
+  type LineupConstraints,
+} from '@/lineup/rules';
 import {
   bestLineupUnderValueCap,
   bestUnderCap,
@@ -238,7 +243,7 @@ function orderIds(ids: readonly string[], playersById: Map<string, OptimizerPlay
  * gelöst werden (siehe Plan "Später möglich").
  */
 function diagnoseBlockers(constraints: LineupConstraints): string[] {
-  return constraints.maxPerTeam < Infinity ? ['maxPerTeam'] : [];
+  return constrainingRuleIds(constraints);
 }
 
 /** optimizeLineup + Vereins-Obergrenze. Ohne aktive Regeln identisch zu optimizeLineup. */
