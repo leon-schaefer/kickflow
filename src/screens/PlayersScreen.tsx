@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router';
-import type { CompetitionPlayer, Team } from '@/api/kickbase';
+import type { CompetitionPlayer, SquadPlayer, Team } from '@/api/kickbase';
 import { CompetitionPlayerRow } from '@/components/CompetitionPlayerRow';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { PlayerFilterBar } from '@/components/PlayerFilterBar';
@@ -35,6 +35,7 @@ import {
 import type { PlayerOrigin } from '@/utils/playerOwnership';
 import { playerOrigins } from '@/utils/playerOwnership';
 import type { PlaytimeTotals } from '@/utils/playtime';
+import { pointsPerMillion } from '@/utils/valueScore';
 import type { RefreshableChildProps } from '@/components/Refreshable.types';
 import layout from '@/theme/layout.module.css';
 import styles from './PlayersScreen.module.css';
@@ -49,26 +50,61 @@ const NO_PLAYTIME_IDS: string[] = [];
  */
 const ROW_HEIGHT = 60;
 
-const SORT_OPTIONS: { key: PlayerSortKey; label: string; dividerBefore?: boolean }[] = [
+interface SortOption {
+  key: PlayerSortKey;
+  label: string;
+  dividerBefore?: boolean;
+}
+
+const SORT_OPTIONS: SortOption[] = [
   { key: 'marketValue', label: 'Marktwert' },
-  { key: 'totalPoints', label: 'Punkte' },
   { key: 'avgPoints', label: 'Ø Punkte' },
   { key: 'avgPerMillion', label: metricLabels.avgPerMillion.chip, dividerBefore: true },
-  { key: 'totalPerMillion', label: metricLabels.totalPerMillion.chip },
 ];
 
 /**
- * Punkte/Min gibt es NUR mit aktivem Kader-Filter: die Kennzahl kostet einen
- * `/performance`-Request pro Spieler (siehe usePlaytimes). Über den eigenen
- * Kader sind das ~20 Requests, über den gesamten Bestand wären es ~500 —
- * deshalb hängt der Chip am Filter und nicht an der Trefferzahl: eine
- * Kennzahl, die beim Tippen im Suchfeld erscheint und verschwindet, wäre
- * nicht bedienbar.
+ * Kennzahlen, die es NUR mit aktivem Kader-Filter gibt — beide Male, weil die
+ * Quelle sie außerhalb des eigenen Kaders nicht liefert:
+ *
+ * - Punkte/Min kostet einen `/performance`-Request pro Spieler (siehe
+ *   usePlaytimes). Über den eigenen Kader sind das ~20 Requests, über den
+ *   gesamten Bestand wären es ~500.
+ * - Gesamtpunkte (und damit Gesamt-Punkte/Mio) trägt der Bestands-Endpoint
+ *   überhaupt nicht (siehe toCompetitionPlayer) — für den eigenen Kader
+ *   liefert sie `/squad`, dessen Daten hier ohnehin liegen. Ohne diese Grenze
+ *   stand in der Liste für JEDEN Spieler „0 Punkte", während die Ø-Punkte
+ *   daneben stimmten.
+ *
+ * Beides hängt am Filter und nicht an der Trefferzahl: eine Kennzahl, die
+ * beim Tippen im Suchfeld erscheint und verschwindet, wäre nicht bedienbar.
+ * Der Trenner vor dem ersten Chip grenzt die Gruppe in der Leiste ab.
  */
-const PLAYTIME_SORT_OPTION: { key: PlayerSortKey; label: string; dividerBefore?: boolean } = {
-  key: 'pointsPerMinute',
-  label: metricLabels.pointsPerMinute.chip,
-};
+const SQUAD_SORT_OPTIONS: SortOption[] = [
+  { key: 'totalPoints', label: metricLabels.totalPoints.chip, dividerBefore: true },
+  { key: 'totalPerMillion', label: metricLabels.totalPerMillion.chip },
+  { key: 'pointsPerMinute', label: metricLabels.pointsPerMinute.chip },
+];
+
+const SQUAD_SORT_KEYS = new Set<PlayerSortKey>(SQUAD_SORT_OPTIONS.map((option) => option.key));
+
+const ALL_SORT_OPTIONS = [...SORT_OPTIONS, ...SQUAD_SORT_OPTIONS];
+
+/**
+ * Trägt einem Bestands-Spieler die Gesamtpunkte aus dem eigenen Kader nach.
+ *
+ * `/squad` liefert sie als `p`, der Vereinskader nicht — ohne diesen Schritt
+ * wäre die Kennzahl auch für die eigenen Spieler unbekannt. Das Verhältnis
+ * wird hier neu gerechnet statt aus dem Kaderspieler übernommen: angezeigt
+ * wird der Marktwert des Bestands-Eintrags, und eine Zahl daneben, die sich
+ * auf einen anderen Marktwert bezieht, wäre nicht nachrechenbar.
+ */
+function withSquadTotals(player: CompetitionPlayer, mine: SquadPlayer): CompetitionPlayer {
+  return {
+    ...player,
+    totalPoints: mine.totalPoints,
+    valueScoreTotal: pointsPerMillion(mine.totalPoints, player.marketValue),
+  };
+}
 
 /**
  * Alle Spieler der Competition — der einzige Screen, der auch Spieler zeigt,
@@ -129,13 +165,18 @@ export function PlayersScreen() {
   const metric = metricForSort(sortKey, 'marketValue');
 
   // Der Kader-Filter greift VOR Suche und Chips: er bestimmt die Grundmenge,
-  // auf der auch die Spielzeit-Requests unten hängen.
+  // auf der auch die Spielzeit-Requests unten hängen. Er ist außerdem die
+  // Stelle, an der die Gesamtpunkte in den Bestand kommen — der Bestand selbst
+  // trägt sie nicht (siehe SQUAD_SORT_OPTIONS).
   const pool = useMemo(() => {
     const players = playersQuery.data ?? [];
     if (!onlyMySquad) return players;
-    const squadIds = new Set(mySquadIds);
-    return players.filter((player) => squadIds.has(player.id));
-  }, [playersQuery.data, onlyMySquad, mySquadIds]);
+    const squad = new Map((lineupQuery.data?.players ?? []).map((player) => [player.id, player]));
+    return players.flatMap((player) => {
+      const mine = squad.get(player.id);
+      return mine ? [withSquadTotals(player, mine)] : [];
+    });
+  }, [playersQuery.data, onlyMySquad, lineupQuery.data]);
 
   // Spielminuten nur, wenn die aktive Sortierung sie braucht — und dann aus dem
   // UNGEFILTERTEN Pool, sonst würde jeder Tastendruck in der Suche sie neu
@@ -158,16 +199,17 @@ export function PlayersScreen() {
   }, [pool, filter, metric, playtimes]);
 
   /**
-   * Beim Abschalten des Kader-Filters muss eine aktive Punkte/Min-Sortierung
-   * mit weg: der Chip verschwindet, und ohne diesen Reset liefen die
-   * Spielzeit-Requests anschließend über den GESAMTEN Bestand.
+   * Beim Abschalten des Kader-Filters muss eine Sortierung nach einer
+   * Kader-Kennzahl mit weg: ihr Chip verschwindet. Ohne diesen Reset liefen
+   * die Spielzeit-Requests anschließend über den GESAMTEN Bestand, und eine
+   * Sortierung nach Gesamtpunkten stünde über einer Spalte aus „—".
    */
   function toggleMySquad() {
     const next = !onlyMySquad;
     setView({
       ...view,
       onlyMine: next,
-      sortKey: !next && sortKey === 'pointsPerMinute' ? 'marketValue' : sortKey,
+      sortKey: !next && SQUAD_SORT_KEYS.has(sortKey) ? 'marketValue' : sortKey,
     });
   }
 
@@ -235,7 +277,7 @@ export function PlayersScreen() {
       />
 
       <SortChips
-        options={onlyMySquad ? [...SORT_OPTIONS, PLAYTIME_SORT_OPTION] : SORT_OPTIONS}
+        options={onlyMySquad ? ALL_SORT_OPTIONS : SORT_OPTIONS}
         value={sortKey}
         onChange={(key) => setView({ ...view, sortKey: key })}
         leading={

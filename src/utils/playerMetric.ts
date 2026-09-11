@@ -22,10 +22,15 @@ export type PlayerSortKey = PlayerMetric | 'position' | 'expiry';
 /** Feldmenge, die SquadPlayer UND MarketPlayer erfüllen — genug für jede Kennzahl hier. */
 export interface MetricPlayer {
   marketValue: number;
-  totalPoints: number;
+  /**
+   * `null` = die Quelle liefert die Gesamtpunkte nicht. Kader und Markt tragen
+   * sie immer, der competition-weite Bestand nie (siehe CompetitionPlayer) —
+   * deshalb steht das Loch hier im Typ und nicht als 0 in der Zeile.
+   */
+  totalPoints: number | null;
   averagePoints: number;
   valueScoreAvg: number;
-  valueScoreTotal: number;
+  valueScoreTotal: number | null;
 }
 
 /** Nur 'pointsPerMinute' braucht die Spielminuten aus usePlaytimes. */
@@ -37,19 +42,21 @@ export function metricNeedsPlaytime(metric: PlayerMetric): boolean {
  * Sortierwert, absteigend. Bei 'pointsPerMinute' ohne geladene oder ohne
  * vorhandene Spielzeit 0 — der Spieler landet damit unten, die Liste sortiert
  * sich beim Nachladen nach (gleiches Verhalten wie bisher in value.tsx).
+ * Unbekannte Gesamtpunkte (`null`) verhalten sich genauso: 0 zum Sortieren,
+ * „—" in der Zelle (siehe formatMetric).
  */
 export function metricValue(player: MetricPlayer, metric: PlayerMetric, playtime?: PlaytimeTotals): number {
   switch (metric) {
     case 'marketValue':
       return player.marketValue;
     case 'totalPoints':
-      return player.totalPoints;
+      return player.totalPoints ?? 0;
     case 'avgPoints':
       return player.averagePoints;
     case 'avgPerMillion':
       return player.valueScoreAvg;
     case 'totalPerMillion':
-      return player.valueScoreTotal;
+      return player.valueScoreTotal ?? 0;
     case 'pointsPerMinute':
       return playtime ? pointsPerMinute(playtime.points, playtime.minutes) : 0;
   }
@@ -69,7 +76,8 @@ export const metricLabels: Record<PlayerMetric, { chip: string; cell: string }> 
  * Anzeigewert für die Statistik-Spalte. "—" statt eines Fake-"0,00" bei
  * 'pointsPerMinute' ohne Einsatzminuten: ohne Spielzeit gibt es kein
  * sinnvolles Verhältnis, und ein "0,00" wäre von echten 0 Punkten nicht zu
- * unterscheiden.
+ * unterscheiden. Aus demselben Grund "—" bei unbekannten Gesamtpunkten: eine
+ * "0" dort behauptet ein Ergebnis, das die Quelle nie geliefert hat.
  */
 export function formatMetric(player: MetricPlayer, metric: PlayerMetric, playtime?: PlaytimeTotals): string {
   switch (metric) {
@@ -78,13 +86,13 @@ export function formatMetric(player: MetricPlayer, metric: PlayerMetric, playtim
       // steht in der Zeile bereits als Anker, hier wird er nicht noch einmal gebraucht.
       return formatPoints(player.averagePoints);
     case 'totalPoints':
-      return formatPoints(player.totalPoints);
+      return player.totalPoints === null ? '—' : formatPoints(player.totalPoints);
     case 'avgPoints':
       return formatPoints(player.averagePoints);
     case 'avgPerMillion':
       return formatValueScore(player.valueScoreAvg);
     case 'totalPerMillion':
-      return formatValueScore(player.valueScoreTotal);
+      return player.valueScoreTotal === null ? '—' : formatValueScore(player.valueScoreTotal);
     case 'pointsPerMinute':
       return playtime && playtime.minutes > 0
         ? formatPointsPerMinute(pointsPerMinute(playtime.points, playtime.minutes))

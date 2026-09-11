@@ -269,7 +269,13 @@ export const rawCompetitionPlayerSchema = z.looseObject({
   st: z.number().optional(),
   mv: z.number().optional(),
   mvt: z.number().optional(),
-  /** Gesamtpunkte — `p` in Kader-/Marktlisten, `tp` im Spieler-Detail. */
+  /**
+   * Gesamtpunkte — `p` in Kader-/Marktlisten, `tp` im Spieler-Detail. In den
+   * Vereinskadern (`teamprofile`) steht KEINES von beiden: dort gibt es je
+   * Spieler nur `ap`. Beide bleiben optional deklariert, damit ein anderer
+   * Kandidatenpfad sie mitbringen darf — fehlen sie, ist die Gesamtpunktzahl
+   * unbekannt und nicht null (siehe toCompetitionPlayer).
+   */
   p: z.number().optional(),
   tp: z.number().optional(),
   ap: z.number().optional(),
