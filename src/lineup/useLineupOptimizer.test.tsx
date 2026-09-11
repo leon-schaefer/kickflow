@@ -54,6 +54,20 @@ describe('useLineupOptimizer — Voreinstellung', () => {
     expect(result.current.result.best?.playerIds).toContain('MID0');
   });
 
+  it('gibt die geltenden Schranken nach außen — inklusive eines Ignorierens', () => {
+    // Die Kaufseite (useReplacementAdvice) muss unter denselben Schranken
+    // rechnen wie die angezeigte Elf. Ein Session-„Ignorieren" steht in keiner
+    // Regel-Konfiguration; wer die Schranken selbst aus `rules` ableitet,
+    // bekommt eine andere Elf als die auf dem Bildschirm.
+    const rules = [{ kind: 'maxPerTeam', id: 'maxPerTeam', enabled: true, max: 2 } as const];
+    const { result } = renderHook(() => useLineupOptimizer(squad(), [], 0, rules));
+
+    expect(result.current.constraints).toEqual({ maxPerTeam: 2 });
+
+    act(() => result.current.ignoreRule('maxPerTeam'));
+    expect(result.current.constraints).toEqual({ maxPerTeam: Infinity });
+  });
+
   it('holt mit der Voreinstellung mehr Punkte als die Effizienz-Elf', () => {
     const players = squad();
     const { result } = renderHook(() => useLineupOptimizer(players, []));

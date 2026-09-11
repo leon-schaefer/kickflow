@@ -1,6 +1,7 @@
 import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
 import { formatCurrency } from './format';
 import { isAvailableForLineup, type OptimizationResult, type OptimizerPlayer } from './lineupOptimizer';
+import { median } from './median';
 
 /**
  * Behalten/Verkaufen-Einordnung je Kaderspieler, abgeleitet aus der Differenz
@@ -55,13 +56,6 @@ export const recommendationLabels: Record<SellRecommendation, string> = {
   verkaufen: 'Verkaufen',
   'nicht-einsatzbereit': 'Ausfall',
 };
-
-function median(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
-}
 
 /**
  * Leitet für jeden Spieler eine Empfehlung ab. `efficiency` und `points`

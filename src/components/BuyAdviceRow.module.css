@@ -1,0 +1,163 @@
+/*
+ * Aufbau bewusst identisch zu SellAdviceRow.module.css — dieselbe Zeilenart in
+ * der anderen Richtung. Was hier dazukommt, ist die Zugewinn-Zeile und der
+ * „Bieten"-Knopf in der Badge-Spalte.
+ */
+
+.row {
+  composes: v from '@/theme/layout.module.css';
+  padding-block: var(--space-sm);
+  padding-inline: var(--space-md);
+  gap: var(--space-xs);
+}
+
+.row[role='button'] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row[role='button']:active {
+  background: var(--color-surface-raised);
+}
+
+@media (hover: hover) {
+  .row[role='button']:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+.topRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.positionTag {
+  composes: h from '@/theme/layout.module.css';
+  width: 36px;
+  padding-block: 3px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  background: var(--pos-soft);
+  color: var(--pos);
+}
+
+.image {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}
+
+.imageFallback {
+  border: 1px solid var(--color-border);
+}
+
+.info {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+}
+
+/* Name und Auszeichnungen dürfen umbrechen: auf schmalen Geräten stehen bis zu
+   zwei Pillen neben einem langen Namen. */
+.nameRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.name {
+  composes: line1 from '@/theme/layout.module.css';
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-primary);
+}
+
+.tag {
+  padding-inline: var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-muted);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.gainRow {
+  composes: h from '@/theme/layout.module.css';
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+/* Die einzige Zahl der Zeile in der Akzentfarbe: der Zugewinn ist der Grund,
+   warum der Spieler überhaupt in der Liste steht. */
+.gain {
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+/* Bewusst OHNE line1: hier stehen Preis, Aufschlag, Verkäufer und Ablauf
+   nebeneinander — auf einem Telefon muss das umbrechen dürfen statt hinter
+   einer Ellipse zu verschwinden. Nur der Name (oben) wird gekürzt. */
+.meta {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}
+
+.badgeColumn {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.badge {
+  padding-inline: var(--space-sm);
+  padding-block: 3px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  white-space: nowrap;
+  /* 15 % entspricht dem Alpha 0x26 der Positions-Softfarben (siehe SellAdviceRow). */
+  background: color-mix(in srgb, var(--verdict) 15%, transparent);
+  color: var(--verdict);
+}
+
+.bid {
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.bidButton {
+  padding-inline: var(--space-sm);
+  padding-block: 1px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-accent);
+}
+
+.bidButton:active {
+  opacity: 0.6;
+}
+
+.reason {
+  margin: 0;
+  /* Einzug = Positions-Tag + Abstand, damit die Begründung unter dem Namen beginnt. */
+  margin-left: calc(36px + var(--space-sm));
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}

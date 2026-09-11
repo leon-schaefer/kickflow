@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  constrainingRuleIds,
   DEFAULT_RULES,
   describeRule,
   isUnconstrained,
@@ -23,6 +24,23 @@ describe('toConstraints', () => {
   it('übernimmt max von einer aktiven Regel', () => {
     expect(toConstraints([rule({ max: 3 })])).toEqual({ maxPerTeam: 3 });
     expect(isUnconstrained(toConstraints([rule({ max: 3 })]))).toBe(false);
+  });
+});
+
+/**
+ * Der Rückweg von `toConstraints`: wer feststellt, dass eine Auswahl nur an
+ * den Schranken scheitert, muss die verantwortliche Regel benennen können —
+ * für die Blocker-Diagnose der OptimizerBar und für den Zukauf, den eine Regel
+ * aus der Elf hält (utils/replacementAdvice.ts).
+ */
+describe('constrainingRuleIds', () => {
+  it('nennt maxPerTeam, sobald die Schranke greift', () => {
+    expect(constrainingRuleIds(toConstraints([rule({ max: 2 })]))).toEqual(['maxPerTeam']);
+  });
+
+  it('nennt ohne greifende Schranke niemanden', () => {
+    expect(constrainingRuleIds(toConstraints([rule({ enabled: false })]))).toEqual([]);
+    expect(constrainingRuleIds({ maxPerTeam: Infinity })).toEqual([]);
   });
 });
 

@@ -147,3 +147,24 @@
 [data-recommendation='nicht-einsatzbereit'] {
   --rec: var(--color-text-muted);
 }
+
+/*
+ * BidAdvice.verdict → Farbe der Gebots-Pille (BuyAdviceRow). Dieselbe
+ * Konstruktion wie `--rec` darüber, nur für die Kaufseite; die transluzente
+ * Füllung leitet BuyAdviceRow.module.css per `color-mix` ab.
+ *
+ * 'ueber-wert' trägt das Torwart-Gelb wie 'punkte-garant': ein Gebot über der
+ * Wertobergrenze ist keine Fehlentscheidung, sondern eine teure — eine
+ * Warnung, kein Verbot (siehe utils/bidAdvice.ts).
+ */
+[data-verdict='bieten'] {
+  --verdict: var(--color-accent);
+}
+
+[data-verdict='ueber-wert'] {
+  --verdict: var(--pos-gk);
+}
+
+[data-verdict='kein-budget'] {
+  --verdict: var(--color-danger);
+}
