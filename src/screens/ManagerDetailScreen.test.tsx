@@ -41,7 +41,7 @@ vi.mock('@/queries/hooks', () => ({
   useLeagueRanking: (_leagueId: string, dayNumber?: number) =>
     dayNumber === undefined ? seasonRanking : dayRanking,
   useMatchdays: () => matchdays,
-  useManagerLineup: () => managerLineup,
+  usePlayerBasics: () => managerLineup,
   useCompetitionTeams: () => ({ data: [{ id: '2', name: 'FC Bayern', logoUrl: null }] }),
 }));
 vi.mock('@/leagues/useCompetitionId', () => ({ useCompetitionId: () => '1' }));

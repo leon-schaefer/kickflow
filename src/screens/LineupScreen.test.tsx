@@ -120,6 +120,7 @@ function setup() {
       { path: '/:leagueId/player/:playerId', element: <h1>Spieler</h1> },
       { path: '/:leagueId/rules', element: <h1>Regeln</h1> },
       { path: '/:leagueId/fixtures', element: <h1>Restprogramm</h1> },
+      { path: '/:leagueId/stats', element: <h1>Statistiken</h1> },
     ],
     { initialEntries: ['/42/lineup'] },
   );
@@ -380,6 +381,19 @@ describe('LineupScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     expect(pitchNames().join(' ')).toBe(original);
+  });
+
+  it('führt zur Statistik und gibt die Herkunft mit', async () => {
+    const { router } = setup();
+    const link = screen.getByRole('link', { name: 'Statistiken' });
+    expect(link).toHaveAttribute('href', '/42/stats');
+
+    await userEvent.click(link);
+    expect(router.state.location.pathname).toBe('/42/stats');
+    expect(router.state.location.state).toEqual({
+      fromPath: '/42/lineup',
+      fromTitle: 'Aufstellung',
+    });
   });
 
   it('führt zum Restprogramm und gibt die Herkunft mit', async () => {

@@ -5,6 +5,7 @@ import {
   getCompetitionTeams,
   getLeagueOverview,
   getLeagueRanking,
+  getLeagueRankingAtMatchday,
   getLeagues,
   getLineup,
   getMarket,
@@ -20,6 +21,7 @@ import {
   saveLineup,
 } from '@/api/kickbase';
 import type {
+  LeagueRanking,
   ListPlayerInput,
   PlaceOfferInput,
   PlayerDetail,
@@ -114,7 +116,7 @@ export function useLeagueOverview(leagueId: string) {
   });
 }
 
-export interface ManagerLineupState {
+export interface PlayerBasicsState {
   /** playerId → Basis-Spielerdaten. Eintrag fehlt, solange der Request läuft oder scheitert. */
   players: Map<string, PlayerDetail>;
   pending: number;
@@ -124,12 +126,17 @@ export interface ManagerLineupState {
 }
 
 /**
- * Löst die Startelf-Spieler-IDs eines Rivalen (LeagueRankingEntry.lineupPlayerIds)
- * zu Basis-Spielerdaten auf — ein `getPlayerBasic`-Request je ID, gedrosselt
- * über withPlayerLookupLimit (siehe limiter.ts). Analog zu usePlaytimes() oben:
- * `playerIds` muss stabil sein (useMemo beim Aufrufer).
+ * Löst eine Liste fremder Spieler-IDs zu Basis-Spielerdaten auf — ein
+ * `getPlayerBasic`-Request je ID, gedrosselt über withPlayerLookupLimit (siehe
+ * limiter.ts). Analog zu usePlaytimes() oben: `playerIds` muss stabil sein
+ * (useMemo beim Aufrufer).
+ *
+ * Zwei Aufrufer mit demselben Bedarf: die Rivalen-Elf im Liga-Tab
+ * (LeagueRankingEntry.lineupPlayerIds) und die Punkte-Statistik, die auch
+ * längst VERKAUFTE Spieler benennen muss — für die liefert der eigene Kader
+ * keinen Namen mehr.
  */
-export function useManagerLineup(leagueId: string, playerIds: readonly (string | null)[]): ManagerLineupState {
+export function usePlayerBasics(leagueId: string, playerIds: readonly (string | null)[]): PlayerBasicsState {
   const { token } = useAuth();
   const ids = playerIds.filter((id): id is string => id !== null);
   const results = useQueries({
@@ -154,6 +161,159 @@ export function useManagerLineup(leagueId: string, playerIds: readonly (string |
   const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
 
   return { players, pending, total: ids.length, refetch };
+}
+
+export interface MatchdayRankingState {
+  /** Spieltag → Liga-Tabelle GENAU dieses Spieltags. Eintrag fehlt, solange der Request läuft oder scheitert. */
+  rankings: Map<number, LeagueRanking>;
+  /** Noch laufende Requests — für den Fortschritt im Statistik-Screen. */
+  pending: number;
+  total: number;
+  /** Erfüllt das Refetchable-Interface von useRefresh (Pull-to-Refresh). */
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Die Liga-Tabelle für MEHRERE vergangene Spieltage auf einmal — die einzige
+ * Quelle dafür, welche elf Spieler an einem Spieltag in der eigenen Elf
+ * standen (`lp[]`, siehe getLeagueRankingAtMatchday). Grundlage der
+ * Punkte-Statistik in src/stats/pointSources.ts.
+ *
+ * `staleTime: Infinity` ist hier keine Sparmaßnahme, sondern eine Tatsache:
+ * die Aufstellung eines ABGESCHLOSSENEN Spieltags ändert sich nicht mehr. Der
+ * Aufrufer übergibt deshalb nur gespielte Spieltage — der laufende gehört
+ * nicht in diese Liste, seine Elf steht noch nicht fest.
+ *
+ * `days` muss stabil sein (useMemo beim Aufrufer), sonst baut useQueries die
+ * Query-Liste bei jedem Render neu auf.
+ */
+export function useMatchdayRankings(
+  leagueId: string,
+  days: readonly number[],
+  options: { enabled?: boolean } = {},
+): MatchdayRankingState {
+  const { token } = useAuth();
+  const enabled = options.enabled ?? true;
+  const results = useQueries({
+    queries: days.map((day) => ({
+      queryKey: queryKeys.leagueRanking(leagueId, day),
+      queryFn: () => getLeagueRankingAtMatchday(token!, leagueId, day),
+      enabled: enabled && !!token && !!leagueId,
+      staleTime: Infinity,
+    })),
+  });
+
+  const rankings = useMemo(() => {
+    const map = new Map<number, LeagueRanking>();
+    results.forEach((result, index) => {
+      const day = days[index];
+      if (day !== undefined && result.data) map.set(day, result.data);
+    });
+    return map;
+  }, [results, days]);
+
+  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+  // isPending statt "erwartet minus geladen", aus demselben Grund wie in
+  // usePlaytimes: ein fehlgeschlagener Request bliebe sonst ewig "pending".
+  const pending = enabled ? results.reduce((count, r) => (r.isPending ? count + 1 : count), 0) : 0;
+
+  return { rankings, pending, total: days.length, refetch };
+}
+
+export interface MatchdayPointsState {
+  /** playerId → (Spieltag → Punkte dieses Spieltags). Eintrag fehlt, solange der Request läuft oder scheitert. */
+  pointsByPlayer: Map<string, Map<number, number>>;
+  pending: number;
+  total: number;
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Punkte je Spieltag für eine Spielerliste — dieselbe `/performance`-Query
+ * wie usePlaytimes (gleicher Cache-Key, also kein zweiter Request), nur
+ * anders ausgewertet: dort interessiert die Saisonsumme, hier die Zuordnung
+ * Spieltag → Punkte, weil die Statistik nur die Spieltage zählen darf, an
+ * denen der Spieler in der eigenen Elf stand.
+ *
+ * `playerIds` muss stabil sein (useMemo beim Aufrufer).
+ */
+export function useMatchdayPoints(leagueId: string, playerIds: readonly string[]): MatchdayPointsState {
+  const { token } = useAuth();
+  const results = useQueries({
+    queries: playerIds.map((playerId) => ({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId),
+      queryFn: () => getPlayerPerformance(token!, leagueId, playerId),
+      enabled: !!token && !!leagueId && !!playerId,
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  const pointsByPlayer = useMemo(() => {
+    const map = new Map<string, Map<number, number>>();
+    results.forEach((result, index) => {
+      const playerId = playerIds[index];
+      const season = result.data ? latestSeason(result.data) : undefined;
+      if (!playerId || !season) return;
+      map.set(playerId, new Map(season.matchdays.map((md) => [md.matchday, md.points])));
+    });
+    return map;
+  }, [results, playerIds]);
+
+  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+  const pending = results.reduce((count, r) => (r.isPending ? count + 1 : count), 0);
+
+  return { pointsByPlayer, pending, total: playerIds.length, refetch };
+}
+
+export interface TransferHistoryState {
+  /** playerId → vollständige Transferhistorie. Eintrag fehlt, solange der Request läuft oder scheitert. */
+  transfersByPlayer: Map<string, PlayerTransfer[]>;
+  pending: number;
+  total: number;
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Die ROHE Transferhistorie einer Spielerliste — dieselbe Query wie
+ * usePurchases (gleicher Cache-Key), aber ohne deren Auswertung auf den
+ * eigenen Kauf: die Transferbilanz braucht die ganze Kette, um zu jedem
+ * eigenen Kauf den darauffolgenden Verkauf zu finden (siehe
+ * src/stats/transferBalance.ts). usePurchases bleibt unberührt — es
+ * beantwortet eine andere Frage („für wie viel habe ich den gekauft?") und
+ * liefert dafür genau einen Eintrag je Spieler.
+ *
+ * Ein Request PRO Spieler, deshalb wie dort hinter `enabled`: der Screen
+ * schaltet die Abfrage erst frei, wenn die Bilanz wirklich aufgeklappt ist.
+ */
+export function useTransferHistories(
+  leagueId: string,
+  playerIds: readonly string[],
+  options: { enabled?: boolean } = {},
+): TransferHistoryState {
+  const { token } = useAuth();
+  const enabled = options.enabled ?? true;
+  const results = useQueries({
+    queries: playerIds.map((playerId) => ({
+      queryKey: queryKeys.playerTransfers(leagueId, playerId),
+      queryFn: () => getPlayerTransferHistory(token!, leagueId, playerId),
+      enabled: enabled && !!token && !!leagueId && !!playerId,
+      staleTime: 15 * 60_000,
+    })),
+  });
+
+  const transfersByPlayer = useMemo(() => {
+    const map = new Map<string, PlayerTransfer[]>();
+    results.forEach((result, index) => {
+      const playerId = playerIds[index];
+      if (playerId && result.data) map.set(playerId, result.data);
+    });
+    return map;
+  }, [results, playerIds]);
+
+  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+  const pending = enabled ? results.reduce((count, r) => (r.isPending ? count + 1 : count), 0) : 0;
+
+  return { transfersByPlayer, pending, total: playerIds.length, refetch };
 }
 
 export function usePlayer(leagueId: string, playerId: string) {

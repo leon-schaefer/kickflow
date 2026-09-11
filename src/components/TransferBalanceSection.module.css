@@ -1,0 +1,153 @@
+.card {
+  composes: v from '@/theme/layout.module.css';
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.header {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.headerText {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+  color: var(--color-text-muted);
+}
+
+.chevron {
+  font-size: var(--font-size-heading);
+  color: var(--color-text-muted);
+}
+
+.body {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.totals {
+  composes: h from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.total {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+}
+
+.totalLabel {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.totalValue {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.totalValue[data-sign='positive'],
+.rowProfit[data-sign='positive'] {
+  color: var(--color-positive);
+}
+
+.totalValue[data-sign='negative'],
+.rowProfit[data-sign='negative'] {
+  color: var(--color-negative);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.empty {
+  margin: 0;
+  padding-block: var(--space-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.list {
+  composes: v from '@/theme/layout.module.css';
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: var(--space-xs);
+}
+
+.row {
+  composes: h from '@/theme/layout.module.css';
+  width: 100%;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  text-align: left;
+}
+
+.rowText {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 0;
+  gap: 2px;
+}
+
+.rowName {
+  composes: line1 from '@/theme/layout.module.css';
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rowMeta {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}
+
+.rowProfit {
+  composes: v from '@/theme/layout.module.css';
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rowOpen {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-muted);
+}

@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
+import { STATS_TITLE } from '@/stats/statsRoute';
 import { renderRoute } from '@/test/renderRoute';
 
 /**
@@ -31,6 +32,7 @@ const TITLED_URLS: { path: string; screen: string }[] = [
   { path: '/42/manager/7', screen: 'Manager' },
   { path: '/42/rules', screen: 'Regeln' },
   { path: '/42/fixtures', screen: 'Restprogramm' },
+  { path: '/42/stats', screen: STATS_TITLE },
 ];
 
 /**
