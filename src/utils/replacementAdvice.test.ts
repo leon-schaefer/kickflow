@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Position } from '@/api/kickbase';
+import { computeBudgetLimit } from './budget';
 import type { OptimizerPlayer } from './lineupOptimizer';
 import {
   describeReplacement,
@@ -37,6 +38,7 @@ function makeCandidate(
     isBotListing: true,
     offerCount: 0,
     expiresInSeconds: null,
+    ownOfferPrice: null,
     ...overrides,
   };
 }
@@ -91,13 +93,21 @@ function squadWithFullTeamQuota(): OptimizerPlayer[] {
 function advise(
   players: OptimizerPlayer[],
   market: ReplacementCandidatePlayer[],
-  overrides: { metric?: 'points' | 'valuePerMillion'; available?: number | null } = {},
+  overrides: {
+    metric?: 'points' | 'valuePerMillion';
+    /** Spielraum ohne offene Gebote — wird hier zu einem Limit mit genau diesem `available`. */
+    available?: number | null;
+  } = {},
 ) {
   return deriveReplacementAdvice({
     players,
     market,
     metric: overrides.metric ?? 'points',
-    available: overrides.available ?? null,
+    budget:
+      overrides.available == null
+        ? null
+        : // Mannschaftswert 0 heißt kein Überziehungsrahmen: available === budget.
+          computeBudgetLimit({ budget: overrides.available, teamValue: 0 }),
   });
 }
 
@@ -398,6 +408,34 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     // Die Effizienz rechnet weiter mit dem echten Preis, nicht mit dem
     // gekürzten Gebot — sonst stünde ein unbezahlbarer Spieler oben.
     expect(result.options[0]!.cost).toBe(20_000_000);
+  });
+
+  it('gibt für einen Spieler mit eigenem Gebot dessen Betrag im Rahmen wieder frei', () => {
+    const players = baseSquad();
+    const candidate = makeCandidate({
+      id: 'M-neu',
+      position: 'MID',
+      averagePoints: 50,
+      marketValue: 20_000_000,
+      price: 20_000_000,
+    });
+    // 21 Mio Konto, davon 20 Mio durch das eigene Gebot auf GENAU diesen
+    // Spieler gebunden. Ohne die Freigabe hieße es „kein Budget" — für ein
+    // Gebot, das längst angenommen ist.
+    const budget = computeBudgetLimit({ budget: 21_000_000, teamValue: 0, pendingOffers: 20_000_000 });
+    expect(budget.available).toBe(1_000_000);
+
+    const without = deriveReplacementAdvice({ players, market: [candidate], metric: 'points', budget });
+    expect(without.options[0]!.bid.verdict).toBe('kein-budget');
+
+    const withOwn = deriveReplacementAdvice({
+      players,
+      market: [{ ...candidate, offerCount: 1, ownOfferPrice: 20_000_000 }],
+      metric: 'points',
+      budget,
+    });
+    expect(withOwn.options[0]!.bid.verdict).not.toBe('kein-budget');
+    expect(withOwn.options[0]!.bid.bid).toBe(20_600_000);
   });
 
   it('leitet die Wertobergrenze aus der Elf ab, nicht aus dem ganzen Kader', () => {

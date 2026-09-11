@@ -6,6 +6,7 @@ import {
   type LineupConstraints,
 } from '@/lineup/rules';
 import { deriveBidAdvice, type BidAdvice } from './bidAdvice';
+import { availableForRebid, type BudgetLimit } from './budget';
 import { optimizeLineupWithRules } from './constrainedLineup';
 import { AVAILABLE_FORMATIONS } from './formations';
 import { isAvailableForLineup, type OptimizerMetric, type OptimizerPlayer } from './lineupOptimizer';
@@ -64,6 +65,8 @@ export interface ReplacementCandidatePlayer extends OptimizerPlayer {
   isBotListing: boolean;
   offerCount: number;
   expiresInSeconds: number | null;
+  /** Mein eigenes Gebot auf dieses Listing, `null` ohne — siehe `BidAdviceInput.ownOfferPrice`. */
+  ownOfferPrice: number | null;
 }
 
 /** Ein Ausfall im eigenen Kader — der Anlass, überhaupt nachzukaufen. */
@@ -196,8 +199,13 @@ export interface ReplacementAdviceInput {
   metric: OptimizerMetric;
   formations?: readonly string[];
   constraints?: LineupConstraints;
-  /** `BudgetLimit.available`, siehe utils/budget.ts. `null` = unbekannt, dann wird kein Gebot gedeckelt. */
-  available?: number | null;
+  /**
+   * Der 33%-Rahmen (utils/budget.ts), `null` = unbekannt, dann wird kein Gebot
+   * gedeckelt. Das ganze Limit und nicht nur `available`: für einen Spieler,
+   * auf den ich schon geboten habe, ist der Spielraum ein anderer — das alte
+   * Gebot wird ersetzt und sein Betrag ist wieder frei (`availableForRebid`).
+   */
+  budget?: BudgetLimit | null;
 }
 
 /**
@@ -245,7 +253,7 @@ export function deriveReplacementAdvice({
   metric,
   formations = AVAILABLE_FORMATIONS,
   constraints = UNCONSTRAINED_CONSTRAINTS,
-  available = null,
+  budget = null,
 }: ReplacementAdviceInput): ReplacementAdvice {
   const scoreMetric = scoreMetricFor(metric);
   const baseline = optimizeLineupWithRules(players, scoreMetric, formations, constraints);
@@ -346,11 +354,12 @@ export function deriveReplacementAdvice({
       price: candidate.price,
       marketValue: candidate.marketValue,
       offerCount: candidate.offerCount,
+      ownOfferPrice: candidate.ownOfferPrice,
       isBotListing: candidate.isBotListing,
       expiresInSeconds: candidate.expiresInSeconds,
       averagePoints: candidate.averagePoints,
       referenceValueScore,
-      available,
+      available: budget === null ? null : availableForRebid(budget, candidate.ownOfferPrice),
     });
     // Am Budget gedeckelte Gebote dürfen die Effizienz nicht schönrechnen —
     // deshalb die Wettbewerbs-Untergrenze als Rückfall und nicht das gekürzte

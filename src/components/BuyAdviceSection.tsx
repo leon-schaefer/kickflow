@@ -118,9 +118,13 @@ export function BuyAdviceSection({
         <span className={styles.summary}>
           {best && bestOption
             ? `Bester Ersatz: ${best.name} · +${formatValueScore(bestOption.gain)} Ø-Punkte${
-                bestOption.bid.bid !== null
-                  ? ` · ${formatCurrency(bestOption.bid.bid)} bieten`
-                  : ' · Budget reicht nicht'
+                bestOption.bid.bid === null
+                  ? ' · Budget reicht nicht'
+                  : // Liegt mein Gebot schon dort, ist „X bieten" eine Aufforderung
+                    // zu nichts — dieselbe Unterscheidung wie in BidAdvice.reason.
+                    best.ownOfferPrice != null && best.ownOfferPrice >= bestOption.bid.bid
+                    ? ` · dein Gebot ${formatCurrency(best.ownOfferPrice)} deckt das`
+                    : ` · ${formatCurrency(bestOption.bid.bid)} bieten`
               }`
             : marketPending
               ? 'Transfermarkt wird geladen …'

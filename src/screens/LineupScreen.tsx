@@ -195,7 +195,7 @@ export function LineupScreen() {
     marketPlayers,
     optimizer.metric,
     optimizer.constraints,
-    budgetLimit?.available ?? null,
+    budgetLimit,
     fixtureDifficultyByTeam,
   );
 

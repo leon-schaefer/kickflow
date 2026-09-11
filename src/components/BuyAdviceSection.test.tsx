@@ -192,4 +192,23 @@ describe('BuyAdviceSection', () => {
     await userEvent.click(screen.getByRole('button', { name: /Kommt für/ }));
     expect(onSelectPlayer).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }));
   });
+
+  it('zeigt das eigene Gebot in der Zeile und bietet an, es zu ändern statt neu zu bieten', async () => {
+    // Nach dem eigenen Gebot zählt Kickbase es in offerCount mit.
+    setup(squad(), [
+      marketPlayer({ averagePoints: 200, offerCount: 1, ownOfferPrice: 10_300_000 }),
+    ]);
+
+    // Schon zugeklappt: kein „bieten" für ein Gebot, das längst liegt.
+    expect(toggle()).toHaveTextContent(/dein Gebot 10,3 Mio € deckt das/);
+    expect(toggle()).not.toHaveTextContent(/bieten/);
+
+    await userEvent.click(toggle());
+    expect(screen.getByText('Dein Gebot: 10,3 Mio €')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gebot für Nico Bauer ändern' })).toHaveTextContent(
+      'Ändern',
+    );
+    // Das eigene Gebot ist kein Mitbieter — die Begründung nennt keines.
+    expect(screen.queryByText(/liegt bereits vor/)).not.toBeInTheDocument();
+  });
 });
