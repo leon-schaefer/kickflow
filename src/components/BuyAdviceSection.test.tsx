@@ -174,8 +174,44 @@ describe('BuyAdviceSection', () => {
     expect(screen.getByText('Harry Kane')).toBeInTheDocument();
     expect(screen.getByText(/Ø-Punkte ohne die Regel/)).toBeInTheDocument();
 
+    // Die naheliegende Rückfrage — „und wenn ein Vereinskollege weicht?" —
+    // beantwortet die Zeile gleich mit, samt Preis. Ohne sie liest sich die
+    // Regel wie ein Verbot, obwohl sie nur eine Rechnung ist.
+    expect(screen.getByText(/Aufstellbar wäre er, wenn MID 1 weicht/)).toBeInTheDocument();
+    expect(screen.getByText(/das kostet .* Ø-Punkte/)).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole('button', { name: /Regeln ansehen/ }));
     expect(onOpenRules).toHaveBeenCalled();
+  });
+
+  /**
+   * Der Gegenfall zum Test darüber, und der wichtigere von beiden: ein dritter
+   * Spieler desselben Vereins ist NICHT pauschal verboten. Ist er besser als
+   * einer der beiden, räumt dieser den Platz — die Elf bleibt regelkonform und
+   * er steht als ganz normale Empfehlung in der Liste.
+   */
+  it('empfiehlt den dritten Spieler eines Vereins, wenn ein Kollege für ihn weicht', async () => {
+    const players = squad().map((player) =>
+      player.id === 'MID0'
+        ? { ...player, teamId: 'BAY', averagePoints: 200 }
+        : player.id === 'MID1'
+          ? // Stark genug, dass er ohne den Zukauf in der Elf steht — erst dann
+            // ist die Quote von 2 wirklich voll und die Regel im Spiel.
+            { ...player, teamId: 'BAY', averagePoints: 60 }
+          : { ...player, teamId: `T-${player.id}` },
+    );
+    const market = [marketPlayer({ name: 'Harry Kane', teamId: 'BAY', averagePoints: 120 })];
+    const { advice } = setup(players, market, { maxPerTeam: 2 });
+
+    expect(advice.blockedByRule).toHaveLength(0);
+    expect(advice.options.map((option) => option.playerId)).toEqual(['m1']);
+    expect(screen.getByText(/Bester Ersatz: Harry Kane/)).toBeInTheDocument();
+
+    await userEvent.click(toggle());
+    // Der Vereinskollege, der den Platz räumt, wird namentlich genannt — das
+    // ist die Information, die aus einem Vorschlag eine Entscheidung macht.
+    expect(advice.options[0]!.replacesPlayerIds).toContain('MID1');
+    expect(screen.getByText(/MID 1/)).toBeInTheDocument();
   });
 
   it('öffnet über den Knopf das Gebot, über die Zeile das Spielerprofil', async () => {

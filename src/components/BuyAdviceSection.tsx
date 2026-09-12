@@ -3,7 +3,11 @@ import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
 import { describeRule, type LineupRule } from '@/lineup/rules';
 import { statusLabels } from '@/theme/tokens';
 import { formatCurrency, formatValueScore } from '@/utils/format';
-import { describeReplacement, type ReplacementAdvice } from '@/utils/replacementAdvice';
+import {
+  describeReplacement,
+  describeRuleSwap,
+  type ReplacementAdvice,
+} from '@/utils/replacementAdvice';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
 import styles from './BuyAdviceSection.module.css';
@@ -214,6 +218,10 @@ export function BuyAdviceSection({
               {advice.blockedByRule.slice(0, BLOCKED_SHOWN).map((entry) => {
                 const player = marketById.get(entry.playerId);
                 if (!player) return null;
+                // Der Umbau ist die naheliegende Rückfrage („und wenn ein
+                // Vereinskollege weicht?") — sie hier zu beantworten ist der
+                // Unterschied zwischen einer Begründung und einem Machtwort.
+                const swap = describeRuleSwap(entry, nameById);
                 return (
                   <p key={entry.playerId} className={styles.blockedRow}>
                     <span className={styles.blockedName}>{player.name}</span>
@@ -221,6 +229,7 @@ export function BuyAdviceSection({
                       +{formatValueScore(entry.gainWithoutRule)} Ø-Punkte ohne die Regel ·{' '}
                       {formatCurrency(player.price)}
                     </span>
+                    {swap && <span className={styles.blockedSwap}>{swap}</span>}
                   </p>
                 );
               })}
