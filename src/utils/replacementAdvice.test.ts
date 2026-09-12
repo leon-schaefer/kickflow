@@ -621,6 +621,16 @@ describe('describeRuleSwap', () => {
     expect(text).toContain('12,5');
   });
 
+  it('setzt das Verb in den Plural, wenn der Umbau mehrere Plätze berührt', () => {
+    const names: Record<string, string> = { MID1: 'Max Meier', DEF3: 'Tim Braun' };
+    const text = describeRuleSwap(
+      blocked({ swapOutPlayerIds: ['MID1', 'DEF3'] }),
+      (id) => names[id],
+    );
+    expect(text).toContain('Max Meier, Tim Braun weichen');
+    expect(text).not.toContain('weicht');
+  });
+
   it('sagt bei einem Tausch ohne Wirkung nichts von Kosten', () => {
     const text = describeRuleSwap(blocked({ swapGain: 0 }), () => 'Max Meier');
     expect(text).toContain('ändert an den Ø-Punkten nichts');

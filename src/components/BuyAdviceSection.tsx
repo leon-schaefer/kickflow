@@ -122,12 +122,13 @@ export function BuyAdviceSection({
         <span className={styles.summary}>
           {best && bestOption
             ? `Bester Ersatz: ${best.name} · +${formatValueScore(bestOption.gain)} Ø-Punkte${
-                bestOption.bid.bid === null
-                  ? ' · Budget reicht nicht'
-                  : // Liegt mein Gebot schon dort, ist „X bieten" eine Aufforderung
-                    // zu nichts — dieselbe Unterscheidung wie in BidAdvice.reason.
-                    best.ownOfferPrice != null && best.ownOfferPrice >= bestOption.bid.bid
-                    ? ` · dein Gebot ${formatCurrency(best.ownOfferPrice)} deckt das`
+                // Das Urteil kommt aus der Empfehlung selbst — ein zweiter
+                // Vergleich hier würde am gedeckelten `bid` messen und ein
+                // Gebot unter der Empfehlung fälschlich als gedeckt ausweisen.
+                bestOption.bid.coveredByOwnOffer && best.ownOfferPrice != null
+                  ? ` · dein Gebot ${formatCurrency(best.ownOfferPrice)} deckt das`
+                  : bestOption.bid.bid === null
+                    ? ' · Budget reicht nicht'
                     : ` · ${formatCurrency(bestOption.bid.bid)} bieten`
               }`
             : marketPending

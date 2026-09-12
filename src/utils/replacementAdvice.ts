@@ -41,8 +41,10 @@ import { median } from './median';
  * DIE LIGA-REGELN GELTEN HIER GENAUSO HART wie bei der Aufstellung, und aus
  * demselben Grund: eine Empfehlung, die eine Regel bricht, empfiehlt Punkte,
  * die es nicht gibt. Darf höchstens zwei Spieler eines Vereins aufs Feld, dann
- * bringt der dritte nichts — die Neuoptimierung oben rechnet das automatisch
- * mit, denn sie läuft unter denselben Schranken wie die angezeigte Elf. Weil
+ * bringt ein dritter nur so viel, wie er über den schwächeren der beiden
+ * hinaus holt — die Neuoptimierung oben rechnet das automatisch mit, denn sie
+ * läuft unter denselben Schranken wie die angezeigte Elf und darf dabei
+ * umbauen (siehe den Absatz zum Verdrängen weiter unten). Weil
  * ihn stillschweigend weglassen aber nicht erklärt, WARUM der beste Stürmer
  * der Liga fehlt, wird für jeden so abgelehnten Kandidaten ein zweites Mal
  * OHNE Schranken gerechnet: hätte er ohne die Regel geholfen, steht er als
@@ -240,9 +242,11 @@ export function describeRuleSwap(
     .filter((name): name is string => !!name);
   // Unbekannte ID → die allgemeine Formulierung, nie eine ID anzeigen.
   const who = leaving.length > 0 ? leaving.join(', ') : 'ein Vereinskollege';
+  // Ein Umbau quer über die Positionen kann mehrere Plätze berühren.
+  const verb = leaving.length > 1 ? 'weichen' : 'weicht';
   return entry.swapGain < 0
-    ? `Aufstellbar wäre er, wenn ${who} weicht — das kostet ${formatValueScore(-entry.swapGain)} Ø-Punkte.`
-    : `Aufstellbar wäre er, wenn ${who} weicht — das ändert an den Ø-Punkten nichts.`;
+    ? `Aufstellbar wäre er, wenn ${who} ${verb} — das kostet ${formatValueScore(-entry.swapGain)} Ø-Punkte.`
+    : `Aufstellbar wäre er, wenn ${who} ${verb} — das ändert an den Ø-Punkten nichts.`;
 }
 
 export interface ReplacementAdviceInput {

@@ -120,6 +120,15 @@ export interface BidAdvice {
   ceiling: number | null;
   /** true, wenn das Budget das Gebot unter den empfohlenen Wert drückt. */
   cappedByBudget: boolean;
+  /**
+   * true, wenn mein eigenes Gebot den EMPFOHLENEN Betrag schon erreicht —
+   * gemessen am ungedeckelten Ziel, nicht an `bid`. Deckelt das Budget, liegt
+   * `bid` unter der Empfehlung; ein Gebot dazwischen deckt sie also gerade
+   * nicht, und „passt schon" wäre dort die falsche Auskunft. Die Anzeige liest
+   * dieses Feld, statt den Vergleich ein zweites Mal zu führen
+   * (siehe BuyAdviceSection).
+   */
+  coveredByOwnOffer: boolean;
   verdict: BidVerdict;
   /** Ein Satz auf Deutsch, direkt anzeigbar. */
   reason: string;
@@ -171,6 +180,15 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
     Math.ceil((competitiveBid * (1 + markup)) / BID_ROUNDING) * BID_ROUNDING,
   );
 
+  // Steht mein Gebot schon dort, wo die Empfehlung hinwill, ist der Satz
+  // „X bieten" eine Aufforderung zu nichts — dann sagt er das. Gemessen am
+  // ungedeckelten `target`: ein Gebot, das nur den gedeckelten Betrag
+  // erreicht, deckt die Empfehlung gerade NICHT.
+  const coveredByOwnOffer = ownOfferPrice !== null && ownOfferPrice >= target;
+  const ownOfferNote = coveredByOwnOffer
+    ? ` Dein Gebot von ${formatCurrency(ownOfferPrice!)} deckt das bereits.`
+    : '';
+
   if (available !== null && available < minBid) {
     return {
       bid: null,
@@ -180,8 +198,13 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
       competitorCount,
       ceiling,
       cappedByBudget: true,
+      coveredByOwnOffer,
       verdict: 'kein-budget',
-      reason: `Mindestgebot ${formatCurrency(minBid)}, verfügbar sind nur ${formatCurrency(available)} (inkl. 33%-Rahmen).`,
+      // Der Hinweis gehört auch hierher: der Rahmen kann für ein NEUES Gebot
+      // zu eng sein, während das alte längst liegt und die Empfehlung deckt
+      // (etwa nachdem Marktwertverfall das Konto unter die Grenze gedrückt
+      // hat). Ohne ihn läse sich das als „geht nicht", obwohl nichts fehlt.
+      reason: `Mindestgebot ${formatCurrency(minBid)}, verfügbar sind nur ${formatCurrency(available)} (inkl. 33%-Rahmen).${ownOfferNote}`,
     };
   }
 
@@ -197,13 +220,6 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
     competitorCount > 0
       ? ` · ${competitorCount} ${competitorCount === 1 ? 'Gebot liegt' : 'Gebote liegen'} bereits vor`
       : '';
-  // Steht mein Gebot schon dort, wo die Empfehlung hinwill, ist der Satz
-  // „X bieten" eine Aufforderung zu nichts — dann sagt er das.
-  const ownOfferNote =
-    ownOfferPrice !== null && ownOfferPrice >= bid
-      ? ` Dein Gebot von ${formatCurrency(ownOfferPrice)} deckt das bereits.`
-      : '';
-
   if (ceiling !== null && target > ceiling) {
     return {
       bid,
@@ -213,6 +229,7 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
       competitorCount,
       ceiling,
       cappedByBudget,
+      coveredByOwnOffer,
       verdict: 'ueber-wert',
       reason: `Über Wert: rechnerisch lohnt er bis ${formatCurrency(ceiling)}, für einen Zuschlag braucht es aber ${formatCurrency(target)} (${sellerNote}${competitionNote}).${ownOfferNote}`,
     };
@@ -226,6 +243,7 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
     competitorCount,
     ceiling,
     cappedByBudget,
+    coveredByOwnOffer,
     verdict: 'bieten',
     reason:
       (cappedByBudget

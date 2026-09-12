@@ -91,6 +91,36 @@ describe('deriveBidAdvice', () => {
     expect(withOwn.reason).not.toMatch(/deckt das bereits/);
   });
 
+  it('nennt ein am Budget gedeckeltes Gebot nicht gedeckt, nur weil es den Deckel erreicht', () => {
+    // Empfohlen wären 10,3 Mio, der Rahmen gibt nur 10,1 Mio her. Ein eigenes
+    // Gebot von 10,1 Mio erreicht also den Deckel, nicht die Empfehlung — und
+    // „passt schon" wäre neben „empfohlen wären 10,3 Mio" ein Widerspruch.
+    const uncapped = deriveBidAdvice(input({ referenceValueScore: 0 }));
+    expect(uncapped.bid).toBe(10_300_000);
+
+    const advice = deriveBidAdvice(
+      input({ available: 10_100_000, offerCount: 1, ownOfferPrice: 10_100_000, referenceValueScore: 0 }),
+    );
+
+    expect(advice.cappedByBudget).toBe(true);
+    expect(advice.bid).toBe(10_100_000);
+    expect(advice.coveredByOwnOffer).toBe(false);
+    expect(advice.reason).not.toMatch(/deckt das bereits/);
+  });
+
+  it('sagt auch ohne Rahmen für ein neues Gebot, dass das alte die Empfehlung deckt', () => {
+    // Der 33%-Rahmen trägt kein neues Gebot mehr (etwa nach Marktwertverfall),
+    // das längst liegende deckt die Empfehlung aber. „Kein Budget" allein
+    // läse sich dann so, als fehlte etwas.
+    const advice = deriveBidAdvice(
+      input({ available: 1_000_000, offerCount: 1, ownOfferPrice: 11_000_000, referenceValueScore: 0 }),
+    );
+
+    expect(advice.verdict).toBe('kein-budget');
+    expect(advice.coveredByOwnOffer).toBe(true);
+    expect(advice.reason).toMatch(/Dein Gebot von .* deckt das bereits/);
+  });
+
   it('legt beim Manager-Listing mehr drauf als bei Kickbase', () => {
     const bot = deriveBidAdvice(input({ isBotListing: true, referenceValueScore: 0 }));
     const manager = deriveBidAdvice(input({ isBotListing: false, referenceValueScore: 0 }));
