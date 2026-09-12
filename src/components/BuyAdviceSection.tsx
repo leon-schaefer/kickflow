@@ -3,7 +3,11 @@ import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
 import { describeRule, type LineupRule } from '@/lineup/rules';
 import { statusLabels } from '@/theme/tokens';
 import { formatCurrency, formatValueScore } from '@/utils/format';
-import { describeReplacement, type ReplacementAdvice } from '@/utils/replacementAdvice';
+import {
+  describeReplacement,
+  describeRuleSwap,
+  type ReplacementAdvice,
+} from '@/utils/replacementAdvice';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
 import styles from './BuyAdviceSection.module.css';
@@ -118,9 +122,14 @@ export function BuyAdviceSection({
         <span className={styles.summary}>
           {best && bestOption
             ? `Bester Ersatz: ${best.name} · +${formatValueScore(bestOption.gain)} Ø-Punkte${
-                bestOption.bid.bid !== null
-                  ? ` · ${formatCurrency(bestOption.bid.bid)} bieten`
-                  : ' · Budget reicht nicht'
+                // Das Urteil kommt aus der Empfehlung selbst — ein zweiter
+                // Vergleich hier würde am gedeckelten `bid` messen und ein
+                // Gebot unter der Empfehlung fälschlich als gedeckt ausweisen.
+                bestOption.bid.coveredByOwnOffer && best.ownOfferPrice != null
+                  ? ` · dein Gebot ${formatCurrency(best.ownOfferPrice)} deckt das`
+                  : bestOption.bid.bid === null
+                    ? ' · Budget reicht nicht'
+                    : ` · ${formatCurrency(bestOption.bid.bid)} bieten`
               }`
             : marketPending
               ? 'Transfermarkt wird geladen …'
@@ -210,6 +219,10 @@ export function BuyAdviceSection({
               {advice.blockedByRule.slice(0, BLOCKED_SHOWN).map((entry) => {
                 const player = marketById.get(entry.playerId);
                 if (!player) return null;
+                // Der Umbau ist die naheliegende Rückfrage („und wenn ein
+                // Vereinskollege weicht?") — sie hier zu beantworten ist der
+                // Unterschied zwischen einer Begründung und einem Machtwort.
+                const swap = describeRuleSwap(entry, nameById);
                 return (
                   <p key={entry.playerId} className={styles.blockedRow}>
                     <span className={styles.blockedName}>{player.name}</span>
@@ -217,6 +230,7 @@ export function BuyAdviceSection({
                       +{formatValueScore(entry.gainWithoutRule)} Ø-Punkte ohne die Regel ·{' '}
                       {formatCurrency(player.price)}
                     </span>
+                    {swap && <span className={styles.blockedSwap}>{swap}</span>}
                   </p>
                 );
               })}

@@ -129,6 +129,15 @@
   color: var(--color-text-primary);
 }
 
+/* Eigene Zeile statt einer weiteren Zelle in der umbrechenden Kopfzeile: das
+   ist ein ganzer Satz, kein Datum neben dem Namen. */
+.blockedSwap {
+  flex-basis: 100%;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-small);
+  color: var(--color-text-secondary);
+}
+
 .blockedAction {
   padding-block: var(--space-xs);
   font-size: var(--font-size-caption);

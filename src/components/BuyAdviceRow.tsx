@@ -19,6 +19,8 @@ export interface BuyAdviceRowPlayer {
   isBotListing: boolean;
   sellerName: string | null;
   expiresInSeconds: number | null;
+  /** Mein eigenes Gebot, `null` ohne (`MarketPlayer.ownOfferPrice`). */
+  ownOfferPrice: number | null;
 }
 
 interface BuyAdviceRowProps {
@@ -67,6 +69,11 @@ export function BuyAdviceRow({
       ? null
       : `${Math.abs(markup).toLocaleString('de-DE')} % ${markup > 0 ? 'über' : 'unter'} MW`;
   const { bid } = option;
+  // Ein Spieler, auf den ich schon geboten habe, bleibt eine Empfehlung —
+  // aber die Zeile muss es sagen, sonst liest sich „X bieten" wie eine
+  // Aufforderung, ein zweites Mal zu bieten. Und der Knopf ändert dann das
+  // Gebot, er gibt keines ab (Upsert, siehe endpoints.ts).
+  const hasOwnOffer = player.ownOfferPrice != null;
 
   return (
     <div
@@ -118,6 +125,11 @@ export function BuyAdviceRow({
             {player.expiresInSeconds != null &&
               ` · ${formatCountdown(player.expiresInSeconds * 1000)}`}
           </span>
+          {hasOwnOffer && (
+            <span className={styles.ownOffer}>
+              Dein Gebot: {formatCurrency(player.ownOfferPrice!)}
+            </span>
+          )}
         </span>
 
         <span className={styles.badgeColumn}>
@@ -135,9 +147,9 @@ export function BuyAdviceRow({
                 onBid(player);
               }}
               className={cx(layout.pressable, layout.hitSlopSm, styles.bidButton)}
-              aria-label={`Gebot für ${player.name} abgeben`}
+              aria-label={`Gebot für ${player.name} ${hasOwnOffer ? 'ändern' : 'abgeben'}`}
             >
-              Bieten
+              {hasOwnOffer ? 'Ändern' : 'Bieten'}
             </button>
           )}
         </span>

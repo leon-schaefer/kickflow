@@ -73,6 +73,28 @@ export function computeBudgetLimit({ budget, teamValue, pendingOffers = 0 }: Bud
 }
 
 /**
+ * Spielraum für ein Gebot auf einen Spieler, auf den ich mit `ownOfferPrice`
+ * schon geboten habe. Ein erneutes Gebot ERSETZT das alte (Upsert, siehe
+ * endpoints.ts), dessen Betrag ist also wieder frei — `limit.available` hat
+ * ihn aber als offenes Gebot bereits abgezogen. Dasselbe Ergebnis wie
+ * `useBudgetLimit(playerId)` im Gebots-Dialog, nur aus einem fertigen Limit
+ * statt aus der Marktliste: die Kaufempfehlung braucht es je Kandidat und
+ * darf dafür nicht je Kandidat neu summieren.
+ *
+ * Bewusst über `computeBudgetLimit` und nicht als `available + ownOfferPrice`:
+ * liegt das Konto schon unter der Grenze, ist `available` auf 0 geklemmt, und
+ * die Kurzform wäre um genau den Fehlbetrag zu großzügig.
+ */
+export function availableForRebid(limit: BudgetLimit, ownOfferPrice: number | null): number {
+  if (ownOfferPrice == null) return limit.available;
+  return computeBudgetLimit({
+    budget: limit.budget,
+    teamValue: limit.teamValue,
+    pendingOffers: limit.pendingOffers - ownOfferPrice,
+  }).available;
+}
+
+/**
  * Summe der eigenen offenen Gebote aus der Marktliste. `excludePlayerId`
  * lässt den Spieler aus, für den gerade neu geboten wird — ein erneutes
  * `POST .../offers` auf denselben Spieler ist ein Upsert (siehe

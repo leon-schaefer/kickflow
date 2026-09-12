@@ -63,8 +63,19 @@ export interface BidAdviceInput {
   /** Angebotspreis des Verkäufers (`MarketPlayer.price`) — das Mindestgebot. */
   price: number;
   marketValue: number;
-  /** Für mich sichtbare Gebote (`MarketPlayer.offerCount`). */
+  /**
+   * Für mich sichtbare Gebote (`MarketPlayer.offerCount`) — INKLUSIVE meines
+   * eigenen, falls ich schon geboten habe: Kickbase zählt es in `ofc` mit
+   * (siehe `placeOffer` in endpoints.ts, „`ofc` bleibt 1").
+   */
   offerCount: number;
+  /**
+   * Mein eigenes Gebot auf dieses Listing (`MarketPlayer.ownOfferPrice`),
+   * `null` ohne. Ohne dieses Feld hielte sich die Empfehlung selbst für einen
+   * Mitbieter und legte nach jedem eigenen Gebot noch einmal drauf — genau
+   * das Rätsel „ich habe geboten, jetzt empfiehlt sie mehr".
+   */
+  ownOfferPrice: number | null;
   /** true = Kickbase verkauft, kein Manager (`MarketPlayer.isBotListing`). */
   isBotListing: boolean;
   /** Restlaufzeit; `null` bei Manager-Listings, die nie ablaufen. */
@@ -77,10 +88,11 @@ export interface BidAdviceInput {
    */
   referenceValueScore: number;
   /**
-   * Spielraum inkl. 33%-Überziehungsrahmen und abzüglich anderer offener
-   * Gebote (`BudgetLimit.available`, siehe utils/budget.ts). `null` = noch
-   * nicht bekannt; dann wird nicht gedeckelt, statt ein Gebot zu verbieten,
-   * das erlaubt sein könnte.
+   * Spielraum für ein Gebot auf DIESEN Spieler: inkl. 33%-Überziehungsrahmen,
+   * abzüglich offener Gebote auf andere Spieler, ein eigenes Gebot auf diesen
+   * schon wieder freigegeben (`availableForRebid`, siehe utils/budget.ts).
+   * `null` = noch nicht bekannt; dann wird nicht gedeckelt, statt ein Gebot
+   * zu verbieten, das erlaubt sein könnte.
    */
   available: number | null;
 }
@@ -102,10 +114,21 @@ export interface BidAdvice {
   competitiveBid: number;
   /** Aufschlag auf `competitiveBid` in ganzen Prozent (0, wenn keiner nötig ist). */
   markupPercent: number;
+  /** Gebote ANDERER auf dieses Listing — `offerCount` ohne mein eigenes. */
+  competitorCount: number;
   /** Preis, ab dem der Zukauf die Kader-Effizienz verwässert. `null` ohne Referenz. */
   ceiling: number | null;
   /** true, wenn das Budget das Gebot unter den empfohlenen Wert drückt. */
   cappedByBudget: boolean;
+  /**
+   * true, wenn mein eigenes Gebot den EMPFOHLENEN Betrag schon erreicht —
+   * gemessen am ungedeckelten Ziel, nicht an `bid`. Deckelt das Budget, liegt
+   * `bid` unter der Empfehlung; ein Gebot dazwischen deckt sie also gerade
+   * nicht, und „passt schon" wäre dort die falsche Auskunft. Die Anzeige liest
+   * dieses Feld, statt den Vergleich ein zweites Mal zu führen
+   * (siehe BuyAdviceSection).
+   */
+  coveredByOwnOffer: boolean;
   verdict: BidVerdict;
   /** Ein Satz auf Deutsch, direkt anzeigbar. */
   reason: string;
@@ -121,9 +144,18 @@ export function valueCeiling(averagePoints: number, referenceValueScore: number)
   return Math.round((averagePoints / referenceValueScore) * 1_000_000);
 }
 
-function markupFor({ isBotListing, offerCount, expiresInSeconds }: BidAdviceInput): number {
+/**
+ * Gebote, gegen die ich antrete. Mein eigenes steckt in `offerCount` mit drin
+ * und ist kein Wettbewerb — es wird durch ein neues ersetzt, nicht überboten.
+ */
+function competitorCountFor({ offerCount, ownOfferPrice }: BidAdviceInput): number {
+  return Math.max(0, offerCount - (ownOfferPrice !== null ? 1 : 0));
+}
+
+function markupFor(input: BidAdviceInput): number {
+  const { isBotListing, expiresInSeconds } = input;
   const base = isBotListing ? BASE_MARKUP_BOT : BASE_MARKUP_MANAGER;
-  const competition = Math.min(MAX_OFFER_MARKUP, Math.max(0, offerCount) * MARKUP_PER_OFFER);
+  const competition = Math.min(MAX_OFFER_MARKUP, competitorCountFor(input) * MARKUP_PER_OFFER);
   const expiring =
     expiresInSeconds !== null && expiresInSeconds <= EXPIRING_SOON_SECONDS
       ? MARKUP_EXPIRING_SOON
@@ -132,12 +164,13 @@ function markupFor({ isBotListing, offerCount, expiresInSeconds }: BidAdviceInpu
 }
 
 export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
-  const { price, marketValue, offerCount, isBotListing, averagePoints, referenceValueScore, available } = input;
+  const { price, marketValue, isBotListing, ownOfferPrice, averagePoints, referenceValueScore, available } = input;
 
   const minBid = Math.max(0, price);
   const competitiveBid = Math.max(minBid, marketValue);
   const markup = markupFor(input);
   const markupPercent = Math.round(markup * 100);
+  const competitorCount = competitorCountFor(input);
   const ceiling = valueCeiling(averagePoints, referenceValueScore);
 
   // Aufrunden auf ganze Tausender, aber nie unter die Wettbewerbs-Untergrenze —
@@ -147,16 +180,31 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
     Math.ceil((competitiveBid * (1 + markup)) / BID_ROUNDING) * BID_ROUNDING,
   );
 
+  // Steht mein Gebot schon dort, wo die Empfehlung hinwill, ist der Satz
+  // „X bieten" eine Aufforderung zu nichts — dann sagt er das. Gemessen am
+  // ungedeckelten `target`: ein Gebot, das nur den gedeckelten Betrag
+  // erreicht, deckt die Empfehlung gerade NICHT.
+  const coveredByOwnOffer = ownOfferPrice !== null && ownOfferPrice >= target;
+  const ownOfferNote = coveredByOwnOffer
+    ? ` Dein Gebot von ${formatCurrency(ownOfferPrice!)} deckt das bereits.`
+    : '';
+
   if (available !== null && available < minBid) {
     return {
       bid: null,
       minBid,
       competitiveBid,
       markupPercent,
+      competitorCount,
       ceiling,
       cappedByBudget: true,
+      coveredByOwnOffer,
       verdict: 'kein-budget',
-      reason: `Mindestgebot ${formatCurrency(minBid)}, verfügbar sind nur ${formatCurrency(available)} (inkl. 33%-Rahmen).`,
+      // Der Hinweis gehört auch hierher: der Rahmen kann für ein NEUES Gebot
+      // zu eng sein, während das alte längst liegt und die Empfehlung deckt
+      // (etwa nachdem Marktwertverfall das Konto unter die Grenze gedrückt
+      // hat). Ohne ihn läse sich das als „geht nicht", obwohl nichts fehlt.
+      reason: `Mindestgebot ${formatCurrency(minBid)}, verfügbar sind nur ${formatCurrency(available)} (inkl. 33%-Rahmen).${ownOfferNote}`,
     };
   }
 
@@ -166,21 +214,24 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
   const sellerNote = isBotListing
     ? 'Kickbase verkauft an das höchste Gebot'
     : 'ein Manager entscheidet über den Zuschlag';
+  // Nur die Gebote der ANDEREN — das eigene ist keine Nachricht, die man sich
+  // selbst überbringen müsste, und die Zeile zeigt es ohnehin (BuyAdviceRow).
   const competitionNote =
-    offerCount > 0
-      ? ` · ${offerCount} ${offerCount === 1 ? 'Gebot liegt' : 'Gebote liegen'} bereits vor`
+    competitorCount > 0
+      ? ` · ${competitorCount} ${competitorCount === 1 ? 'Gebot liegt' : 'Gebote liegen'} bereits vor`
       : '';
-
   if (ceiling !== null && target > ceiling) {
     return {
       bid,
       minBid,
       competitiveBid,
       markupPercent,
+      competitorCount,
       ceiling,
       cappedByBudget,
+      coveredByOwnOffer,
       verdict: 'ueber-wert',
-      reason: `Über Wert: rechnerisch lohnt er bis ${formatCurrency(ceiling)}, für einen Zuschlag braucht es aber ${formatCurrency(target)} (${sellerNote}${competitionNote}).`,
+      reason: `Über Wert: rechnerisch lohnt er bis ${formatCurrency(ceiling)}, für einen Zuschlag braucht es aber ${formatCurrency(target)} (${sellerNote}${competitionNote}).${ownOfferNote}`,
     };
   }
 
@@ -189,11 +240,15 @@ export function deriveBidAdvice(input: BidAdviceInput): BidAdvice {
     minBid,
     competitiveBid,
     markupPercent,
+    competitorCount,
     ceiling,
     cappedByBudget,
+    coveredByOwnOffer,
     verdict: 'bieten',
-    reason: cappedByBudget
-      ? `${formatCurrency(bid)} ist alles, was der 33%-Rahmen hergibt — empfohlen wären ${formatCurrency(target)} (${sellerNote}${competitionNote}).`
-      : `${formatCurrency(bid)} bieten: ${formatCurrency(competitiveBid)} plus ${markupPercent} % (${sellerNote}${competitionNote}).`,
+    reason:
+      (cappedByBudget
+        ? `${formatCurrency(bid)} ist alles, was der 33%-Rahmen hergibt — empfohlen wären ${formatCurrency(target)} (${sellerNote}${competitionNote}).`
+        : `${formatCurrency(bid)} bieten: ${formatCurrency(competitiveBid)} plus ${markupPercent} % (${sellerNote}${competitionNote}).`) +
+      ownOfferNote,
   };
 }

@@ -113,6 +113,14 @@
   color: var(--color-text-secondary);
 }
 
+/* Das eigene Gebot hebt sich von der Metazeile ab — es ist der Grund, warum
+   der Knopf daneben „Ändern" statt „Bieten" heißt. */
+.ownOffer {
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
 .badgeColumn {
   composes: v from '@/theme/layout.module.css';
   align-items: flex-end;
