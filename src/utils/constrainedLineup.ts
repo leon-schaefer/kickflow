@@ -11,16 +11,20 @@ import {
   buildPositionFronts,
   byFormationOrder,
   cheapestLineup,
+  compareQuality,
+  EMPTY_POINT,
   pruneFront,
   type CappedPick,
   type FrontPoint,
 } from './cappedLineup';
 import { AVAILABLE_FORMATIONS, requiredCountsForFormation } from './formations';
 import {
-  compareByMetric,
+  compareForSlot,
+  compareFormationResults,
   isAvailableForLineup,
   missingForFormation,
   optimizeLineup,
+  usedInBestTier,
   type FormationResult,
   type OptimizationResult,
   type OptimizerMetric,
@@ -55,10 +59,15 @@ import {
  * entscheidet bei exaktem Gleichstand (idKey, wie in cappedLineup.ts).
  *
  * Zwei Modi, weil die Zielfunktion unterschiedlich teuer ist:
- * - 'score': nur der punktbeste Punkt je Zustand (Front der Größe ≤1) — für
+ * - 'score': nur der beste Punkt je Zustand (Front der Größe ≤1) — für
  *   optimizeLineupWithRules, das keinen Marktwert-Cap kennt.
  * - 'pareto': die volle Pareto-Front — für bestLineupUnderValueCapWithRules
  *   und cheapestLineupWithRules (Verkaufsplan-Pfad).
+ * "Bester" heißt in beiden Modi `compareQuality` aus cappedLineup.ts: erst
+ * wenige Auffüller, dann Score. Nicht einsatzfähige Spieler laufen als Items
+ * mit Beitrag 0 durch die DP und zählen dabei ganz normal gegen die
+ * Vereins-Obergrenze — ein verletzter Bayern-Spieler auf dem Feld ist für
+ * die Regel ein Bayern-Spieler (siehe Modul-Doku in lineupOptimizer.ts).
  *
  * Ohne aktive Regeln (`isUnconstrained`) delegieren alle drei Wrapper direkt
  * an die bestehenden, ungekoppelten Verfahren — der heute genutzte, seit
@@ -66,7 +75,7 @@ import {
  */
 
 const POSITIONS: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
-const EMPTY_FRONT: FrontPoint[] = [{ marketValue: 0, score: 0, ids: [] }];
+const EMPTY_FRONT: FrontPoint[] = [EMPTY_POINT];
 
 type FrontReducer = (points: readonly FrontPoint[]) => FrontPoint[];
 
@@ -74,13 +83,16 @@ function idKey(ids: readonly string[]): string {
   return [...ids].sort().join(',');
 }
 
-/** score-Modus: nur der punktbeste Punkt, Marktwert spielt keine Rolle für die Auswahl. */
+/** score-Modus: nur der beste Punkt (compareQuality), Marktwert spielt keine Rolle für die Auswahl. */
 function keepBestScore(points: readonly FrontPoint[]): FrontPoint[] {
   let best: FrontPoint | null = null;
   for (const point of points) {
-    if (!best || point.score > best.score || (point.score === best.score && idKey(point.ids) < idKey(best.ids))) {
+    if (!best) {
       best = point;
+      continue;
     }
+    const quality = compareQuality(point, best);
+    if (quality < 0 || (quality === 0 && idKey(point.ids) < idKey(best.ids))) best = point;
   }
   return best ? [best] : [];
 }
@@ -94,7 +106,12 @@ function combineFronts(a: readonly FrontPoint[], b: readonly FrontPoint[], reduc
   const combined: FrontPoint[] = [];
   for (const pa of a) {
     for (const pb of b) {
-      combined.push({ marketValue: pa.marketValue + pb.marketValue, score: pa.score + pb.score, ids: [...pa.ids, ...pb.ids] });
+      combined.push({
+        marketValue: pa.marketValue + pb.marketValue,
+        score: pa.score + pb.score,
+        fillers: pa.fillers + pb.fillers,
+        ids: [...pa.ids, ...pb.ids],
+      });
     }
   }
   return reduce(combined);
@@ -143,9 +160,9 @@ export function buildConstrainedFormationFronts(
     FWD: maxRequired(formations, 'FWD'),
   };
 
+  // Ausfälle bleiben im Pool — als Auffüller mit Beitrag 0 (siehe Modul-Doku).
   const byTeam = new Map<string, OptimizerPlayer[]>();
   for (const player of players) {
-    if (!isAvailableForLineup(player.status)) continue;
     const list = byTeam.get(player.teamId);
     if (list) list.push(player);
     else byTeam.set(player.teamId, [player]);
@@ -218,14 +235,14 @@ export function buildConstrainedFormationFronts(
   });
 }
 
-/** Ordnet gewählte IDs wie FormationResult.playerIds vertraglich zugesichert: GK, DEF, MID, FWD, je sortiert nach compareByMetric. */
+/** Ordnet gewählte IDs wie FormationResult.playerIds vertraglich zugesichert: GK, DEF, MID, FWD, je sortiert nach compareForSlot. */
 function orderIds(ids: readonly string[], playersById: Map<string, OptimizerPlayer>, metric: OptimizerMetric): string[] {
   const byPosition: Record<Position, OptimizerPlayer[]> = { GK: [], DEF: [], MID: [], FWD: [] };
   for (const id of ids) {
     const player = playersById.get(id);
     if (player) byPosition[player.position].push(player);
   }
-  const comparator = compareByMetric(metric);
+  const comparator = compareForSlot(metric);
   const ordered: string[] = [];
   for (const position of POSITIONS) {
     ordered.push(...[...byPosition[position]].sort(comparator).map((p) => p.id));
@@ -261,20 +278,27 @@ export function optimizeLineupWithRules(
 
   let ruleBlockedSomewhere = false;
 
+  const infeasible = (formation: string, missing: Partial<Record<Position, number>>): FormationResult => ({
+    formation,
+    feasible: false,
+    score: null,
+    scoreAverage: null,
+    playerIds: [],
+    fillerIds: [],
+    missing,
+    blockedByRuleIds: [],
+  });
+
   const ranking: FormationResult[] = formations.map((formation) => {
     const required = requiredCountsForFormation(formation);
     const requiredTotal = required.GK + required.DEF + required.MID + required.FWD;
-    if (requiredTotal !== 11) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing: {}, blockedByRuleIds: [] };
-    }
+    if (requiredTotal !== 11) return infeasible(formation, {});
     const missing = missingForFormation(players, formation);
-    if (Object.keys(missing).length > 0) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing, blockedByRuleIds: [] };
-    }
+    if (Object.keys(missing).length > 0) return infeasible(formation, missing);
     const point = frontByFormation.get(formation)?.[0];
     if (!point) {
       ruleBlockedSomewhere = true;
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing: {}, blockedByRuleIds: [] };
+      return infeasible(formation, {});
     }
     const playerIds = orderIds(point.ids, playersById, metric);
     return {
@@ -283,6 +307,7 @@ export function optimizeLineupWithRules(
       score: point.score,
       scoreAverage: playerIds.length > 0 ? point.score / playerIds.length : null,
       playerIds,
+      fillerIds: playerIds.filter((id) => !isAvailableForLineup(playersById.get(id)!.status)),
       missing: {},
       blockedByRuleIds: [],
     };
@@ -295,20 +320,12 @@ export function optimizeLineupWithRules(
     }
   }
 
-  ranking.sort((a, b) => {
-    if (a.feasible !== b.feasible) return a.feasible ? -1 : 1;
-    if (a.feasible && b.feasible && b.score! !== a.score!) return b.score! - a.score!;
-    return formations.indexOf(a.formation) - formations.indexOf(b.formation);
-  });
+  ranking.sort(compareFormationResults(formations));
 
   const best = ranking[0]?.feasible ? ranking[0]! : null;
   const excludedPlayerIds = players.filter((p) => !isAvailableForLineup(p.status)).map((p) => p.id);
-  const usedInAnyFormation = new Set<string>();
-  for (const entry of ranking) {
-    if (entry.feasible) for (const id of entry.playerIds) usedInAnyFormation.add(id);
-  }
 
-  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation, blockedRuleIds };
+  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation: usedInBestTier(ranking, best), blockedRuleIds };
 }
 
 /** bestLineupUnderValueCap + Vereins-Obergrenze. Ohne aktive Regeln identisch zu bestLineupUnderValueCap. */
@@ -331,8 +348,7 @@ export function bestLineupUnderValueCapWithRules(
   if (candidates.length === 0) return null;
 
   const winner = [...candidates].sort((a, b) => {
-    if (b.point.score !== a.point.score) return b.point.score - a.point.score;
-    return byFormationOrder(formations)(a, b);
+    return compareQuality(a.point, b.point) || byFormationOrder(formations)(a, b);
   })[0]!;
   return {
     formation: winner.formation,
@@ -359,8 +375,7 @@ export function cheapestLineupWithRules(
 
   const winner = [...candidates].sort((a, b) => {
     if (a.point.marketValue !== b.point.marketValue) return a.point.marketValue - b.point.marketValue;
-    if (b.point.score !== a.point.score) return b.point.score - a.point.score;
-    return byFormationOrder(formations)(a, b);
+    return compareQuality(a.point, b.point) || byFormationOrder(formations)(a, b);
   })[0]!;
   return {
     formation: winner.formation,

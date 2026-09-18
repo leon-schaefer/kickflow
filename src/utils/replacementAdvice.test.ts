@@ -148,13 +148,26 @@ describe('deriveReplacementAdvice — Ausfälle', () => {
     expect(result.gaps[0]!.breaksLineup).toBe(false);
   });
 
-  it('meldet einen Ausfall, der die Elf unbesetzbar macht', () => {
-    // Nur ein Torwart im Kader, und der ist verletzt.
+  it('meldet einen Ausfall, ohne den die Elf nur noch aufgefüllt besetzbar ist', () => {
+    // Nur ein Torwart im Kader, und der ist verletzt: er steht als Auffüller
+    // mit 0 Punkten im Tor (siehe utils/lineupOptimizer.ts). Die Elf hat
+    // also einen Punktwert, ist aber nicht voll besetzt — und sein Ausfall
+    // kostet genau das, was er selbst gebracht hätte.
     const players = baseSquad({ GK: [{ status: 'injured' }] });
     const result = advise(players, []);
 
     expect(result.baselineFeasible).toBe(false);
+    expect(result.baselineScore).not.toBeNull();
     expect(result.gaps[0]!.breaksLineup).toBe(true);
+    expect(result.gaps[0]!.loss).toBe(players.find((p) => p.id === 'GK0')!.averagePoints);
+  });
+
+  it('meldet einen Ausfall NICHT als Loch, wenn ein zweiter Torwart einspringt', () => {
+    const players = baseSquad({ GK: [{ status: 'injured' }, {}] }, { GK: 2 });
+    const result = advise(players, []);
+
+    expect(result.baselineFeasible).toBe(true);
+    expect(result.gaps[0]!.breaksLineup).toBe(false);
   });
 });
 
@@ -277,7 +290,7 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     expect(result.options[0]!.replacesPlayerIds.length).toBeGreaterThan(0);
   });
 
-  it('zeigt bei unbesetzbarer Elf den Kandidaten, der sie möglich macht', () => {
+  it('zeigt den Kandidaten, der den aufgefüllten Platz mit einem Einsatzfähigen besetzt', () => {
     const players = baseSquad({ GK: [{ status: 'injured' }] });
     const market = [makeCandidate({ id: 'G-neu', position: 'GK', averagePoints: 5 })];
     const result = advise(players, market);
@@ -285,8 +298,21 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     expect(result.baselineFeasible).toBe(false);
     expect(result.options[0]!.playerId).toBe('G-neu');
     expect(result.options[0]!.enablesLineup).toBe(true);
-    // Ohne Bezugself ist der „Zugewinn" der Punktwert der ganzen Elf.
-    expect(result.options[0]!.gain).toBeGreaterThan(0);
+    // Der Auffüller zählt 0 — der Zugewinn ist genau sein eigener Wert, und
+    // er verdrängt den Verletzten aus dem Tor.
+    expect(result.options[0]!.gain).toBe(5);
+    expect(result.options[0]!.replacesPlayerIds).toEqual(['GK0']);
+  });
+
+  it('empfiehlt keinen verletzten Kandidaten, nur weil er als Auffüller eine Elf ermöglichen würde', () => {
+    // Kein Torwart im Kader — ein verletzter Torwart vom Markt würde die Elf
+    // "besetzbar" machen, brächte aber am Spieltag nichts.
+    const players = baseSquad({}, { GK: 0 });
+    const market = [makeCandidate({ id: 'G-verletzt', position: 'GK', averagePoints: 50, status: 'injured' })];
+    const result = advise(players, market);
+
+    expect(result.baselineScore).toBeNull();
+    expect(result.options).toEqual([]);
   });
 
   it('respektiert die Vereins-Obergrenze — ein Spieler, der nicht spielen darf, bringt nichts', () => {
@@ -580,10 +606,10 @@ describe('describeReplacement', () => {
   };
   const names = (id: string) => ({ A: 'Anton', B: 'Berta' })[id];
 
-  it('nennt die unbesetzbare Elf zuerst — sie ist die dringendste Aussage', () => {
+  it('nennt den sonst unbesetzten Platz zuerst — er ist die dringendste Aussage', () => {
     expect(
       describeReplacement({ ...base, enablesLineup: true, coversGapPlayerIds: ['A'] }, names),
-    ).toContain('besetzbar');
+    ).toContain('kein einsatzfähiger Spieler');
   });
 
   it('nennt den Ausfall, den er direkt ersetzt', () => {

@@ -14,6 +14,30 @@ import { AVAILABLE_FORMATIONS, requiredCountsForFormation } from './formations';
  * belohnt die Positionsgruppe, in der zufällig die günstigen Effizienzspieler
  * stecken. Die Elf maximiert die gewählte Metrik, nicht "die beste Fußball-
  * Aufstellung".
+ *
+ * AUFFÜLLEN MIT AUSFÄLLEN: Reichen die einsatzfähigen Spieler einer Position
+ * für eine Formation nicht, füllen nicht einsatzfähige (verletzt, gesperrt,
+ * abwesend, Reha) die freien Plätze — statt dass die Formation unbesetzbar
+ * wird und im Extremfall (einziger Torwart verletzt) gar keine Elf mehr
+ * vorgeschlagen werden kann. Drei Regeln, alle in `optimizeLineup`,
+ * `constrainedLineup.ts` und `cappedLineup.ts` gleich:
+ *
+ * 1. Ein Auffüller zählt 0 zur Metrik. Er spielt nicht, also bringt er
+ *    nichts — auch keine negativen Punkte, und auch nicht seine eigenen
+ *    Ø-Punkte, die ihn sonst zur Elf-Verstärkung machen würden.
+ * 2. Ein Auffüller kommt NUR auf einen Platz, für den kein einsatzfähiger
+ *    Spieler mehr da ist — je Position stehen erst alle Einsatzfähigen, dann
+ *    die Ausfälle (siehe `compareForSlot`). Ein fitter Spieler mit negativem
+ *    Schnitt bleibt also trotzdem vor dem Ausfall, obwohl 0 > negativ: der
+ *    Optimizer stellt nie freiwillig jemanden auf, der nicht spielen kann.
+ * 3. Zwischen Formationen gilt dasselbe als Stufe VOR der Metrik: weniger
+ *    Auffüller schlagen immer mehr Auffüller (`fillerIds.length`), erst bei
+ *    Gleichstand entscheidet der Score. Eine Formation ohne Ausfall wird
+ *    dadurch nie von einer mit Ausfall verdrängt, selbst wenn deren zehn
+ *    Einsatzfähige mehr Punkte summieren — sonst stünde plötzlich ein
+ *    Verletzter auf dem Feld, obwohl elf Fitte da sind.
+ *
+ * `missing` bezeichnet seither das, was auch mit Auffüllern noch fehlt.
  */
 
 /**
@@ -71,9 +95,15 @@ export interface FormationResult {
   score: number | null;
   /** score / playerIds.length — nur für die Anzeige, das Ranking bleibt identisch. */
   scoreAverage: number | null;
-  /** Gewählte IDs in Reihenfolge GK, DEF, MID, FWD. Leer, wenn nicht besetzbar. */
+  /** Gewählte IDs in Reihenfolge GK, DEF, MID, FWD (je Position erst Einsatzfähige, dann Auffüller). Leer, wenn nicht besetzbar. */
   playerIds: string[];
-  /** Fehlende Spieler je Position. Leer, wenn besetzbar. */
+  /**
+   * Teilmenge von `playerIds`: nicht einsatzfähige Spieler, die einen Platz
+   * füllen, für den kein einsatzfähiger mehr da war (siehe Modul-Doku). Sie
+   * zählen 0 zum `score`. Leer, wenn die Elf komplett einsatzfähig ist.
+   */
+  fillerIds: string[];
+  /** Fehlende Spieler je Position — auch mit Auffüllern. Leer, wenn besetzbar. */
   missing: Partial<Record<Position, number>>;
   /**
    * IDs aktiver Liga-Regeln (src/lineup/rules.ts), die GENAU diese Formation
@@ -86,13 +116,18 @@ export interface FormationResult {
 
 export interface OptimizationResult {
   metric: OptimizerMetric;
-  /** Alle geprüften Formationen: besetzbare absteigend nach score, nicht besetzbare am Ende. */
+  /** Alle geprüften Formationen: besetzbare zuerst (wenige Auffüller vor vielen, darin absteigend nach score), nicht besetzbare am Ende. */
   ranking: FormationResult[];
   /** Beste besetzbare Formation, oder null, wenn keine besetzbar ist. */
   best: FormationResult | null;
-  /** Wegen Status (verletzt/gesperrt/...) gar nicht erst berücksichtigt. */
+  /** Wegen Status (verletzt/gesperrt/...) nicht einsatzfähig — stehen höchstens als Auffüller in einer Elf (siehe Modul-Doku). */
   excludedPlayerIds: string[];
-  /** Union aller IDs, die in irgendeiner besetzbaren Formation starten würden. */
+  /**
+   * Union aller IDs, die in irgendeiner besetzbaren Formation der besten Stufe
+   * starten würden — also mit so wenigen Auffüllern wie `best`. Formationen,
+   * die mehr Ausfälle bräuchten, kommen nie zum Zug; ihre Spieler zählen hier
+   * nicht als "irgendwo gebraucht" (Vorbild der Nutzung: utils/sellAdvice.ts).
+   */
   usedInAnyFormation: Set<string>;
   /** Aktive Regeln, die verhindern, dass überhaupt eine Formation besetzbar ist. Siehe FormationResult.blockedByRuleIds. */
   blockedRuleIds: string[];
@@ -160,13 +195,72 @@ export function compareByMetric(metric: OptimizerMetric) {
   };
 }
 
-/** Präfixsummen der Metrik über eine sortierte Gruppe; prefix[0] = 0. */
+/**
+ * Rangfolge für die Platzvergabe innerhalb einer Position: erst alle
+ * Einsatzfähigen (nach `compareByMetric`), dann die Ausfälle (ebenfalls nach
+ * `compareByMetric`, nur damit die Reihenfolge deterministisch ist — zum
+ * Score tragen sie ohnehin 0 bei). Das ist Regel 2 der Modul-Doku: ein
+ * Ausfall füllt nur einen Platz, für den kein Einsatzfähiger mehr übrig ist.
+ *
+ * Genutzt von `optimizeLineup` und von `orderIds` in constrainedLineup.ts,
+ * damit `FormationResult.playerIds` auf beiden Pfaden gleich sortiert ist.
+ */
+export function compareForSlot(metric: OptimizerMetric) {
+  const byMetric = compareByMetric(metric);
+  return (a: OptimizerPlayer, b: OptimizerPlayer): number => {
+    const aAvailable = isAvailableForLineup(a.status);
+    const bAvailable = isAvailableForLineup(b.status);
+    if (aAvailable !== bAvailable) return aAvailable ? -1 : 1;
+    return byMetric(a, b);
+  };
+}
+
+/** Metrikbeitrag eines Spielers zur Elf: 0 für einen Auffüller (Regel 1 der Modul-Doku), sonst `metricValue`. */
+export function slotValue(player: OptimizerPlayer, metric: OptimizerMetric): number {
+  return isAvailableForLineup(player.status) ? metricValue(player, metric) : 0;
+}
+
+/** Präfixsummen des Platzbeitrags über eine per `compareForSlot` sortierte Gruppe; prefix[0] = 0. */
 function prefixSums(sorted: OptimizerPlayer[], metric: OptimizerMetric): number[] {
   const prefix = [0];
   for (const player of sorted) {
-    prefix.push(prefix[prefix.length - 1]! + metricValue(player, metric));
+    prefix.push(prefix[prefix.length - 1]! + slotValue(player, metric));
   }
   return prefix;
+}
+
+/**
+ * Ranking-Ordnung über Formationen (Regel 3 der Modul-Doku): besetzbare vor
+ * unbesetzbaren; darunter wenige Auffüller vor vielen; darunter Score
+ * absteigend; zuletzt die Reihenfolge in `formations` — bei Gleichstand
+ * gewinnt also die frühere (siehe AVAILABLE_FORMATIONS). Gemeinsam mit
+ * constrainedLineup.ts, damit beide Pfade identisch sortieren.
+ */
+export function compareFormationResults(formations: readonly string[]) {
+  return (a: FormationResult, b: FormationResult): number => {
+    if (a.feasible !== b.feasible) return a.feasible ? -1 : 1;
+    if (a.feasible && b.feasible) {
+      if (a.fillerIds.length !== b.fillerIds.length) return a.fillerIds.length - b.fillerIds.length;
+      if (b.score! !== a.score!) return b.score! - a.score!;
+    }
+    return formations.indexOf(a.formation) - formations.indexOf(b.formation);
+  };
+}
+
+/** Siehe OptimizationResult.usedInAnyFormation — die Union über die besetzbaren Formationen der besten Stufe. */
+export function usedInBestTier(ranking: readonly FormationResult[], best: FormationResult | null): Set<string> {
+  const used = new Set<string>();
+  if (!best) return used;
+  for (const result of ranking) {
+    if (result.feasible && result.fillerIds.length === best.fillerIds.length) {
+      for (const id of result.playerIds) used.add(id);
+    }
+  }
+  return used;
+}
+
+function infeasible(formation: string, missing: Partial<Record<Position, number>>): FormationResult {
+  return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], fillerIds: [], missing, blockedByRuleIds: [] };
 }
 
 export function optimizeLineup(
@@ -178,19 +272,21 @@ export function optimizeLineup(
   const excludedPlayerIds: string[] = [];
 
   for (const player of players) {
-    if (isAvailableForLineup(player.status)) {
-      byPosition[player.position].push(player);
-    } else {
-      excludedPlayerIds.push(player.id);
-    }
+    byPosition[player.position].push(player);
+    if (!isAvailableForLineup(player.status)) excludedPlayerIds.push(player.id);
   }
 
-  const comparator = compareByMetric(metric);
+  // Je Position: erst die Einsatzfähigen nach Metrik, dahinter die Ausfälle
+  // (compareForSlot). Die "besten N" sind damit weiter ein Präfix — nur dass
+  // das Präfix über die Einsatzfähigen hinaus in die Auffüller reichen darf.
+  const comparator = compareForSlot(metric);
   const sortedByPosition: Record<Position, OptimizerPlayer[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+  const availableByPosition: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   const prefixByPosition: Record<Position, number[]> = { GK: [], DEF: [], MID: [], FWD: [] };
   for (const position of POSITIONS) {
     const sorted = [...byPosition[position]].sort(comparator);
     sortedByPosition[position] = sorted;
+    availableByPosition[position] = sorted.filter((p) => isAvailableForLineup(p.status)).length;
     prefixByPosition[position] = prefixSums(sorted, metric);
   }
 
@@ -201,26 +297,25 @@ export function optimizeLineup(
     // (Summe 1) statt 11 — kann mit den AVAILABLE_FORMATIONS nicht auftreten,
     // schützt aber davor, dass ein fehlerhafter Formationsstring in einer
     // benutzerdefinierten `formations`-Liste eine kurze "Optimalelf" erzeugt.
-    if (requiredTotal !== 11) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing: {}, blockedByRuleIds: [] };
-    }
+    if (requiredTotal !== 11) return infeasible(formation, {});
 
     const missing: Partial<Record<Position, number>> = {};
     for (const position of POSITIONS) {
       const shortfall = required[position] - sortedByPosition[position].length;
       if (shortfall > 0) missing[position] = shortfall;
     }
-
-    if (Object.keys(missing).length > 0) {
-      return { formation, feasible: false, score: null, scoreAverage: null, playerIds: [], missing, blockedByRuleIds: [] };
-    }
+    if (Object.keys(missing).length > 0) return infeasible(formation, missing);
 
     let score = 0;
     const playerIds: string[] = [];
+    const fillerIds: string[] = [];
     for (const position of POSITIONS) {
       const count = required[position];
       score += prefixByPosition[position][count]!;
-      playerIds.push(...sortedByPosition[position].slice(0, count).map((p) => p.id));
+      const chosen = sortedByPosition[position].slice(0, count);
+      playerIds.push(...chosen.map((p) => p.id));
+      // Alles jenseits der Einsatzfähigen ist per Sortierung ein Auffüller.
+      fillerIds.push(...chosen.slice(availableByPosition[position]).map((p) => p.id));
     }
 
     return {
@@ -229,46 +324,33 @@ export function optimizeLineup(
       score,
       scoreAverage: playerIds.length > 0 ? score / playerIds.length : null,
       playerIds,
+      fillerIds,
       missing: {},
       blockedByRuleIds: [],
     };
   });
 
-  ranking.sort((a, b) => {
-    if (a.feasible !== b.feasible) return a.feasible ? -1 : 1;
-    if (a.feasible && b.feasible) {
-      if (b.score! !== a.score!) return b.score! - a.score!;
-    }
-    return formations.indexOf(a.formation) - formations.indexOf(b.formation);
-  });
+  ranking.sort(compareFormationResults(formations));
 
   const best = ranking[0]?.feasible ? ranking[0]! : null;
 
-  const usedInAnyFormation = new Set<string>();
-  for (const result of ranking) {
-    if (result.feasible) {
-      for (const id of result.playerIds) usedInAnyFormation.add(id);
-    }
-  }
-
-  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation, blockedRuleIds: [] };
+  return { metric, ranking, best, excludedPlayerIds, usedInAnyFormation: usedInBestTier(ranking, best), blockedRuleIds: [] };
 }
 
 /**
  * Fehlende Spieler je Position für eine Formation, unabhängig von Liga-Regeln
- * — nur die Verfügbarkeit (Status) zählt. Eigenständig neben der internen
- * `missing`-Berechnung oben (die dort bewusst unverändert bleibt), damit
- * constrainedLineup.ts dieselbe "reicht die Kader-Größe je Position"-Prüfung
- * verwenden kann, bevor es eine Regel für eine Blockade verantwortlich macht.
+ * — nur die Kadergröße je Position zählt, Ausfälle eingeschlossen (sie füllen
+ * auf, siehe Modul-Doku). Eigenständig neben der internen `missing`-Berechnung
+ * oben (die dort bewusst unverändert bleibt), damit constrainedLineup.ts
+ * dieselbe "reicht die Kader-Größe je Position"-Prüfung verwenden kann, bevor
+ * es eine Regel für eine Blockade verantwortlich macht.
  */
 export function missingForFormation(
   players: readonly OptimizerPlayer[],
   formation: string,
 ): Partial<Record<Position, number>> {
   const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
-  for (const player of players) {
-    if (isAvailableForLineup(player.status)) counts[player.position]++;
-  }
+  for (const player of players) counts[player.position]++;
   const required = requiredCountsForFormation(formation);
   const missing: Partial<Record<Position, number>> = {};
   for (const position of POSITIONS) {

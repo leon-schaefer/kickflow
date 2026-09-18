@@ -524,6 +524,7 @@ export function LineupScreen() {
                   onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}
                   onIgnoreRule={optimizer.ignoreRule}
                   draftViolations={optimizer.draftViolations}
+                  nameById={(id) => playersById.get(id)?.name}
                 />
               )}
 

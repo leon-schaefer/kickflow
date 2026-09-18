@@ -13,6 +13,8 @@ import { formatValueScore } from './format';
 import {
   isAvailableForLineup,
   metricValue,
+  type FormationResult,
+  type OptimizationResult,
   type OptimizerMetric,
   type OptimizerPlayer,
 } from './lineupOptimizer';
@@ -101,9 +103,12 @@ export interface SquadGap {
    */
   loss: number;
   /**
-   * true, wenn die Elf ohne ihn überhaupt nicht mehr besetzbar ist. Dann ist
-   * `loss` keine Differenz mehr (es gibt keine Elf, von der man abziehen
-   * könnte), sondern 0 — die Dringlichkeit steckt in diesem Flag.
+   * true, wenn die Elf ohne ihn nicht mehr voll mit Einsatzfähigen besetzbar
+   * ist: sein Platz wird mit einem Ausfall aufgefüllt (siehe Modul-Doku in
+   * lineupOptimizer.ts) oder bleibt ganz leer. Gemessen, nicht geschätzt: mit
+   * ihm als fit hätte die Elf weniger Auffüller. `loss` bleibt dabei die
+   * Differenz zur Elf mit ihm — der Auffüller zählt 0, also ist der Verlust
+   * genau das, was er selbst gebracht hätte.
    */
   breaksLineup: boolean;
 }
@@ -111,10 +116,11 @@ export interface SquadGap {
 export interface ReplacementOption {
   playerId: string;
   /**
-   * Zugewinn der Optimalelf in Ø-Punkten. Bei nicht besetzbarer Ausgangself
-   * (`ReplacementAdvice.baselineFeasible === false`) ist es stattdessen der
-   * Punktwert der Elf, die er erst möglich macht — vergleichbar innerhalb der
-   * Liste, aber keine Differenz.
+   * Zugewinn der Optimalelf in Ø-Punkten. Ist ohne ihn gar keine Elf
+   * besetzbar (`ReplacementAdvice.baselineScore === null`, auch nicht mit
+   * Ausfällen als Auffüller), ist es stattdessen der Punktwert der Elf, die
+   * er erst möglich macht — vergleichbar innerhalb der Liste, aber keine
+   * Differenz.
    */
   gain: number;
   /** Zugewinn je Mio des Preises, den der Zukauf kostet — die Effizienz des Transfers. */
@@ -131,7 +137,11 @@ export interface ReplacementOption {
    * die die Elf wirklich schwächen; ein verletzter Bankspieler zählt nicht.
    */
   coversGapPlayerIds: string[];
-  /** true, wenn die Elf erst mit ihm überhaupt besetzbar ist. */
+  /**
+   * true, wenn er einen Platz besetzt, den sonst kein einsatzfähiger Spieler
+   * füllt — die Elf hat mit ihm weniger Auffüller (oder wird überhaupt erst
+   * besetzbar). Dann ersetzt er niemanden, der spielen könnte.
+   */
   enablesLineup: boolean;
 }
 
@@ -180,8 +190,14 @@ export interface ReplacementAdvice {
   bestGainId: string | null;
   /** Größter Zugewinn je Mio — „am effizientesten". */
   bestEfficiencyId: string | null;
-  /** Punktwert der Elf ohne Zukauf, Bezugsgröße jedes `gain`. `null` = nicht besetzbar. */
+  /** Punktwert der Elf ohne Zukauf, Bezugsgröße jedes `gain`. `null` = nicht besetzbar, auch nicht mit Auffüllern. */
   baselineScore: number | null;
+  /**
+   * true, wenn die Elf ohne Zukauf voll mit Einsatzfähigen besetzt ist. false
+   * heißt: mindestens ein Platz ist mit einem Ausfall aufgefüllt
+   * (`baselineScore` gesetzt) oder es gibt gar keine Elf (`baselineScore`
+   * null) — die UI unterscheidet die beiden Fälle an `baselineScore`.
+   */
   baselineFeasible: boolean;
   /** Ø-Punkte/Mio, die der eigene Kader im Median liefert — Basis jeder Wertobergrenze. */
   referenceValueScore: number;
@@ -207,7 +223,7 @@ export function describeReplacement(
     ids.map(nameById).filter((name): name is string => !!name);
 
   if (option.enablesLineup) {
-    return 'Macht die Elf überhaupt erst besetzbar.';
+    return 'Füllt einen Platz, den sonst kein einsatzfähiger Spieler besetzt.';
   }
   const covered = names(option.coversGapPlayerIds);
   if (covered.length > 0) {
@@ -292,17 +308,24 @@ function compareByEfficiency(a: ReplacementOption, b: ReplacementOption): number
 
 /**
  * Effizienz-Maßstab des eigenen Kaders: der Median der Ø-Punkte/Mio über die
- * Spieler, die tatsächlich spielen (die Optimalelf). Bewusst nicht über den
- * ganzen Kader — Bankspieler drücken den Median und würden jeden Zukauf zu
- * teuer erscheinen lassen. Ist keine Elf besetzbar, bleiben alle
- * einsatzfähigen Spieler als Rückfall.
+ * Spieler, die tatsächlich spielen (die Optimalelf ohne ihre Auffüller — ein
+ * Verletzter auf dem Feld spielt nicht). Bewusst nicht über den ganzen Kader
+ * — Bankspieler drücken den Median und würden jeden Zukauf zu teuer
+ * erscheinen lassen. Ist keine Elf besetzbar, bleiben alle einsatzfähigen
+ * Spieler als Rückfall.
  */
-function squadEfficiency(players: readonly OptimizerPlayer[], bestXiIds: readonly string[]): number {
-  const inXi = new Set(bestXiIds);
-  const relevant = bestXiIds.length > 0
-    ? players.filter((p) => inXi.has(p.id))
+function squadEfficiency(players: readonly OptimizerPlayer[], bestXi: FormationResult | null): number {
+  const inXi = new Set(bestXi?.playerIds ?? []);
+  const fillers = new Set(bestXi?.fillerIds ?? []);
+  const relevant = bestXi
+    ? players.filter((p) => inXi.has(p.id) && !fillers.has(p.id))
     : players.filter((p) => isAvailableForLineup(p.status));
   return median(relevant.map((p) => p.valueScoreAvg));
+}
+
+/** Auffüller der besten Elf — unendlich viele, wenn es gar keine Elf gibt (schlechter als jede Elf). */
+function fillerCount(result: OptimizationResult): number {
+  return result.best ? result.best.fillerIds.length : Infinity;
 }
 
 /**
@@ -365,9 +388,10 @@ export function deriveReplacementAdvice({
   const scoreMetric = scoreMetricFor(metric);
   const baseline = optimizeLineupWithRules(players, scoreMetric, formations, constraints);
   const baselineScore = baseline.best?.score ?? null;
-  const baselineFeasible = baseline.best !== null;
+  const baselineFillers = fillerCount(baseline);
+  const baselineFeasible = baselineFillers === 0;
   const baselineIds = baseline.best?.playerIds ?? [];
-  const referenceValueScore = squadEfficiency(players, baselineIds);
+  const referenceValueScore = squadEfficiency(players, baseline.best);
 
   // Ein Ausfall ist so teuer, wie die Elf MIT ihm besser wäre. Das ist keine
   // Schätzung, sondern dieselbe Optimierung ein zweites Mal — nur mit `fit`
@@ -384,7 +408,8 @@ export function deriveReplacementAdvice({
         position: player.position,
         loss:
           baselineScore !== null && withScore !== null ? Math.max(0, withScore - baselineScore) : 0,
-        breaksLineup: !baselineFeasible && withScore !== null,
+        // Weniger Auffüller mit ihm als fit: sein Ausfall reißt das Loch.
+        breaksLineup: fillerCount(withHim) < baselineFillers,
       };
     });
 
@@ -403,8 +428,10 @@ export function deriveReplacementAdvice({
   const squadIds = new Set(players.map((p) => p.id));
   // Eigene Listings (die tauchen im Markt mit auf) und ausgefallene Kandidaten
   // fallen heraus: der eine ist schon da, der andere hilft am Spieltag nicht.
-  // Ein verletzter Kandidat käme über `optimizeLineupWithRules` ohnehin mit
-  // Zugewinn 0 heraus — ihn hier zu überspringen spart nur die Optimierung.
+  // Der Filter ist hier nötig, nicht nur sparsam: ein verletzter Kandidat
+  // könnte als Auffüller (lineupOptimizer.ts) eine sonst unbesetzbare Elf
+  // "möglich machen" und stünde dann mit dem Punktwert dieser Elf als
+  // Zugewinn in der Liste — ein Kauf, der am Spieltag null bringt.
   const candidates = market.filter(
     (player) => !squadIds.has(player.id) && isAvailableForLineup(player.status),
   );
@@ -490,7 +517,7 @@ export function deriveReplacementAdvice({
       formation: withCandidate.best!.formation,
       replacesPlayerIds: baselineIds.filter((id) => !withIds.has(id)),
       coversGapPlayerIds: gapPositions.get(candidate.position) ?? [],
-      enablesLineup: !baselineFeasible,
+      enablesLineup: fillerCount(withCandidate) < baselineFillers,
     });
   }
 
