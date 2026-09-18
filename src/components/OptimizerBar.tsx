@@ -41,6 +41,8 @@ interface OptimizerBarProps {
   onIgnoreRule: (id: LineupRule['id']) => void;
   /** Regeln, die die aktuelle (manuell bearbeitete) Elf verletzen — informativ, der Optimizer bindet nur sich selbst. */
   draftViolations: readonly LineupRule[];
+  /** Anzeigename je Spieler-ID, für den Auffüller-Hinweis (siehe `fillerLabel`). Unbekannte IDs werden nicht genannt. */
+  nameById?: (id: string) => string | undefined;
 }
 
 function formatScore(score: number, metric: OptimizerMetric): string {
@@ -64,6 +66,7 @@ export function OptimizerBar({
   onOpenRules,
   onIgnoreRule,
   draftViolations,
+  nameById = () => undefined,
 }: OptimizerBarProps) {
   const { best } = result;
   const activeRules = rules.filter((rule) => rule.enabled);
@@ -135,6 +138,15 @@ export function OptimizerBar({
         </div>
       </div>
 
+      {/* Ein Ausfall auf dem Feld ist nie die Wahl des Optimizers, sondern
+          Not (siehe Modul-Doku in utils/lineupOptimizer.ts) — das muss dastehen,
+          sonst sieht die Elf nach einem Fehler aus. */}
+      {best && best.fillerIds.length > 0 && (
+        <p className={styles.violationHint}>
+          <span aria-hidden="true">⚠</span> {fillerLabel(best.fillerIds, nameById)}
+        </p>
+      )}
+
       {!best && blockedRules.length > 0 && (
         <div className={styles.blockerBox}>
           {blockedRules.map((rule) => (
@@ -202,6 +214,19 @@ export function OptimizerBar({
       )}
     </div>
   );
+}
+
+/**
+ * „Mit Ausfall aufgefüllt: Neuer — kein einsatzfähiger Ersatz im Kader, zählt
+ * 0 Punkte." Namen nur, soweit `nameById` sie kennt; sonst die Anzahl.
+ */
+export function fillerLabel(fillerIds: readonly string[], nameById: (id: string) => string | undefined): string {
+  const names = fillerIds.map(nameById).filter((name): name is string => !!name);
+  const count = fillerIds.length;
+  const who = names.length === count ? names.join(', ') : count === 1 ? '1 Platz' : `${count} Plätze`;
+  return count === 1
+    ? `Mit Ausfall aufgefüllt: ${who} — kein einsatzfähiger Ersatz im Kader, zählt 0 Punkte.`
+    : `Mit Ausfällen aufgefüllt: ${who} — kein einsatzfähiger Ersatz im Kader, zählen 0 Punkte.`;
 }
 
 function missingLabel(missing: Partial<Record<Position, number>>): string {

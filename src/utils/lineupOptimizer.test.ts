@@ -143,11 +143,100 @@ describe('optimizeLineup', () => {
     }
   });
 
-  it('ohne verfügbaren Torwart ist keine Formation besetzbar', () => {
+  it('füllt mit dem verletzten Torwart auf, statt keine Formation zuzulassen', () => {
+    // Der einzige Torwart ist verletzt. Ohne Auffüllen wäre keine Formation
+    // besetzbar und der ganze Optimizer stumm — stattdessen steht er als
+    // Auffüller im Tor und zählt 0, die zehn Feldspieler werden optimiert.
+    const fit = optimizeLineup(fullSquad(), 'valuePerMillion');
     const players = fullSquad().map((p) => (p.position === 'GK' ? { ...p, status: 'injured' as const } : p));
     const result = optimizeLineup(players, 'valuePerMillion');
-    expect(result.best).toBeNull();
-    expect(result.ranking.every((r) => !r.feasible)).toBe(true);
+
+    expect(result.best).not.toBeNull();
+    expect(result.best!.formation).toBe(fit.best!.formation);
+    expect(result.best!.playerIds).toEqual(fit.best!.playerIds);
+    expect(result.best!.fillerIds).toEqual(['GK0']);
+    // Genau die 10 Ø-Punkte/Mio des Torwarts fehlen — er bringt als Auffüller nichts.
+    expect(result.best!.score).toBe(fit.best!.score! - 10);
+    expect(result.ranking.every((r) => !r.feasible || r.fillerIds.length === 1)).toBe(true);
+    // Er bleibt trotzdem als nicht einsatzfähig gelistet.
+    expect(result.excludedPlayerIds).toEqual(['GK0']);
+  });
+
+  it('füllt nur auf, wenn kein einsatzfähiger Spieler mehr übrig ist — auch bei negativem Schnitt', () => {
+    // 0 > -5, trotzdem spielt der fitte Torwart: der Optimizer stellt nie
+    // freiwillig jemanden auf, der nicht spielen kann (Regel 2 der Modul-Doku).
+    const players = squad(
+      { GK: 2 },
+      { GK: [{ averagePoints: -5, valueScoreAvg: -5 }, { status: 'injured', averagePoints: 100, valueScoreAvg: 100 }] },
+    );
+    const result = optimizeLineup(players, 'points');
+    expect(result.best!.playerIds).toContain('GK0');
+    expect(result.best!.playerIds).not.toContain('GK1');
+    expect(result.best!.fillerIds).toEqual([]);
+  });
+
+  /**
+   * 3 fitte + 1 verletzter Verteidiger, nur 4 Mittelfeldspieler (zwei davon
+   * mit 0), fünf gleich starke Stürmer. Ohne Auffüller ist einzig 3-4-3
+   * besetzbar; 4-2-4 mit dem Verletzten in der Abwehr summiert über seine
+   * zehn Einsatzfähigen MEHR (zwei 0er-Mittelfeldspieler weniger, zwei
+   * 10er-Stürmer mehr) — und darf trotzdem nicht gewinnen.
+   */
+  const tieredSquad = () =>
+    squad(
+      { DEF: 4, MID: 4 },
+      {
+        DEF: [{}, {}, {}, { status: 'injured' }],
+        MID: [
+          { averagePoints: 10, valueScoreAvg: 10 },
+          { averagePoints: 9, valueScoreAvg: 9 },
+          { averagePoints: 0, valueScoreAvg: 0 },
+          { averagePoints: 0, valueScoreAvg: 0 },
+        ],
+        FWD: Array.from({ length: 5 }, () => ({ averagePoints: 10, valueScoreAvg: 10 })),
+      },
+    );
+
+  it('eine Formation ohne Ausfall schlägt jede mit Ausfall, auch eine punktstärkere', () => {
+    const result = optimizeLineup(tieredSquad(), 'points');
+    const byFormation = new Map(result.ranking.map((r) => [r.formation, r]));
+    const fit = byFormation.get('3-4-3')!;
+    const filled = byFormation.get('4-2-4')!;
+
+    expect(filled.feasible).toBe(true);
+    expect(filled.fillerIds).toEqual(['DEF3']);
+    expect(filled.score!).toBeGreaterThan(fit.score!);
+    expect(result.best!.formation).toBe('3-4-3');
+    expect(result.best!.fillerIds).toEqual([]);
+    // Alle Formationen ohne Ausfall vor allen mit Ausfall, innerhalb der Stufe nach Score.
+    const feasible = result.ranking.filter((r) => r.feasible);
+    expect(feasible.map((r) => r.formation)).toEqual(['3-4-3', '4-2-4', '4-3-3', '4-4-2']);
+  });
+
+  it('Auffüller stehen innerhalb ihrer Position hinter allen Einsatzfähigen', () => {
+    const result = optimizeLineup(tieredSquad(), 'points');
+    const filled = result.ranking.find((r) => r.formation === '4-4-2')!;
+    expect(filled.playerIds.slice(0, 5)).toEqual(['GK0', 'DEF0', 'DEF1', 'DEF2', 'DEF3']);
+    expect(filled.fillerIds.every((id) => filled.playerIds.includes(id))).toBe(true);
+  });
+
+  it('usedInAnyFormation zählt nur Formationen der besten Stufe', () => {
+    // 4-2-4 bräuchte den Verletzten und kommt nie zum Zug — FWD3 stünde nur
+    // dort, DEF3 ist der Auffüller: beide gelten nicht als "irgendwo gebraucht".
+    const result = optimizeLineup(tieredSquad(), 'points');
+    expect(result.usedInAnyFormation).toEqual(new Set(result.best!.playerIds));
+    expect(result.usedInAnyFormation.has('FWD3')).toBe(false);
+    expect(result.usedInAnyFormation.has('DEF3')).toBe(false);
+  });
+
+  it('`missing` ist, was auch mit Auffüllern noch fehlt', () => {
+    const result = optimizeLineup(tieredSquad(), 'points');
+    const byFormation = new Map(result.ranking.map((r) => [r.formation, r]));
+    // 5er-Kette: 3 fitte + 1 verletzter Verteidiger, es fehlt noch einer.
+    expect(byFormation.get('5-3-2')!.feasible).toBe(false);
+    expect(byFormation.get('5-3-2')!.missing).toEqual({ DEF: 1 });
+    // 4er-Kette geht — mit dem Verletzten.
+    expect(byFormation.get('4-4-2')!.missing).toEqual({});
   });
 
   it('leerer Kader wirft nicht', () => {

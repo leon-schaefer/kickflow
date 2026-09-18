@@ -115,7 +115,10 @@ export function BuyAdviceSection({
           <span className={styles.warning}>
             {gapLabel(urgentGaps.length)} in der Elf
             {advice.totalLoss > 0 && ` · kosten ${formatValueScore(advice.totalLoss)} Ø-Punkte`}
-            {!advice.baselineFeasible && ' · Elf derzeit nicht besetzbar'}
+            {!advice.baselineFeasible &&
+              (advice.baselineScore === null
+                ? ' · Elf derzeit nicht besetzbar'
+                : ' · Elf derzeit nur mit Ausfall aufgefüllt')}
           </span>
         )}
 
@@ -162,7 +165,7 @@ export function BuyAdviceSection({
                     <span className={styles.gapName}>{player.name}</span>
                     <span className={styles.gapNote}>
                       {gap.breaksLineup
-                        ? 'Elf ohne ihn nicht besetzbar'
+                        ? 'Elf ohne ihn nicht voll besetzbar'
                         : gap.loss > 0
                           ? `kostet ${formatValueScore(gap.loss)} Ø-Punkte`
                           : 'ohne Folgen — die Bank fängt ihn auf'}

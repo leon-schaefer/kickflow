@@ -327,20 +327,34 @@ describe('buildSellPlan mit ausgeschlossenen Spielern', () => {
   });
 
   it('meldet einen Fehlbetrag, wenn nur ausgeschlossene Spieler Erlös bringen könnten', () => {
-    // Der ausgeschlossene Bankspieler ist verletzt und kann deshalb auch
-    // keinen verkauften Startelfspieler ersetzen — es gibt also tatsächlich
-    // nichts zu verkaufen, ohne die einzige Formation zu sprengen.
-    const players: OptimizerPlayer[] = [
-      ...starters(),
-      makePlayer({ id: 'Bench', position: 'FWD', status: 'injured' as PlayerStatus, marketValue: 5_000_000 }),
-    ];
-    const plan = buildSellPlan(players, 'points', 3_000_000, ['4-4-2'], undefined, new Set(['Bench']));
+    // Exakt elf Spieler, der Stürmer ausgeschlossen: jeder andere Verkauf
+    // sprengt die einzige Formation, und der Ausgeschlossene darf nicht weg.
+    const plan = buildSellPlan(starters(), 'points', 3_000_000, ['4-4-2'], undefined, new Set(['FWD0']));
     expect(plan.sell).toEqual([]);
     expect(plan.proceeds).toBe(0);
     expect(plan.feasible).toBe(false);
     expect(plan.shortfall).toBe(3_000_000);
     // Genau die Zahl, mit der die UI den Fehlbetrag erklärt.
-    expect(plan.excludedValue).toBe(5_000_000);
+    expect(plan.excludedValue).toBe(4_000_000);
+  });
+
+  it('ein verletzter Ausgeschlossener füllt den Platz eines verkauften Startelfspielers', () => {
+    // Der ausgeschlossene Bankspieler ist verletzt. Früher hieß das "nichts
+    // zu verkaufen, ohne die Formation zu sprengen" — seit dem Auffüllen
+    // (utils/lineupOptimizer.ts) rückt er mit 0 Punkten ins Sturmzentrum,
+    // damit ein Startelfstürmer das Defizit decken kann. Das Konto ist
+    // ausgeglichen, die Elf hat dafür sichtbar ein Loch.
+    const players: OptimizerPlayer[] = [
+      // FWD0 ist der bessere Stürmer — er bleibt, FWD1 geht.
+      ...starters().map((p) => (p.id === 'FWD0' ? { ...p, averagePoints: 5 } : p)),
+      makePlayer({ id: 'Bench', position: 'FWD', status: 'injured' as PlayerStatus, marketValue: 5_000_000 }),
+    ];
+    const plan = buildSellPlan(players, 'points', 3_000_000, ['4-4-2'], undefined, new Set(['Bench']));
+    expect(plan.sell).toEqual([{ playerId: 'FWD1', marketValue: 4_000_000, wasInBestXi: true }]);
+    expect(plan.feasible).toBe(true);
+    expect(plan.balanceAfter).toBe(1_000_000);
+    expect(plan.result.best?.fillerIds).toEqual(['Bench']);
+    expect(plan.result.best?.playerIds).toContain('FWD0');
   });
 
   it('ändert ohne Defizit nichts, meldet die Ausschlüsse aber mit', () => {

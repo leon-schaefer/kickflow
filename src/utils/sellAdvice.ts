@@ -115,13 +115,14 @@ export function deriveSellAdvice(
         expensive,
       };
     }
-    // Ausfälle sind aus jeder Elf ausgeschlossen und würden sonst pauschal als
+    // Ausfälle spielen in keiner Elf mit (höchstens als Auffüller mit 0
+    // Punkten, siehe lineupOptimizer.ts) und würden sonst pauschal als
     // "verkaufen" erscheinen.
     if (!isAvailableForLineup(player.status)) {
       return {
         playerId: player.id,
         recommendation: 'nicht-einsatzbereit',
-        reason: 'Nicht einsatzfähig — für die Optimierung nicht berücksichtigt.',
+        reason: 'Nicht einsatzfähig — zählt für die Optimierung keine Punkte.',
         inBestEfficiencyXi,
         inBestPointsXi,
         inAnyXi,

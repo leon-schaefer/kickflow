@@ -109,6 +109,20 @@ describe('BuyAdviceSection', () => {
     expect(screen.getByText(/1 Ausfall in der Elf/)).toBeInTheDocument();
   });
 
+  it('sagt in der Kopfzeile, wenn die Elf nur mit einem Ausfall aufgefüllt ist', async () => {
+    // Einziger Torwart, verletzt: er steht als Auffüller im Tor (siehe
+    // utils/lineupOptimizer.ts) — die Elf hat einen Punktwert, aber ein Loch.
+    const players = squad([{ status: 'injured' }]).filter((p) => p.id !== 'GK1');
+    const { advice } = setup(players, []);
+
+    expect(advice.baselineFeasible).toBe(false);
+    expect(advice.baselineScore).not.toBeNull();
+    expect(screen.getByText(/Elf derzeit nur mit Ausfall aufgefüllt/)).toBeInTheDocument();
+
+    await userEvent.click(toggle());
+    expect(screen.getByText(/Elf ohne ihn nicht voll besetzbar/)).toBeInTheDocument();
+  });
+
   it('schweigt in der Kopfzeile über einen Ausfall, den die Bank auffängt', () => {
     // MID4 ist der schwächste Mittelfeldspieler und stünde in keiner Elf.
     const players = squad();

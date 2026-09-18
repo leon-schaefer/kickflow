@@ -44,8 +44,9 @@ export function RulesScreen() {
   const teamRows = useMemo(() => countByTeam(players, teamNames), [players, teamNames]);
 
   // Nur einsatzfähige Spieler zählen für die Aufstellbar-Obergrenze — ein
-  // verletzter Spieler bindet zwar einen Kaderplatz beim Verein, aber nie
-  // einen Elf-Platz, egal was die Regel erlaubt.
+  // verletzter Spieler bindet zwar einen Kaderplatz beim Verein, spielt aber
+  // nie: in der Elf steht er höchstens als Auffüller mit 0 Punkten (siehe
+  // utils/lineupOptimizer.ts), egal was die Regel erlaubt.
   const startableCeiling = useMemo(() => {
     if (!maxPerTeamRule.enabled) return null;
     const counts = new Map<string, number>();
