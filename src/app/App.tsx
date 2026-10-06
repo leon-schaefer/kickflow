@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { queryClient } from '@/queries/queryClient';
 import { routes } from '@/routes/routes';
@@ -23,6 +24,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <RouterProvider router={router} />
+        <Analytics />
       </AuthProvider>
     </QueryClientProvider>
   );
