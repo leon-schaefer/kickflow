@@ -33,6 +33,7 @@ import {
 } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
+import { STATS_TITLE, statsPath } from '@/stats/statsRoute';
 import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
 import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
@@ -493,6 +494,13 @@ export function LineupScreen() {
                */}
               <Link to={`/${leagueId}/fixtures`} state={origin.state} className={styles.navRow}>
                 <span className={styles.navRowText}>Restprogramm</span>
+                <span className={styles.navRowChevron} aria-hidden="true">
+                  ›
+                </span>
+              </Link>
+
+              <Link to={statsPath(leagueId)} state={origin.state} className={styles.navRow}>
+                <span className={styles.navRowText}>{STATS_TITLE}</span>
                 <span className={styles.navRowChevron} aria-hidden="true">
                   ›
                 </span>

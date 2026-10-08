@@ -11,7 +11,7 @@ import { DEFAULT_RULES, violatedRules, type MaxPerTeamRule } from '@/lineup/rule
 import {
   useCompetitionTeams,
   useLeagueRanking,
-  useManagerLineup,
+  usePlayerBasics,
   useMatchdays,
 } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
@@ -80,7 +80,7 @@ export function ManagerDetailScreen() {
   });
 
   // Nur EIN Memo für beides: `ids` muss über Renders hinweg stabil bleiben
-  // (useManagerLineup feuert daraus eine Query je Spieler), und `fromDay`
+  // (usePlayerBasics feuert daraus eine Query je Spieler), und `fromDay`
   // hängt an derselben Entscheidung.
   const lineup = useMemo(() => {
     const seasonIds = entry?.lineupPlayerIds ?? [];
@@ -100,7 +100,7 @@ export function ManagerDetailScreen() {
     return { ids: seasonIds, fromDay: false };
   }, [dayRankingQuery.data, entry, managerId, lineupDay]);
 
-  const managerLineup = useManagerLineup(leagueId, lineup.ids);
+  const managerLineup = usePlayerBasics(leagueId, lineup.ids);
   const refresh = useRefresh(rankingQuery, dayRankingQuery, matchdaysQuery, managerLineup);
 
   const players = useMemo(() => {

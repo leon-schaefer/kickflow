@@ -74,3 +74,11 @@ export const withTransferHistoryLimit = createLimiter(4);
  * ausbremsen.
  */
 export const withCompetitionPlayersLimit = createLimiter(4);
+
+/**
+ * Gate für die Elf-Historie der Statistik (getLeagueRankingAtMatchday): EIN
+ * Request je bereits gespieltem Spieltag, im Mai also 34 auf einmal. Eigenes
+ * Gate aus demselben Grund wie oben — der Liga-Tab holt seine Tabelle
+ * ungedrosselt und soll nicht hinter 34 Statistik-Requests warten.
+ */
+export const withRankingHistoryLimit = createLimiter(3);
