@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router';
 import { useDocumentTitle } from '@/app/useDocumentTitle';
 import { UpdateBanner } from '@/components/UpdateBanner';
-import { InstallHint } from '@/pwa/InstallHint';
+import { InstallHint } from '@/pwa/InstallHint.tsx';
 import styles from './RootLayout.module.css';
 
 /**

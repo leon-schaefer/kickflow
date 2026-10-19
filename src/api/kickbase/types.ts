@@ -30,7 +30,16 @@ export interface NextMatch {
   awayLogoUrl: string;
 }
 
-export interface SquadPlayer {
+/** Herkunft des angezeigten Durchschnitts; fehlende Historien sind keine Null-Einsätze. */
+export interface PointAverageFields {
+  averagePointsBasis?: 'kickbase' | 'matchdays';
+  /** Eigener Einsatzschnitt aus derselben Historie; null ohne belegten Einsatz. */
+  appearanceAveragePoints?: number | null;
+  averageMatchCount?: number;
+  appearanceCount?: number;
+}
+
+export interface SquadPlayer extends PointAverageFields {
   id: string;
   name: string;
   firstName?: string;
@@ -89,7 +98,7 @@ export interface ListPlayerInput {
 }
 
 /** Ein auf dem Transfermarkt der Liga gelisteter Spieler. */
-export interface MarketPlayer {
+export interface MarketPlayer extends PointAverageFields {
   id: string;
   name: string;
   position: Position;
@@ -147,7 +156,7 @@ export interface MarketData {
  * aktueller Besitzer — holt der Spieler-Detail-Screen ohnehin selbst über
  * `getPlayer()`, und das für JEDE Spieler-ID, nicht nur für eigene.
  */
-export interface CompetitionPlayer {
+export interface CompetitionPlayer extends PointAverageFields {
   id: string;
   name: string;
   position: Position;
@@ -228,6 +237,8 @@ export interface SeasonPerformance {
 
 /** Eine Paarung eines Spieltags — Grundlage für Restprogramm/Gegner-Härte (src/utils/fixtureDifficulty.ts). */
 export interface ScheduledFixture {
+  /** Tatsächlicher Anstoß; zur Abgrenzung von Saison und laufenden Spielen. */
+  kickoffAt?: string | null;
   homeTeamId: string;
   awayTeamId: string;
   homeLogoUrl: string | null;
@@ -255,7 +266,7 @@ export interface MatchdaySchedule {
   matchdays: ScheduledMatchday[];
 }
 
-export interface PlayerDetail {
+export interface PlayerDetail extends PointAverageFields {
   id: string;
   firstName: string;
   lastName: string;

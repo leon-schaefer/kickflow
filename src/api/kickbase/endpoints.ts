@@ -297,19 +297,19 @@ export async function getPlayer(
   token: string,
   leagueId: string,
   playerId: string,
+  loadPerformance: () => Promise<SeasonPerformance[]> = () => getPlayerPerformance(token, leagueId, playerId),
 ): Promise<PlayerDetail> {
-  const [detailRaw, marketValue92Raw, marketValue365Raw, performanceRaw] = await Promise.all([
+  const [detailRaw, marketValue92Raw, marketValue365Raw, performance] = await Promise.all([
     kbFetch(`/v4/leagues/${leagueId}/players/${playerId}`, { token }),
     kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/marketValue/92`, { token }),
     kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/marketValue/365`, { token }),
-    kbFetch(`/v4/leagues/${leagueId}/players/${playerId}/performance`, { token }),
+    loadPerformance(),
   ]);
   const detail = rawPlayerDetailSchema.parse(detailRaw);
   const marketValue92 = rawMarketValueHistorySchema.parse(marketValue92Raw);
   const marketValue365 = rawMarketValueHistorySchema.parse(marketValue365Raw);
-  const performance = rawPerformanceResponseSchema.parse(performanceRaw);
-
-  const playerDetail = toPlayerDetail(detail, performance);
+  const playerDetail = toPlayerDetail(detail, { it: [] });
+  playerDetail.performance = performance;
   playerDetail.marketValueHistory92 = toMarketValueHistory(marketValue92);
   playerDetail.marketValueHistory365 = toMarketValueHistory(marketValue365);
   return playerDetail;

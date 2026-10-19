@@ -1,3 +1,4 @@
+import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { MarketPlayer, Position, SquadPlayer } from '@/api/kickbase';
@@ -190,9 +191,18 @@ export function LineupScreen() {
   // gegen die ANGEZEIGTE Elf gemessen, also muss er unter denselben Schranken
   // rechnen — inklusive eines Session-„Ignorieren" (siehe useReplacementAdvice).
   const marketPlayers = marketQuery.data?.players ?? NO_MARKET_PLAYERS;
+  // Vergleiche verwenden dieselbe Grundlage auf BEIDEN Seiten, auch wenn
+  // z. B. der Kader schon vollständig geladen ist und der Markt noch nicht.
+  const comparisonUsesKickbase = lineupQuery.pointAverageState?.basis === 'kickbase' ||
+    marketQuery.pointAverageState?.basis === 'kickbase';
+  const comparisonSquad = comparisonUsesKickbase
+    ? lineupQuery.rawData?.players ?? data?.players ?? NO_SQUAD_PLAYERS
+    : data?.players ?? NO_SQUAD_PLAYERS;
+  const comparisonMarket = comparisonUsesKickbase
+    ? marketQuery.rawData?.players ?? marketPlayers : marketPlayers;
   const replacement = useReplacementAdvice(
-    data?.players ?? NO_SQUAD_PLAYERS,
-    marketPlayers,
+    comparisonSquad,
+    comparisonMarket,
     optimizer.metric,
     optimizer.constraints,
     budgetLimit,
@@ -509,6 +519,10 @@ export function LineupScreen() {
                 </button>
               )}
 
+              <p className={styles.hint}>
+                {pointAverageNotice(lineupQuery.pointAverageState?.basis, lineupQuery.pointAverageState?.pending)}
+              </p>
+
               {editing && (
                 <OptimizerBar
                   metric={optimizer.metric}
@@ -622,9 +636,12 @@ export function LineupScreen() {
 
               {/* Direkt unter der Verkaufsseite: erst „wer muss weg", dann „wer
                   kommt dafür". Beide unabhängig vom Edit-Modus. */}
+              {comparisonUsesKickbase && lineupQuery.pointAverageState?.basis === 'matchdays' && (
+                <p className={styles.hint}>Kaufempfehlungen verwenden auf beiden Seiten den Kickbase-Ø, bis auch die Markthistorien vollständig verfügbar sind.</p>
+              )}
               <BuyAdviceSection
-                players={data.players}
-                market={marketPlayers}
+                players={comparisonSquad}
+                market={comparisonMarket}
                 advice={replacement}
                 marketPending={!marketQuery.data}
                 rules={optimizer.rules}

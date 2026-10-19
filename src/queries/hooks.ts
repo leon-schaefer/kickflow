@@ -26,6 +26,8 @@ import type {
   PlayerTransfer,
   SaveLineupInput,
 } from '@/api/kickbase';
+import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { pointAverages, withPointAverages, type PointAverages } from '@/utils/pointAverages';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import { resolveOwnPurchase } from '@/utils/playerPurchase';
@@ -55,22 +57,42 @@ export function useLeagues() {
 export function useLineup(leagueId: string, options: { enabled?: boolean } = {}) {
   const { token } = useAuth();
   const { enabled = true } = options;
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.lineup(leagueId),
     queryFn: () => (USE_MOCK_LINEUP ? Promise.resolve(mockLineupData) : getLineup(token!, leagueId)),
     enabled: USE_MOCK_LINEUP || (!!token && !!leagueId && enabled),
     staleTime: 60_000,
   });
+  const ids = useMemo(() => query.data?.players.map((p) => p.id) ?? [], [query.data]);
+  const averages = usePointAverages(leagueId, ids, enabled && !USE_MOCK_LINEUP);
+  const data = useMemo(() => query.data && ({
+    ...query.data,
+    players: applyAveragePool(query.data.players, averages),
+  }), [query.data, averages.values, averages.basis]);
+  const refetch = useCallback(async () => {
+    await Promise.all([query.refetch(), averages.refetch()]);
+  }, [query.refetch, averages.refetch]);
+  return { ...query, data, rawData: query.data, pointAverageState: averages, refetch };
 }
 
 export function useMarket(leagueId: string, options: { enabled?: boolean } = {}) {
   const { token } = useAuth();
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.market(leagueId),
     queryFn: () => getMarket(token!, leagueId),
     enabled: !!token && !!leagueId && (options.enabled ?? true),
     staleTime: 60_000,
   });
+  const ids = useMemo(() => query.data?.players.map((p) => p.id) ?? [], [query.data]);
+  const averages = usePointAverages(leagueId, ids, options.enabled ?? true);
+  const data = useMemo(() => query.data && ({
+    ...query.data,
+    players: applyAveragePool(query.data.players, averages),
+  }), [query.data, averages.values, averages.basis]);
+  const refetch = useCallback(async () => {
+    await Promise.all([query.refetch(), averages.refetch()]);
+  }, [query.refetch, averages.refetch]);
+  return { ...query, data, rawData: query.data, pointAverageState: averages, refetch };
 }
 
 /**
@@ -131,7 +153,7 @@ export interface ManagerLineupState {
  */
 export function useManagerLineup(leagueId: string, playerIds: readonly (string | null)[]): ManagerLineupState {
   const { token } = useAuth();
-  const ids = playerIds.filter((id): id is string => id !== null);
+  const ids = useMemo(() => [...new Set(playerIds.filter((id): id is string => id !== null))], [playerIds]);
   const results = useQueries({
     queries: ids.map((playerId) => ({
       queryKey: queryKeys.playerBasic(leagueId, playerId),
@@ -141,29 +163,51 @@ export function useManagerLineup(leagueId: string, playerIds: readonly (string |
     })),
   });
 
+  const averages = usePointAverages(leagueId, ids);
   const players = useMemo(() => {
     const map = new Map<string, PlayerDetail>();
     results.forEach((result, index) => {
       const playerId = ids[index];
-      if (playerId && result.data) map.set(playerId, result.data);
+      if (playerId && result.data) map.set(playerId, averages.basis === 'matchdays'
+        ? withPointAverages(result.data, averages.values.get(playerId)!) : result.data);
     });
     return map;
-  }, [results, playerIds]);
+  }, [results, playerIds, averages.values, averages.basis]);
 
   const pending = results.reduce((count, r) => (r.isPending ? count + 1 : count), 0);
-  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+  const refetch = useCallback(() => Promise.all([
+    ...results.map((r) => r.refetch()), averages.refetch(),
+  ]), [results, averages.refetch]);
 
   return { players, pending, total: ids.length, refetch };
 }
 
 export function usePlayer(leagueId: string, playerId: string) {
   const { token } = useAuth();
-  return useQuery({
+  const queryClient = useQueryClient();
+  const schedule = useMatchdays(useCompetitionId());
+  const query = useQuery({
     queryKey: queryKeys.player(leagueId, playerId),
-    queryFn: () => getPlayer(token!, leagueId, playerId),
+    queryFn: () => getPlayer(token!, leagueId, playerId, () => queryClient.fetchQuery({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId),
+      queryFn: () => getPlayerPerformance(token!, leagueId, playerId),
+      staleTime: 5 * 60_000,
+    })),
     enabled: !!token && !!leagueId && !!playerId,
     staleTime: 5 * 60_000,
   });
+  const data = useMemo(() => {
+    if (!query.data) return undefined;
+    const averages = pointAverages(query.data.performance, schedule.data, Date.now());
+    return averages ? withPointAverages(query.data, averages) : query.data;
+  }, [query.data, query.dataUpdatedAt, schedule.data, schedule.dataUpdatedAt]);
+  const refetch = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId), refetchType: 'none',
+    });
+    return query.refetch();
+  }, [queryClient, leagueId, playerId, query.refetch]);
+  return { ...query, data, refetch };
 }
 
 /**
@@ -259,6 +303,61 @@ export function usePurchases(
   const pending = enabled ? results.reduce((count, r) => (r.isPending ? count + 1 : count), 0) : 0;
 
   return { purchases, pending, total: playerIds.length };
+}
+
+export interface PointAverageState {
+  values: Map<string, PointAverages>;
+  basis: 'kickbase' | 'matchdays';
+  pending: number;
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Nur begrenzte Pools (Kader, Markt, Rivalen-Elf), nie der Competition-Bestand.
+ * Identischer Key und Limiter wie bei Punkte/Min und Spielerprofil. Die ganze
+ * Gruppe wechselt gemeinsam auf den neuen Schnitt: kein Vorteil für Spieler,
+ * deren Historie nur langsamer lädt oder ausfällt.
+ */
+export function usePointAverages(leagueId: string, playerIds: readonly string[], enabled = true): PointAverageState {
+  const { token } = useAuth();
+  const schedule = useMatchdays(useCompetitionId());
+  const ids = useMemo(() => [...new Set(playerIds)], [playerIds]);
+  const results = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: queryKeys.playerPerformance(leagueId, id),
+      queryFn: () => getPlayerPerformance(token!, leagueId, id),
+      enabled: enabled && !!token && !!leagueId && !!id,
+      staleTime: 5 * 60_000,
+    })),
+    combine: (queries) => ({
+      data: queries.map((query) => query.data),
+      updatedAt: queries.map((query) => query.dataUpdatedAt),
+      pending: queries.filter((query) => query.isPending).length,
+      refetchers: queries.map((query) => query.refetch),
+    }),
+  });
+  const values = useMemo(() => {
+    const map = new Map<string, PointAverages>();
+    results.data.forEach((performance, index) => {
+      const value = performance && pointAverages(performance, schedule.data, Date.now());
+      if (value) map.set(ids[index]!, value);
+    });
+    return map;
+  }, [results.data, results.updatedAt, ids, schedule.data, schedule.dataUpdatedAt]);
+  const basis = enabled && values.size === ids.length ? 'matchdays' : 'kickbase';
+  const pending = enabled ? results.pending + (schedule.isPending ? 1 : 0) : 0;
+  const refetch = useCallback(() => enabled ? Promise.all([
+    schedule.refetch(), ...results.refetchers.map((refetch) => refetch()),
+  ]) : Promise.resolve(), [enabled, schedule.refetch, results.refetchers]);
+  return { values, basis, pending, refetch };
+}
+
+function applyAveragePool<T extends { id: string; averagePoints: number; marketValue: number }>(
+  players: T[], state: PointAverageState,
+): T[] {
+  return state.basis === 'matchdays'
+    ? players.map((player) => withPointAverages(player, state.values.get(player.id)!))
+    : players;
 }
 
 export interface PlaytimeState {
