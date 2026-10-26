@@ -1,3 +1,4 @@
+import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { MarketPlayer } from '@/api/kickbase';
@@ -150,6 +151,10 @@ export function MarketScreen() {
           Nächstes Marktwert-Update in {formatCountdown(marketValueUpdateMs)}
         </p>
       )}
+
+      <p className={styles.hint}>
+        {pointAverageNotice(market.pointAverageState?.basis, market.pointAverageState?.pending)}
+      </p>
 
       {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}
       {playtimeState.pending > 0 && (

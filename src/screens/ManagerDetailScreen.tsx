@@ -218,7 +218,7 @@ export function ManagerDetailScreen() {
                       Marktwert der Startelf: {formatCurrency(teamValue)}
                     </p>
                     <p className={styles.cardLine}>
-                      Ø-Punkte der Startelf: {formatPoints(Math.round(averagePoints))}
+                      {players.every((p) => p.averagePointsBasis === 'matchdays') ? 'Ø je Spieltag der Startelf' : 'Kickbase-Ø der Startelf'}: {formatPoints(Math.round(averagePoints))}
                     </p>
                   </section>
 
@@ -338,6 +338,8 @@ function toRivalSquadPlayer(detail: PlayerDetail, lineupSlot: number): SquadPlay
 
     totalPoints: detail.totalPoints,
     averagePoints: detail.averagePoints,
+    averagePointsBasis: detail.averagePointsBasis,
+    appearanceAveragePoints: detail.appearanceAveragePoints,
     valueScoreAvg: pointsPerMillion(detail.averagePoints, detail.marketValue),
     valueScoreTotal: pointsPerMillion(detail.totalPoints, detail.marketValue),
 

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { INSTALL_HINT_KEY, SESSION_KEY } from '@/storage/keys';
-import { InstallHint } from './InstallHint';
+import { InstallHint } from './InstallHint.tsx';
 import { clearInstallPrompt } from './installPromptStore';
 
 const IPHONE =
