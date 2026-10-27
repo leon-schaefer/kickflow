@@ -222,12 +222,15 @@ interface ExpectedPointsSource {
   teamId: string;
   position: Position;
   averagePoints: number;
+  /** Formgewichteter Schnitt, falls die Historie schon im Matchday-Pool liegt. */
+  formAveragePoints?: number;
 }
 
 /**
- * Hängt jedem Spieler seine `expectedPoints` an — Ø-Punkte, gewichtet mit der
- * Härte seines Restprogramms (siehe `difficultyFactor`). Genau das, was die
- * Optimizer-Metrik 'expectedPoints' liest (utils/lineupOptimizer.ts).
+ * Hängt jedem Spieler seine `expectedPoints` an — Punkte-Basis (Form-Ø wenn
+ * vorhanden, sonst flacher Ø), gewichtet mit der Härte seines Restprogramms
+ * (siehe `difficultyFactor`). Genau das, was die Optimizer-Metrik
+ * 'expectedPoints' liest (utils/lineupOptimizer.ts).
  *
  * Generisch und hier statt im Optimizer, weil BEIDE Seiten der Empfehlung sie
  * brauchen: die eigene Elf (useLineupOptimizer.ts) und die Marktkandidaten
@@ -249,6 +252,7 @@ export function withExpectedPoints<T extends ExpectedPointsSource>(
     const avg = byTeam.get(player.teamId);
     if (!avg) return player;
     const factor = difficultyFactor(positionDifficulty(player.position, avg));
-    return { ...player, expectedPoints: player.averagePoints * factor };
+    const base = player.formAveragePoints ?? player.averagePoints;
+    return { ...player, expectedPoints: base * factor };
   });
 }

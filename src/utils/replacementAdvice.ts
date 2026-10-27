@@ -13,6 +13,7 @@ import { formatValueScore } from './format';
 import {
   isAvailableForLineup,
   metricValue,
+  scoringPoints,
   type FormationResult,
   type OptimizationResult,
   type OptimizerMetric,
@@ -365,10 +366,14 @@ function bestLineupIncluding(
   constraints: LineupConstraints,
 ): { score: number; playerIds: string[] } | null {
   const bonus = forcingBonus([...players, candidate], metric);
+  // Bonus muss auf jeder Punkte-Basis landen, die metricValue lesen könnte —
+  // sonst greift formAveragePoints und der Forcing-Zuschlag verpufft.
   const forced: OptimizerPlayer = {
     ...candidate,
     averagePoints: candidate.averagePoints + bonus,
-    expectedPoints: (candidate.expectedPoints ?? candidate.averagePoints) + bonus,
+    formAveragePoints:
+      candidate.formAveragePoints != null ? candidate.formAveragePoints + bonus : undefined,
+    expectedPoints: (candidate.expectedPoints ?? scoringPoints(candidate)) + bonus,
   };
   const best = optimizeLineupWithRules([...players, forced], metric, formations, constraints).best;
   // `score` ist bei einer besetzbaren Elf immer gesetzt; die Prüfung hält den

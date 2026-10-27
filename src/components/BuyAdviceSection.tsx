@@ -149,8 +149,9 @@ export function BuyAdviceSection({
       {expanded && (
         <div className={styles.list} id={listId}>
           <p className={styles.disclaimer}>
-            Zugewinn = beste Elf mit ihm minus beste Elf ohne ihn, in Ø-Punkten. Das empfohlene
-            Gebot ist eine Schätzung mit Aufschlag nach Augenmaß — Kickbase nennt keine
+            Zugewinn = beste Elf mit ihm minus beste Elf ohne ihn, in Ø-Punkten — jüngere
+            Spieltage zählen stärker als der flache Saison-Ø im Profil. Das empfohlene Gebot
+            ist eine Schätzung mit Aufschlag nach Augenmaß — Kickbase nennt keine
             Zuschlagsgrenze.
           </p>
 

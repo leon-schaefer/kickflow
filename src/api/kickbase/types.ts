@@ -37,6 +37,13 @@ export interface PointAverageFields {
   appearanceAveragePoints?: number | null;
   averageMatchCount?: number;
   appearanceCount?: number;
+  /**
+   * Formgewichteter Schnitt (jüngere Spieltage stärker) — Scoring-Basis für
+   * Optimizer und Kaufempfehlung. Anzeige-Ø bleibt `averagePoints`.
+   */
+  formAveragePoints?: number;
+  /** Trend im Form-Fenster: jüngere Hälfte minus ältere; fehlt ohne Historie. */
+  formTrend?: number;
 }
 
 export interface SquadPlayer extends PointAverageFields {
