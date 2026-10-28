@@ -246,7 +246,7 @@ interface ExpectedPointsSource {
 export function withExpectedPoints<T extends ExpectedPointsSource>(
   players: readonly T[],
   byTeam: ReadonlyMap<string, AverageDifficulty> | undefined,
-): readonly T[] {
+): readonly (T & { expectedPoints?: number })[] {
   if (!byTeam) return players;
   return players.map((player) => {
     const avg = byTeam.get(player.teamId);
