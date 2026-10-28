@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerStatus, Position } from '@/api/kickbase';
 import { AVAILABLE_FORMATIONS } from './formations';
-import { isAvailableForLineup, optimizeLineup, type OptimizerPlayer } from './lineupOptimizer';
+import {
+  isAvailableForLineup,
+  metricValue,
+  optimizeLineup,
+  scoringPoints,
+  type OptimizerPlayer,
+} from './lineupOptimizer';
 
 function makePlayer(overrides: Partial<OptimizerPlayer> & { id: string; position: Position }): OptimizerPlayer {
   return {
@@ -319,5 +325,28 @@ describe('optimizeLineup', () => {
     const result = optimizeLineup(players, 'valuePerMillion');
     const feasibleIds = new Set(result.ranking.filter((r) => r.feasible).flatMap((r) => r.playerIds));
     expect(result.usedInAnyFormation).toEqual(feasibleIds);
+  });
+
+  it('nutzt formAveragePoints als Punkte-Basis, sonst averagePoints', () => {
+    const flat = makePlayer({ id: 'a', position: 'MID', averagePoints: 40 });
+    const form = makePlayer({ id: 'b', position: 'MID', averagePoints: 40, formAveragePoints: 70 });
+    expect(scoringPoints(flat)).toBe(40);
+    expect(scoringPoints(form)).toBe(70);
+    expect(metricValue(form, 'points')).toBe(70);
+    expect(metricValue(form, 'expectedPoints')).toBe(70);
+    expect(metricValue({ ...form, expectedPoints: 55 }, 'expectedPoints')).toBe(55);
+  });
+
+  it('bevorzugt bei points den Spieler mit besserer Form trotz gleichem flachen Ø', () => {
+    const players = fullSquad({
+      FWD: [
+        { averagePoints: 50, formAveragePoints: 20 },
+        { averagePoints: 50, formAveragePoints: 80 },
+      ],
+    });
+    // Eine Spitze: nur ein Stürmer startet — sonst wären beide in der Elf.
+    const result = optimizeLineup(players, 'points', ['5-4-1']);
+    expect(result.best?.playerIds).toContain('FWD1');
+    expect(result.best?.playerIds).not.toContain('FWD0');
   });
 });

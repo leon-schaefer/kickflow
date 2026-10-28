@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toMatchdaySchedule, toSeasonPerformances } from '@/api/kickbase/mappers';
-import { pointAverages, withPointAverages } from './pointAverages';
+import { formWeightedAverage } from './formWeightedAverage';
+import { pointAverages, settledMatchPoints, withPointAverages } from './pointAverages';
 
 const now = Date.parse('2026-10-17T22:00:00Z');
 function data(scores: number[], minutes = scores.map((p) => p === 0 ? 0 : 90)) {
@@ -14,28 +15,46 @@ function data(scores: number[], minutes = scores.map((p) => p === 0 ? 0 : 90)) {
   };
 }
 
+function withForm(
+  matchdayAverage: number,
+  appearanceAverage: number | null,
+  matches: number,
+  appearances: number,
+  scores: number[],
+) {
+  const form = formWeightedAverage(scores.map((points) => ({ points })), matchdayAverage);
+  return {
+    matchdayAverage,
+    appearanceAverage,
+    matches,
+    appearances,
+    formAverage: form.formAverage,
+    formTrend: form.trend,
+  };
+}
+
 describe('pointAverages', () => {
   it('zählt 150/150/0/0/0 als 60 je Spieltag und 150 je Einsatz', () => {
     const { performance, schedule } = data([150, 150, 0, 0, 0]);
-    expect(pointAverages(performance, schedule, now)).toEqual({
-      matchdayAverage: 60, appearanceAverage: 150, matches: 5, appearances: 2,
-    });
+    expect(pointAverages(performance, schedule, now)).toEqual(
+      withForm(60, 150, 5, 2, [150, 150, 0, 0, 0]),
+    );
   });
 
   it('unterscheidet echte Nullpunkte von fehlender Historie', () => {
     const { performance, schedule } = data([0, 0]);
-    expect(pointAverages(performance, schedule, now)).toEqual({
-      matchdayAverage: 0, appearanceAverage: null, matches: 2, appearances: 0,
-    });
+    expect(pointAverages(performance, schedule, now)).toEqual(
+      withForm(0, null, 2, 0, [0, 0]),
+    );
     expect(pointAverages([], schedule, now)).toBeNull();
     expect(pointAverages(performance, undefined, now)).toBeNull();
   });
 
   it('behält negative Punkte und echte Punkte bei fehlenden/gerundeten Minuten', () => {
     const { performance, schedule } = data([-30, 90, 0], [0, 0, 90]);
-    expect(pointAverages(performance, schedule, now)).toEqual({
-      matchdayAverage: 20, appearanceAverage: 20, matches: 3, appearances: 3,
-    });
+    expect(pointAverages(performance, schedule, now)).toEqual(
+      withForm(20, 20, 3, 3, [-30, 90, 0]),
+    );
   });
 
   it('schließt Zukunft, Live-Ergebnisse und verschobene Spiele ohne Ergebnis aus', () => {
@@ -70,15 +89,33 @@ describe('pointAverages', () => {
     const { performance, schedule } = data([100, 0]);
     performance[0]!.matchdays[0]!.playerTeamId = 'b';
     performance.push(performance[0]!);
-    expect(pointAverages(performance, schedule, now)).toEqual({
-      matchdayAverage: 50, appearanceAverage: 100, matches: 2, appearances: 1,
-    });
+    expect(pointAverages(performance, schedule, now)).toEqual(
+      withForm(50, 100, 2, 1, [100, 0]),
+    );
+  });
+
+  it('liefert settledMatchPoints chronologisch und speist Form über denselben Filter', () => {
+    const { performance, schedule } = data([10, 50, 90, 130, 170]);
+    const settled = settledMatchPoints(performance, schedule, now);
+    expect(settled?.map((row) => row.points)).toEqual([10, 50, 90, 130, 170]);
+    const averages = pointAverages(performance, schedule, now)!;
+    expect(averages.formAverage).toBeGreaterThan(averages.matchdayAverage);
+    expect(averages.formTrend).toBeGreaterThan(0);
   });
 
   it('rechnet Punkte/Mio aus dem neuen Schnitt, ohne den Rohspieler zu ändern', () => {
     const player = { averagePoints: 150, valueScoreAvg: 15, marketValue: 10_000_000 };
-    expect(withPointAverages(player, { matchdayAverage: 60, appearanceAverage: 150, matches: 5, appearances: 2 }))
-      .toMatchObject({ averagePoints: 60, valueScoreAvg: 6, averagePointsBasis: 'matchdays' });
+    expect(withPointAverages(player, {
+      matchdayAverage: 60, appearanceAverage: 150, matches: 5, appearances: 2,
+      formAverage: 80, formTrend: 20,
+    }))
+      .toMatchObject({
+        averagePoints: 60,
+        valueScoreAvg: 6,
+        averagePointsBasis: 'matchdays',
+        formAveragePoints: 80,
+        formTrend: 20,
+      });
     expect(player.averagePoints).toBe(150);
   });
 });

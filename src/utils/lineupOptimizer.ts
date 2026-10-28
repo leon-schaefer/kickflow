@@ -75,7 +75,9 @@ export type OptimizerMetric = 'valuePerMillion' | 'points' | 'expectedPoints';
  * strukturell (Vorbild: MetricPlayer in src/utils/playerMetric.ts).
  * `expectedPoints` ist optional: nur useLineupOptimizer() reichert Spieler
  * damit an (wenn ein Spielplan vorliegt); ohne den Wert fällt die Metrik
- * `'expectedPoints'` auf `averagePoints` zurück, verhält sich also wie 'points'.
+ * `'expectedPoints'` auf die Punkte-Basis zurück, verhält sich also wie 'points'.
+ * `formAveragePoints` ist optional: gesetzt, sobald die Spielerhistorie den
+ * Matchday-Pool speist (utils/formWeightedAverage.ts); sonst gilt `averagePoints`.
  */
 export interface OptimizerPlayer {
   id: string;
@@ -86,6 +88,7 @@ export interface OptimizerPlayer {
   averagePoints: number;
   valueScoreAvg: number;
   expectedPoints?: number;
+  formAveragePoints?: number;
 }
 
 export interface FormationResult {
@@ -155,20 +158,25 @@ export function isAvailableForLineup(status: PlayerStatus): boolean {
   return AVAILABILITY[status];
 }
 
+/** Punkte-Basis für Optimizer/Kaufempfehlung: Form wenn da, sonst flacher Ø. */
+export function scoringPoints(player: Pick<OptimizerPlayer, 'averagePoints' | 'formAveragePoints'>): number {
+  return player.formAveragePoints ?? player.averagePoints;
+}
+
 export function metricValue(player: OptimizerPlayer, metric: OptimizerMetric): number {
   switch (metric) {
     case 'valuePerMillion':
       return player.valueScoreAvg;
     case 'expectedPoints':
-      return player.expectedPoints ?? player.averagePoints;
+      return player.expectedPoints ?? scoringPoints(player);
     case 'points':
-      return player.averagePoints;
+      return scoringPoints(player);
   }
 }
 
 /** "Die jeweils andere Metrik" fürs Tie-Break — 'expectedPoints' ist punkteartig, tie-breakt also wie 'points' auf die Effizienz. */
 function otherMetricValue(player: OptimizerPlayer, metric: OptimizerMetric): number {
-  return metric === 'valuePerMillion' ? player.averagePoints : player.valueScoreAvg;
+  return metric === 'valuePerMillion' ? scoringPoints(player) : player.valueScoreAvg;
 }
 
 /**

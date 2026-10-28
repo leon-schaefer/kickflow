@@ -1,4 +1,5 @@
 import type { MatchdaySchedule, PointAverageFields, SeasonPerformance } from '@/api/kickbase/types';
+import { formWeightedAverage } from './formWeightedAverage';
 import { pointsPerMillion } from './valueScore';
 
 export interface PointAverages {
@@ -6,6 +7,24 @@ export interface PointAverages {
   appearanceAverage: number | null;
   matches: number;
   appearances: number;
+  /**
+   * Formgewichteter Schnitt über dieselben Spiele — Eingabe für Optimizer und
+   * Kaufempfehlung. Bei wenigen Spielen gleich `matchdayAverage`.
+   */
+  formAverage: number;
+  /** Jüngere Hälfte minus ältere Hälfte der Form-Fenster-Spiele; 0 ohne Trend. */
+  formTrend: number;
+}
+
+/**
+ * Ein bestätigtes Mannschaftsspiel der aktuellen Saison — gemeinsame Basis für
+ * flachen Saison-Ø und Formgewichtung. Chronologisch nach Anstoß sortiert.
+ */
+export interface SettledMatchPoints {
+  matchday: number;
+  points: number;
+  minutesPlayed: number;
+  kickoffMs: number;
 }
 
 /**
@@ -23,20 +42,21 @@ export const RESULT_SETTLE_MS = 3 * 60 * 60_000;
  * erfunden. Auch fehlende Historienzeilen werden NICHT aus dem heutigen Verein
  * aufgefüllt: ein Sommer-/Winterzugang gehörte ihm damals womöglich nicht an.
  * Vereinswechsel innerhalb der Competition bleiben über das damalige `pt` drin.
+ *
+ * `null` = aktuelle Saison im Plan nicht gefunden (Fallback auf Kickbase).
+ * Leeres Array = Saison gefunden, aber noch kein abgerechnetes Spiel.
  */
-export function pointAverages(
+export function settledMatchPoints(
   performance: readonly SeasonPerformance[],
   schedule: MatchdaySchedule | undefined,
   nowMs: number,
-): PointAverages | null {
+): SettledMatchPoints[] | null {
   if (!schedule) return null;
   const fixtures = schedule.matchdays.flatMap((day) =>
     day.fixtures.map((fixture) => ({ ...fixture, day: day.day })),
   );
   let currentSeasonFound = false;
-  let points = 0;
-  let matches = 0;
-  let appearances = 0;
+  const settled: SettledMatchPoints[] = [];
   const seen = new Set<string>();
   for (const season of performance) {
     for (const md of season.matchdays) {
@@ -58,19 +78,48 @@ export function pointAverages(
       const key = `${md.matchday}/${md.homeTeamId}/${md.awayTeamId}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      matches += 1;
-      // Fehlende/gerundete Minuten dürfen echte Punkte nicht verschwinden lassen.
-      points += md.points;
-      if (md.minutesPlayed > 0 || md.points !== 0) appearances += 1;
+      settled.push({
+        matchday: md.matchday,
+        points: md.points,
+        minutesPlayed: md.minutesPlayed,
+        kickoffMs: kickoff,
+      });
     }
   }
   if (!currentSeasonFound) return null;
+  settled.sort((a, b) => a.kickoffMs - b.kickoffMs || a.matchday - b.matchday);
+  return settled;
+}
+
+function averagesFromSettled(settled: readonly SettledMatchPoints[]): PointAverages {
+  let points = 0;
+  let appearances = 0;
+  for (const md of settled) {
+    points += md.points;
+    // Fehlende/gerundete Minuten dürfen echte Punkte nicht verschwinden lassen.
+    if (md.minutesPlayed > 0 || md.points !== 0) appearances += 1;
+  }
+  const matches = settled.length;
+  const matchdayAverage = matches > 0 ? points / matches : 0;
+  const form = formWeightedAverage(settled, matchdayAverage);
   return {
-    matchdayAverage: matches > 0 ? points / matches : 0,
+    matchdayAverage,
     appearanceAverage: appearances > 0 ? points / appearances : null,
     matches,
     appearances,
+    formAverage: form.formAverage,
+    formTrend: form.trend,
   };
+}
+
+export function pointAverages(
+  performance: readonly SeasonPerformance[],
+  schedule: MatchdaySchedule | undefined,
+  nowMs: number,
+): PointAverages | null {
+  const settled = settledMatchPoints(performance, schedule, nowMs);
+  if (!settled) return null;
+  return averagesFromSettled(settled);
 }
 
 export function withPointAverages<T extends { averagePoints: number; marketValue: number }>(
@@ -85,6 +134,8 @@ export function withPointAverages<T extends { averagePoints: number; marketValue
     appearanceAveragePoints: averages.appearanceAverage,
     averageMatchCount: averages.matches,
     appearanceCount: averages.appearances,
+    formAveragePoints: averages.formAverage,
+    formTrend: averages.formTrend,
     ...('valueScoreAvg' in player ? { valueScoreAvg: pointsPerMillion(averagePoints, player.marketValue) } : {}),
   };
 }

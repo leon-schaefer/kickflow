@@ -9,6 +9,7 @@ import {
   remainingFixtures,
   teamGoalRecord,
   teamStrength,
+  withExpectedPoints,
 } from './fixtureDifficulty';
 
 function fixture(
@@ -157,5 +158,22 @@ describe('difficultyFactor', () => {
   it('ist größer als 1 bei leichtem Gegner, kleiner als 1 bei schwerem', () => {
     expect(difficultyFactor(0)).toBeGreaterThan(1);
     expect(difficultyFactor(1)).toBeLessThan(1);
+  });
+});
+
+describe('withExpectedPoints', () => {
+  it('multipliziert die Form-Basis, falls gesetzt, sonst den flachen Ø', () => {
+    const byTeam = new Map([['T', { attack: 0, defense: 0 }]]);
+    const [withForm] = withExpectedPoints(
+      [{ teamId: 'T', position: 'FWD' as const, averagePoints: 50, formAveragePoints: 80 }],
+      byTeam,
+    );
+    const [flatOnly] = withExpectedPoints(
+      [{ teamId: 'T', position: 'FWD' as const, averagePoints: 50 }],
+      byTeam,
+    );
+    // Härte 0 → Faktor 1,2
+    expect(withForm!.expectedPoints).toBeCloseTo(80 * 1.2, 5);
+    expect(flatOnly!.expectedPoints).toBeCloseTo(50 * 1.2, 5);
   });
 });

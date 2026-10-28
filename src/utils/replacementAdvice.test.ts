@@ -236,6 +236,27 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     );
   });
 
+  it('wertet formAveragePoints statt des flachen Ø — heiße Form schlägt kalten Saisonschnitt', () => {
+    const players = baseSquad();
+    // FWD4 startet mit 6 Ø; 5 flach bringt nichts, 20 Form schon.
+    expect(
+      advise(players, [
+        makeCandidate({ id: 'kalt', position: 'FWD', averagePoints: 5, valueScoreAvg: 1 }),
+      ]).options,
+    ).toHaveLength(0);
+    const hot = advise(players, [
+      makeCandidate({
+        id: 'heiss',
+        position: 'FWD',
+        averagePoints: 5,
+        formAveragePoints: 20,
+        valueScoreAvg: 1,
+      }),
+    ]);
+    expect(hot.bestGainId).toBe('heiss');
+    expect(hot.options[0]!.gain).toBeGreaterThan(0);
+  });
+
   it('lässt Kandidaten weg, die die Elf nicht anheben', () => {
     // Der Kader spielt im Mittelfeld 10..6 Punkte; ein Spieler mit 1 Punkt
     // käme in keiner Formation in die Elf.
