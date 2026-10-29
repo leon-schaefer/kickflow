@@ -4,6 +4,7 @@ import { Spinner } from '@/components/Spinner';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
 import { PRIVACY_PATH, PRIVACY_TITLE, TERMS_PATH, TERMS_TITLE } from '@/legal/legalRoutes';
 import { LoginScreen } from '@/screens/LoginScreen';
+import { STATS_SEGMENT, STATS_TITLE } from '@/stats/statsRoute';
 import { AppErrorScreen } from './AppErrorScreen';
 import { IndexRoute } from './IndexRoute';
 import { LeagueLayout } from './LeagueLayout';
@@ -106,6 +107,9 @@ const RulesScreen = lazy(() =>
 );
 const FixturesScreen = lazy(() =>
   import('@/screens/FixturesScreen').then((m) => ({ default: m.FixturesScreen })),
+);
+const StatsScreen = lazy(() =>
+  import('@/screens/StatsScreen').then((m) => ({ default: m.StatsScreen })),
 );
 const PrivacyScreen = lazy(() =>
   import('@/legal/PrivacyScreen').then((m) => ({ default: m.PrivacyScreen })),
@@ -265,6 +269,11 @@ export const routes: RouteObject[] = [
                 path: 'fixtures',
                 element: screen(<FixturesScreen />),
                 handle: { title: 'Restprogramm' },
+              },
+              {
+                path: STATS_SEGMENT,
+                element: screen(<StatsScreen />),
+                handle: { title: STATS_TITLE },
               },
             ],
           },

@@ -7,6 +7,7 @@ import {
   withCompetitionPlayersLimit,
   withPerformanceLimit,
   withPlayerLookupLimit,
+  withRankingHistoryLimit,
   withTransferHistoryLimit,
 } from './limiter';
 import {
@@ -128,6 +129,33 @@ export async function getLineup(token: string, leagueId: string): Promise<Lineup
  * des zuletzt abgerechneten Spieltags ist (und eben NICHT die aktuelle Elf).
  */
 export async function getLeagueRanking(
+  token: string,
+  leagueId: string,
+  dayNumber?: number,
+): Promise<LeagueRanking> {
+  return fetchLeagueRanking(token, leagueId, dayNumber);
+}
+
+/**
+ * Dieselbe Tabelle, aber für einen VERGANGENEN Spieltag — Grundlage der
+ * Punkte-Statistik, die daraus rekonstruiert, welche elf Spieler an jedem
+ * Spieltag der Saison in der eigenen Elf standen (siehe
+ * src/stats/pointSources.ts).
+ *
+ * Der einzige Unterschied zu `getLeagueRanking` ist das Gate: hier steht ein
+ * Request PRO gespieltem Spieltag an, gegen Saisonende also 34 auf einmal.
+ * Ohne Drossel wäre das derselbe Burst bei Cloudflare, den auch die
+ * Spielzeit-Spalte auslösen würde (siehe limiter.ts).
+ */
+export async function getLeagueRankingAtMatchday(
+  token: string,
+  leagueId: string,
+  dayNumber: number,
+): Promise<LeagueRanking> {
+  return withRankingHistoryLimit(() => fetchLeagueRanking(token, leagueId, dayNumber));
+}
+
+async function fetchLeagueRanking(
   token: string,
   leagueId: string,
   dayNumber?: number,
