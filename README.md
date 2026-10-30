@@ -19,37 +19,38 @@ Vercel. Projektseite: <https://codewithleon.dev/apps/kickflow/>.
 
 ## Warum der Quelltext offen liegt
 
-Wer kickflow benutzt, tippt sein **Kickbase-Passwort** in ein Formular, das
-nicht von Kickbase kommt. Die Startseite behauptet dazu drei Dinge: die App
-spricht direkt aus dem Browser mit der Kickbase-API, ohne einen Server von
-kickflow dazwischen; Zugangsdaten und Token verlassen das Gerät nur in
-Richtung Kickbase; kein Tracking, keine Analyse, und nachgeladen wird von
-keiner anderen Stelle etwas.
+Wer kickflow benutzt, gibt sein **Kickbase-Passwort** außerhalb der offiziellen
+App ein. Die TLS-Verbindung zu Kickbase wird deshalb im Browser aufgebaut.
+Der eigene Verbindungsserver auf Render leitet ausschließlich verschlüsselte
+Bytes weiter. Er besitzt keine Schlüssel für Zugangsdaten, Token oder
+API-Antworten. Verbindungsmetadaten bleiben für den Hoster sichtbar; dem
+Betreiber des ausgelieferten Frontends muss weiterhin vertraut werden.
 
-Diese drei Sätze sind der Grund für das offene Repo: hier sind sie
-nachprüfbar statt geglaubt. `src/api/kickbase/client.ts` ist ein `fetch`
-gegen genau eine Basis-URL, `src/auth/` zeigt, was mit Passwort und Token
-passiert, und die Content-Security-Policy in `vercel.json` würde jedes andere
-Ziel im Browser blockieren — `default-src 'self'`, `connect-src` mit
-Kickbase-API und Bilder-CDN, sonst nichts. Ein Versprechen, das man
-nachrechnen kann, ist mehr wert als eines, das man betont.
+Der zentrale Transport liegt in `src/api/kickbase/`, das blinde Relay in
+`relay/server.mjs`. Die TLS-Bibliothek wird unverändert lokal ausgeliefert,
+nicht von einem CDN geladen. Die CSP erlaubt WASM, aber weiterhin weder
+Inline-JavaScript noch JavaScript-eval. Ihre genauen Relay-Origins werden beim
+Build gegen die öffentliche Tunnel-Konfiguration geprüft.
 
 ## Selbst ausprobieren
 
 ```bash
-npm ci        # nicht npm install: derselbe Baum wie in CI und bei Vercel
-npm run dev   # Vite Dev-Server
+npm ci
+npm ci --prefix relay
+npm run dev
 ```
 
-Mehr ist nicht nötig: kein Server, keine Datenbank, keine Secrets, kein
-API-Schlüssel. Angemeldet wird sich mit einem **eigenen** Kickbase-Konto, und
-alles, was die App danach tut, tut sie gegen die echte Liga — es gibt keinen
-Testmodus. Die vollständige Befehlsliste steht unter
-[Entwicklung](#entwicklung).
+Für den verschlüsselten API-Zugriff braucht die App das eigene Relay und
+`VITE_TUNNEL_URL`. Anleitung und Render-Free-Blueprint stehen in
+[relay/README.md](relay/README.md). Ohne die Variable verwendet der Dev-Server
+den direkten API-Zugriff; Produktionsbuilds verlangen eine Tunnel-Adresse.
+Ein eigener Datenbankserver ist nicht erforderlich. Aktionen in der App
+wirken gegen die echte Kickbase-Liga.
 
 ## Lizenz
 
-[Apache-2.0](LICENSE). Ein Fork darf die App also nehmen, ändern und selbst
+[Apache-2.0](LICENSE) für den eigenen Code; die separate TLS-Bibliothek steht
+unter LGPL-3.0-or-later, siehe [Drittanbieterhinweise](THIRD_PARTY_NOTICES.md). Ein Fork darf die App also nehmen, ändern und selbst
 betreiben — nur nicht unter diesem Namen: „kickflow", das Icon und das
 Vorschaubild gibt die Lizenz nicht mit (Apache-2.0 §6). Das ist kein
 juristischer Reflex, sondern folgt aus dem, was die App tut. Sie nimmt fremde
@@ -133,8 +134,9 @@ Rücksicht nimmt: eine fehlende Datei liefert nicht 404, sondern `index.html`
 mit Status 200.
 
 `vercel.json` setzt außerdem CSP und Security-Header. Die CSP erlaubt
-ausdrücklich `api.kickbase.com` (die App spricht die Kickbase-API direkt aus
-dem Browser, ohne Proxy) und `kickbase.b-cdn.net` für Logos und Spielerbilder.
+die Kickbase-API, das Bilder-CDN und die genaue HTTPS-/WSS-Origin des
+Render-Relays. Die Konfiguration und der Aufwachvorgang sind in
+[relay/README.md](relay/README.md) beschrieben.
 `script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
 warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
 
@@ -171,7 +173,7 @@ nicht selbst, sie öffnet das Mail-Programm des Nutzers mit fertigem Betreff
 und Text (`src/support/feedback.ts`), und ob eine Mail ankommt, kann sie nicht
 erkennen.
 
-Mailto und kein Formular-Dienst, weil kickflow keinen eigenen Server hat: ein
+Mailto und kein Formular-Dienst, weil das Relay ausschließlich verschlüsselte Kickbase-Verbindungen weiterleitet: ein
 Endpunkt bei Formspree & Co. bräuchte einen dritten Host in `connect-src`.
 Der Preis ist ein Nutzer ohne eingerichtetes Mail-Programm — für den steht
 Betreff und Text auf dem Screen zum Kopieren daneben.

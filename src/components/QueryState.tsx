@@ -1,6 +1,7 @@
 import { type RefreshState, useRefresh } from '@/queries/useRefresh';
 import { Refreshable } from './Refreshable';
 import { Spinner } from './Spinner';
+import { TunnelNotice } from './TunnelNotice';
 import styles from './QueryState.module.css';
 
 interface QueryLike {
@@ -58,7 +59,7 @@ export function QueryState({ query, label, refresh }: Props) {
                 </button>
               </>
             ) : (
-              <Spinner />
+              <><Spinner /><TunnelNotice /></>
             )}
           </div>
         </div>

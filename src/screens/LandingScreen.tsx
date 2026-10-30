@@ -120,16 +120,17 @@ export function LandingScreen() {
           </p>
           <ul className={styles.facts}>
             <li className={styles.fact}>
-              Die App spricht direkt aus deinem Browser mit der Kickbase-API. Es gibt keinen
-              Server von kickflow dazwischen, der etwas sehen könnte.
+              Die Verbindung zu Kickbase wird in deinem Browser verschlüsselt. Unser
+              Verbindungsserver leitet die verschlüsselten Daten weiter und kann ihren Inhalt
+              nicht entschlüsseln.
             </li>
             <li className={styles.fact}>
-              Deine Zugangsdaten und dein Zugriffstoken verlassen dieses Gerät ausschließlich in
-              Richtung Kickbase.
+              Dein Passwort wird nicht gespeichert. Dein Zugriffstoken bleibt lokal auf deinem
+              Gerät und wird verschlüsselt an Kickbase übertragen.
             </li>
             <li className={styles.fact}>
-              Kein Tracking, keine Analyse, keine Werbung — die App lädt von keiner anderen
-              Stelle etwas nach.
+              Die TLS-Bibliothek wird zusammen mit der App ausgeliefert. Welche Verbindungsdaten
+              beim Hosting anfallen, steht in der Datenschutzerklärung.
             </li>
           </ul>
           {/*

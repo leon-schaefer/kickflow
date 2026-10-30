@@ -57,7 +57,7 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     key: SESSION_KEY,
     label: 'Anmeldung',
     purpose:
-      'Dein Kickbase-Zugriffstoken, das Refresh-Token sowie deine Kickbase-Nutzer-ID und dein Anzeigename. Damit bleibst du angemeldet und die App erkennt, welche Zeile der Liga-Tabelle deine ist. Dein Passwort wird nicht gespeichert — es geht einmal an Kickbase und wird danach verworfen.',
+      'Dein Kickbase-Zugriffstoken, das Refresh-Token sowie deine Kickbase-Nutzer-ID und dein Anzeigename. Damit bleibst du angemeldet und die App erkennt deine Zeile der Liga-Tabelle. Token und erforderliche Kennungen werden bis Kickbase verschlüsselt übertragen; unser Verbindungsserver leitet nur verschlüsselte Bytes weiter. Dein Passwort wird nicht gespeichert.',
     lifetime: 'Bis zum Abmelden oder bis du die lokalen Daten löschst.',
     personal: true,
   },

@@ -1,0 +1,10 @@
+{
+  "name": "kickflow-tunnel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node server.mjs", "test": "node --test server.test.mjs" },
+  "dependencies": { "ws": "8.22.0" }
+}
