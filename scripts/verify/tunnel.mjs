@@ -109,7 +109,7 @@ try {
     const wire = Buffer.concat(scenario.wire);
     assert.deepEqual(violations, []);
     assert.deepEqual(errors, []);
-    assert.equal(requests.some(url => url.startsWith('https://api.kickbase.com')), false);
+    assert.equal(requests.some(url => new URL(url).origin === 'https://api.kickbase.com'), false);
     assert.equal(wire.includes(Buffer.from(marker)), false);
     assert.equal(wire.includes(Buffer.from('GET /v4/user/login')), false);
     assert.equal(scenario.impostorApplicationData, false);
