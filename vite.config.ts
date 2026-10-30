@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vitest/config';
 import { resolveShortGitSha } from './scripts/gitSha.ts';
 import { resolveSiteOrigin } from './scripts/siteOrigin.ts';
+import { validateTunnelCsp } from './src/api/kickbase/tunnelConfig.ts';
 
 /**
  * Vite-Konfiguration für die Web-Auslieferung — seit dem Cutover die einzige.
@@ -45,8 +46,21 @@ function siteOriginHtml(): Plugin {
   };
 }
 
+function tunnelBuildConfig(): Plugin {
+  return {
+    name: 'kickflow:tunnel-config',
+    configResolved(config) {
+      if (config.command !== 'build') return;
+      const vercel = JSON.parse(readFileSync(path.join(import.meta.dirname, 'vercel.json'), 'utf8'));
+      const csp = vercel.headers.flatMap((block: { headers: { key: string; value: string }[] }) => block.headers)
+        .find((header: { key: string }) => header.key === 'Content-Security-Policy')?.value;
+      validateTunnelCsp(config.env.VITE_TUNNEL_URL, csp ?? '');
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), siteOriginHtml()],
+  plugins: [react(), siteOriginHtml(), tunnelBuildConfig()],
 
   resolve: {
     alias: {

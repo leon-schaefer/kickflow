@@ -7,10 +7,9 @@ import { isStandalone } from '@/pwa/standalone';
  *
  * WARUM MAILTO UND KEIN POST AN EINEN FORMULAR-DIENST
  *
- * kickflow hat keinen eigenen Server — die App spricht direkt mit der
- * Kickbase-API, und `connect-src` in vercel.json listet genau diesen Host und
- * das Bilder-CDN. Ein Formular-Endpunkt (Formspree, Tally, …) bräuchte einen
- * dritten Host in dieser Liste, einen Account beim Anbieter und müsste die
+ * Das Relay transportiert ausschließlich verschlüsselte Kickbase-Daten.
+ * Ein Formular-Endpunkt (Formspree, Tally, …) bräuchte einen zusätzlichen
+ * Host in der CSP, einen Account beim Anbieter und müsste die
  * Absenderadresse selbst einsammeln, um antworten zu können. Mailto kostet
  * nichts davon: die Absenderadresse kommt aus dem Mail-Programm, der Nutzer
  * sieht vor dem Abschicken wörtlich, was rausgeht, und die CSP bleibt, wie

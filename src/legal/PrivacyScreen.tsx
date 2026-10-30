@@ -39,12 +39,12 @@ export function PrivacyScreen() {
   const location = useLocation();
 
   return (
-    <LegalPage title={PRIVACY_TITLE} updated="2026-09-07">
+    <LegalPage title={PRIVACY_TITLE} updated="2026-10-30">
       <p className={styles.lead}>
-        kickflow ist eine reine Browser-App ohne eigenen Server. Es gibt keine Konten bei uns,
-        keine Datenbank und keine Übermittlung an Dritte zu Werbe- oder Analysezwecken. Was die
-        App braucht, spricht dein Browser direkt mit Kickbase; was sie sich merkt, bleibt auf
-        deinem Gerät.
+        kickflow läuft in deinem Browser. Ein Verbindungsserver leitet verschlüsselte Daten
+        zwischen deinem Browser und Kickbase weiter. Die Verschlüsselung endet bei Kickbase,
+        nicht auf diesem Server. Es gibt keine eigenen Nutzerkonten und keine Datenbank für
+        Zugangsdaten oder Ligadaten.
       </p>
 
       <section className={styles.section}>
@@ -76,11 +76,17 @@ export function PrivacyScreen() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Anmeldung und Kickbase</h2>
         <p className={styles.text}>
-          Zum Anmelden gibst du deine Kickbase-Zugangsdaten ein. Sie werden von deinem Browser
-          direkt an die Kickbase-API (api.kickbase.com) gesendet — sie erreichen keinen Server von
-          kickflow, weil es keinen gibt. Dein Passwort wird nicht gespeichert: es geht einmal an
-          Kickbase und wird danach verworfen. Zurück kommt ein Zugriffstoken, das lokal auf deinem
-          Gerät liegt (siehe Tabelle unten).
+          Zum Anmelden gibst du deine Kickbase-Zugangsdaten ein. Eine mit der App ausgelieferte
+          TLS-Bibliothek verschlüsselt die Verbindung zur Kickbase-API (api.kickbase.com).
+          Unser Verbindungsserver leitet die verschlüsselten Bytes weiter und besitzt keinen
+          Schlüssel zum Entschlüsseln deiner Zugangsdaten, Token oder API-Antworten. Dein
+          Passwort wird nicht gespeichert. Das zurückgegebene Zugriffstoken bleibt im lokalen
+          Speicher deines Geräts und wird bei weiteren Anfragen verschlüsselt an Kickbase gesendet.
+        </p>
+        <p className={styles.text}>
+          Diese Eigenschaft schützt die Inhalte auf dem Verbindungsserver. Du vertraust
+          weiterhin dem ausgelieferten App-Code: Er verarbeitet dein Passwort vor der
+          Verschlüsselung und kann von uns bei einer neuen Version geändert werden.
         </p>
         <p className={styles.text}>
           Alle weiteren Daten — Ligen, Kader, Marktwerte, Spielpläne, Tabellen — lädt die App bei
@@ -105,14 +111,22 @@ export function PrivacyScreen() {
           Art. 6 Abs. 1 lit. f DSGVO — ohne diese Verarbeitung lässt sich eine Webseite nicht
           ausliefern. Die Verbindung ist ausschließlich per HTTPS möglich.
         </p>
+        <p className={styles.text}>
+          Den Verbindungsserver hosten wir bei Render in Frankfurt. Render verarbeitet für
+          den Betrieb Verbindungsdaten, insbesondere deine IP-Adresse, Zeitpunkt, Dauer und
+          Datenvolumen. Das Ziel api.kickbase.com ist ebenfalls erkennbar. Die eigentlichen
+          Anfragen und Antworten bleiben bis Kickbase verschlüsselt. Unsere Relay-Anwendung
+          speichert und protokolliert keine Nutzdaten, Zugangsdaten oder Token. Technische
+          Zugriffsprotokolle des Hosters sind davon zu unterscheiden.
+        </p>
       </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Was auf deinem Gerät gespeichert wird</h2>
         <p className={styles.text}>
           kickflow legt die folgenden Einträge im lokalen Speicher deines Browsers
-          (localStorage) ab. Diese Daten verlassen dein Gerät nicht — sie werden nicht übertragen,
-          nicht ausgewertet und sind für uns nicht einsehbar.
+          (localStorage) ab. Einstellungen bleiben auf deinem Gerät. Das Zugriffstoken und die
+          für eine Aktion erforderlichen Kennungen werden verschlüsselt an Kickbase übermittelt.
         </p>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -161,10 +175,9 @@ export function PrivacyScreen() {
           dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
         </p>
         <p className={styles.text}>
-          Praktisch heißt das hier zweierlei. Erstens: Daten, die kickflow selbst hält, gibt es
-          nicht — es gibt keinen Server und keine Datenbank, in der etwas über dich stünde. Die
-          Auskunft besteht in dieser Erklärung, und die Löschung führst du mit „Lokale Daten
-          löschen" selbst und sofort aus. Zweitens: Ansprüche, die deinen Kickbase-Account und die
+          Lokale App-Daten entfernst du über „Lokale Daten löschen" selbst und sofort.
+          Unser Verbindungsserver führt keine Datenbank mit deinen Zugangsdaten oder Ligadaten;
+          beim Hosting fallen die oben beschriebenen Verbindungsdaten an. Ansprüche, die deinen Kickbase-Account und die
           dort gespeicherten Spieldaten betreffen, richten sich an die Kickbase GmbH — nur dort
           liegen diese Daten.
         </p>

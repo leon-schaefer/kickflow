@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { resetThrottle } from '@/auth/loginThrottle';
+import { KickbaseError } from '@/api/kickbase/client';
 import { LoginScreen } from './LoginScreen';
 
 const login = vi.hoisted(() => vi.fn());
@@ -193,7 +194,20 @@ describe('LoginScreen', () => {
 
   it('nennt den Hinweis, wohin die Zugangsdaten gehen', () => {
     setup();
-    expect(screen.getByText(/ausschließlich in Richtung Kickbase/)).toBeInTheDocument();
+    expect(screen.getByText(/bis zu Kickbase verschlüsselt/)).toBeInTheDocument();
     expect(screen.getByText(/Inoffizielle App/)).toBeInTheDocument();
+  });
+
+  it('sperrt die Anmeldung nach Verbindungsfehlern nicht als falsches Passwort', async () => {
+    login.mockRejectedValue(new KickbaseError('Verbindung fehlgeschlagen', 0, null));
+    setup();
+    await fillIn();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await userEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
+      await screen.findByRole('alert');
+    }
+    expect(login).toHaveBeenCalledTimes(5);
+    expect(screen.getByRole('button', { name: 'Anmelden' })).toBeEnabled();
+    expect(screen.queryByText(/Zu viele Fehlversuche/)).not.toBeInTheDocument();
   });
 });
