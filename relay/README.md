@@ -19,8 +19,9 @@ Frontends bleibt eine Vertrauensstelle.
    getrennt. Vorgabe: `https://www.kickflow.online,https://kickflow.online`.
    Zusätzliche Vercel-Previews einzeln freigeben, kein `*` verwenden.
 4. Die tatsächlich zugewiesene `https://…onrender.com`-Adresse notieren.
-   Der Name `kickflow-tunnel.onrender.com` im Repository ist ein **Beispiel**,
-   keine reservierte oder nachgewiesen eigene Adresse.
+   Für dieses Repository ist **https://kickflow-tunnel.onrender.com** im
+   eigenen Render-Workspace `kickflow` als Free Web Service in Frankfurt
+   eingerichtet. Ein Fork muss seine eigene Relay-Adresse einsetzen.
 5. In Vercel `VITE_TUNNEL_URL` auf diese HTTPS-Origin setzen, ohne
    Pfad oder Geheimnisse. In `vercel.json` den Beispielhost durch dieselbe
    HTTPS- und WSS-Origin ersetzen. Der Produktionsbuild prüft diese Kopplung
@@ -75,8 +76,8 @@ npm test
 VITE_TUNNEL_URL=https://kickflow-tunnel.onrender.com npm run build:web
 ```
 
-Der letzte Aufruf prüft den **Beispielhost**, keine Bereitstellung. Für den
-echten Betrieb die eigene Render-Adresse verwenden.
+Der letzte Aufruf prüft einen Build, keine Bereitstellung. Für einen Fork
+die eigene Render-Adresse verwenden und die genaue Origin in der CSP anpassen.
 
 `npm run test:relay` prüft echte lokale WebSocket-/TCP-Verbindungen, enge
 Origin-/Zielprüfung, private DNS-Antworten, unveränderte Binärweiterleitung

@@ -137,7 +137,7 @@ mit Status 200.
 die Kickbase-API, das Bilder-CDN und die genaue HTTPS-/WSS-Origin des
 Render-Relays. Die Konfiguration und der Aufwachvorgang sind in
 [relay/README.md](relay/README.md) beschrieben.
-`script-src 'self'` ohne `unsafe-inline`/`unsafe-eval` — das ist der Grund,
+`script-src 'self' 'wasm-unsafe-eval'` ohne JavaScript-`unsafe-inline`/`unsafe-eval` — das ist der Grund,
 warum der Token im localStorage vertretbar ist (`src/auth/tokenStore.ts`).
 
 Zwei Dinge hängen daran und dürfen nicht verloren gehen:
