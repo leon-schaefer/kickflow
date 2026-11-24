@@ -6,6 +6,7 @@ import { formatCurrency } from '@/utils/format';
 import { RESULT_SETTLE_MS, settledMatchPoints } from '@/utils/pointAverages';
 import { Modal } from './Modal';
 import styles from './PlayerComparison.module.css';
+import controls from '@/components/FormControls.module.css';
 
 interface Props {
   first: PlayerDetail;
@@ -21,15 +22,17 @@ export function PlayerComparison(props: Props) {
   const players = new Map([...props.squad, ...props.market].map((p) => [p.id, p]));
   players.delete(props.first.id);
   return <>
-    <button type="button" className={styles.action} onClick={() => setOpen(true)}>Spieler vergleichen</button>
+    <button type="button" className={controls.button} aria-haspopup="dialog" onClick={() => setOpen(true)}>Spieler vergleichen</button>
     <Modal open={open} onClose={() => setOpen(false)} title="Spielervergleich" panelClassName={styles.panel}>
-      <label>Vergleichen mit <select value={players.has(secondId) ? secondId : ''} onChange={(e) => setSecondId(e.target.value)}>
-        <option value="">Aus Kader oder Markt wählen</option>
-        {[...players.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')).map((p) =>
-          <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select></label>
-      {players.has(secondId) && <CompareSelection {...props} secondId={secondId} />}
-      <button type="button" onClick={() => setOpen(false)}>Schließen</button>
+      <div className={styles.body}>
+        <label className={controls.label}>Vergleichen mit <select className={controls.select} value={players.has(secondId) ? secondId : ''} onChange={(e) => setSecondId(e.target.value)}>
+          <option value="">Aus Kader oder Markt wählen</option>
+          {[...players.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')).map((p) =>
+            <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select></label>
+        {players.has(secondId) && <CompareSelection {...props} secondId={secondId} />}
+      </div>
+      <button type="button" className={controls.button} onClick={() => setOpen(false)}>Schließen</button>
     </Modal>
   </>;
 }
@@ -37,8 +40,8 @@ export function PlayerComparison(props: Props) {
 function CompareSelection({ secondId, first, schedule, teamNames, market }: Props & { secondId: string }) {
   const other = usePlayer(useLeagueId(), secondId);
   if (!other.data) return other.error
-    ? <button type="button" onClick={() => other.refetch()}>Spielerdaten erneut laden</button>
-    : <p role="status">Spielerdaten werden geladen …</p>;
+    ? <button type="button" className={controls.button} onClick={() => other.refetch()}>Spielerdaten erneut laden</button>
+    : <p className={styles.notice} role="status">Spielerdaten werden geladen …</p>;
   const now = Date.now();
   const days = (schedule?.matchdays ?? []).filter((d) => d.allPlayed && d.fixtures.length > 0 &&
     d.fixtures.every((f) => f.kickoffAt && Date.parse(f.kickoffAt) + RESULT_SETTLE_MS <= now))
