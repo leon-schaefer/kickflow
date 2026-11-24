@@ -1,4 +1,3 @@
-import { PlayerComparison } from '@/components/PlayerComparison';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { PlayerTransfer } from '@/api/kickbase';
@@ -9,6 +8,7 @@ import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
+import { PlayerComparison } from '@/components/PlayerComparison';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
