@@ -11,6 +11,9 @@ import { resolveMatchdayState } from '@/utils/matchday';
 import { RESULT_SETTLE_MS, settledMatchPoints } from '@/utils/pointAverages';
 import type { LineupRule } from './rules';
 import { legalReplacements, readArchive, type MatchdaySnapshot } from './matchdayReview';
+import disclosure from '@/components/Disclosure.module.css';
+import controls from '@/components/FormControls.module.css';
+import styles from './MatchdayReview.module.css';
 
 function subscribe(update: () => void) {
   window.addEventListener('storage', update);
@@ -63,21 +66,23 @@ export function MatchdayReview({ leagueId, archive, schedule, onRecord, ready }:
   const scheduled = schedule?.matchdays.find((d) => d.day === current?.day && d.firstKickoff === current.deadline);
   const finished = scheduled?.allPlayed && scheduled.fixtures.length > 0 && scheduled.fixtures.every((f) =>
     f.kickoffAt && Date.parse(f.kickoffAt) + RESULT_SETTLE_MS <= Date.now());
-  return <details onToggle={(e) => setExpanded(e.currentTarget.open)}>
-    <summary>Spieltagsrückblick</summary>
-    <p>Sichere Kader und Regeln vor Anstoß. Wenn du danach deine Elf in kickflow speicherst, aktualisiert sich der gesicherte Spieltag.</p>
-    {open && archive.userId && <button type="button" disabled={!ready} onClick={onRecord}>Kader für Spieltag {open.day} sichern</button>}
-    {archive.notice && <p role="status">{archive.notice}</p>}
-    {!archive.userId ? <p>Für deinen persönlichen Rückblick bitte erneut anmelden.</p> :
-      !current ? <p>Noch kein Spieltag auf diesem Gerät gesichert.</p> : <>
-        <label>Gesicherter Spieltag <select value={current.deadline} onChange={(e) => setSelected(e.target.value)}>
-          {archive.snapshots.map((s) => <option key={s.deadline} value={s.deadline}>Spieltag {s.day} · {formatIsoDate(s.deadline)}</option>)}
-        </select></label>
-        <p>Kaderstand vom {new Date(current.capturedAt).toLocaleString('de-DE')} · {current.formation}</p>
-        {expanded && (finished && schedule
-          ? <ReviewResult leagueId={leagueId} snapshot={current} userId={archive.userId} schedule={schedule} />
-          : <p>{scheduled ? 'Die Auswertung erscheint nach Abschluss des Spieltags.' : 'Der passende Saisonspielplan ist derzeit nicht verfügbar.'}</p>)}
-      </>}
+  return <details className={disclosure.disclosure} onToggle={(e) => setExpanded(e.currentTarget.open)}>
+    <summary className={disclosure.summary}>Spieltagsrückblick</summary>
+    <div className={disclosure.content}>
+      <p className={disclosure.note}>Sichere Kader und Regeln vor Anstoß. Wenn du danach deine Elf in kickflow speicherst, aktualisiert sich der gesicherte Spieltag.</p>
+      {open && archive.userId && <button type="button" className={controls.button} disabled={!ready} onClick={onRecord}>Kader für Spieltag {open.day} sichern</button>}
+      {archive.notice && <p role="status" className={disclosure.note}>{archive.notice}</p>}
+      {!archive.userId ? <p className={disclosure.note}>Für deinen persönlichen Rückblick bitte erneut anmelden.</p> :
+        !current ? <p className={disclosure.note}>Noch kein Spieltag auf diesem Gerät gesichert.</p> : <>
+          <label className={controls.label}>Gesicherter Spieltag <select className={controls.select} value={current.deadline} onChange={(e) => setSelected(e.target.value)}>
+            {archive.snapshots.map((s) => <option key={s.deadline} value={s.deadline}>Spieltag {s.day} · {formatIsoDate(s.deadline)}</option>)}
+          </select></label>
+          <p className={disclosure.note}>Kaderstand vom {new Date(current.capturedAt).toLocaleString('de-DE')} · {current.formation}</p>
+          {expanded && (finished && schedule
+            ? <ReviewResult leagueId={leagueId} snapshot={current} userId={archive.userId} schedule={schedule} />
+            : <p className={disclosure.note}>{scheduled ? 'Die Auswertung erscheint nach Abschluss des Spieltags.' : 'Der passende Saisonspielplan ist derzeit nicht verfügbar.'}</p>)}
+        </>}
+    </div>
   </details>;
 }
 
@@ -87,9 +92,9 @@ function ReviewResult({ leagueId, snapshot, userId, schedule }: {
   const ranking = useLeagueRanking(leagueId, snapshot.day);
   const row = ranking.data?.day === snapshot.day ? ranking.data.entries.find((p) => p.userId === userId) : null;
   const official = row?.lineupPlayerIds.filter((id): id is string => !!id);
-  if (!official?.length) return <p>{ranking.isPending ? 'Startelf wird geladen …' : 'Kickbase hat die abgegebene Elf für diesen Spieltag nicht bestätigt.'}</p>;
+  if (!official?.length) return <p className={disclosure.note}>{ranking.isPending ? 'Startelf wird geladen …' : 'Kickbase hat die abgegebene Elf für diesen Spieltag nicht bestätigt.'}</p>;
   if (official.some((id) => !snapshot.players.some((p) => p.id === id))) {
-    return <p>Die abgegebene Startelf enthält Spieler außerhalb des gesicherten Kaders. Für diesen Spieltag ist kein vollständiger Vergleich möglich.</p>;
+    return <p className={disclosure.note}>Die abgegebene Startelf enthält Spieler außerhalb des gesicherten Kaders. Für diesen Spieltag ist kein vollständiger Vergleich möglich.</p>;
   }
   return <BenchReview leagueId={leagueId} snapshot={snapshot} official={official} schedule={schedule} />;
 }
@@ -111,27 +116,27 @@ function BenchReview({ leagueId, snapshot, official, schedule }: {
   }));
   const starters = snapshot.players.filter((p) => official.includes(p.id));
   const bench = snapshot.players.filter((p) => !official.includes(p.id));
-  return <section aria-label="Bank und mögliche Wechsel">
+  return <section className={styles.lineups} aria-label="Bank und mögliche Wechsel">
     {snapshot.submitted.length !== official.length || official.some((id) => !snapshot.submitted.includes(id))
-      ? <p>Die endgültige Kickbase-Elf weicht vom gesicherten Stand ab. Hier gilt die endgültige Besetzung.</p> : null}
-    {results.some((q) => q.isPending) && <p role="status">Spieltagspunkte werden geladen …</p>}
-    {results.some((q) => q.isError) && <button type="button" onClick={() => results.filter((q) => q.isError).forEach((q) => void q.refetch())}>Fehlende Punkte erneut laden</button>}
-    <details>
-      <summary>Abgegebene Startelf ({starters.length})</summary>
-      <ul>{starters.map((p) => <li key={p.id}>{p.name} · {points.get(p.id) ?? '—'} Punkte</li>)}</ul>
+      ? <p className={disclosure.note}>Die endgültige Kickbase-Elf weicht vom gesicherten Stand ab. Hier gilt die endgültige Besetzung.</p> : null}
+    {results.some((q) => q.isPending) && <p role="status" className={disclosure.note}>Spieltagspunkte werden geladen …</p>}
+    {results.some((q) => q.isError) && <button type="button" className={controls.button} onClick={() => results.filter((q) => q.isError).forEach((q) => void q.refetch())}>Fehlende Punkte erneut laden</button>}
+    <details className={disclosure.disclosure}>
+      <summary className={disclosure.summary}>Abgegebene Startelf ({starters.length})</summary>
+      <ul className={disclosure.list}>{starters.map((p) => <li className={disclosure.item} key={p.id}>{p.name} · {points.get(p.id) ?? '—'} Punkte</li>)}</ul>
     </details>
-    {!bench.length && <p>Alle Spieler des gesicherten Kaders standen in der Startelf.</p>}
+    {!bench.length && <p className={disclosure.note}>Alle Spieler des gesicherten Kaders standen in der Startelf.</p>}
     {bench.map((p) => {
       const score = points.get(p.id);
       const swaps = legalReplacements(snapshot, starters, p).map((swap) => {
         const outgoing = points.get(swap.player.id);
         return { ...swap, delta: outgoing == null || score == null ? null : score - outgoing };
       }).sort((a, b) => (b.delta ?? -Infinity) - (a.delta ?? -Infinity));
-      return <details key={p.id}>
-        <summary>{p.name} · {score == null ? 'Punkte unbekannt' : `${score} Punkte`}</summary>
-        {swaps.length ? <ul>{swaps.map(({ player, formation, delta }) =>
-          <li key={player.id}>Für {player.name} · {formation} · {delta == null ? 'Differenz unbekannt' : `${delta > 0 ? '+' : ''}${delta} Punkte`}</li>)}</ul>
-          : <p>Kein regelkonformer Einzelwechsel möglich.</p>}
+      return <details key={p.id} className={disclosure.disclosure}>
+        <summary className={disclosure.summary}>{p.name} · {score == null ? 'Punkte unbekannt' : `${score} Punkte`}</summary>
+        {swaps.length ? <ul className={disclosure.list}>{swaps.map(({ player, formation, delta }) =>
+          <li className={disclosure.item} key={player.id}>Für {player.name} · {formation} · {delta == null ? 'Differenz unbekannt' : `${delta > 0 ? '+' : ''}${delta} Punkte`}</li>)}</ul>
+          : <p className={styles.empty}>Kein regelkonformer Einzelwechsel möglich.</p>}
       </details>;
     })}
   </section>;

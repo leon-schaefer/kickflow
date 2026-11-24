@@ -1,0 +1,9 @@
+.lineups {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.empty {
+  composes: note from '@/components/Disclosure.module.css';
+  padding: var(--space-sm) var(--space-md);
+}
