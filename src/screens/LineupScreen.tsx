@@ -510,8 +510,13 @@ export function LineupScreen() {
               </Link>
 
               {league && marketQuery.data && (
-                <button type="button" className={styles.navRow} onClick={() => setPlanning(true)}>
-                  Transferpaket durchspielen
+                <button type="button" className={styles.plannerButton} aria-haspopup="dialog" onClick={() => setPlanning(true)}>
+                  <span className={styles.plannerIcon} aria-hidden="true">⇄</span>
+                  <span className={styles.plannerCopy}>
+                    <strong>Transferpaket planen</strong>
+                    <span className={styles.navRowText}>Was bleibt vom Budget? Wie stark ist deine Elf?</span>
+                  </span>
+                  <span className={styles.navRowChevron} aria-hidden="true">›</span>
                 </button>
               )}
               {planning && league && (

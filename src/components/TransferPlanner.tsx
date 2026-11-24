@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
 import type { LineupConstraints } from '@/lineup/rules';
+import { positionLabels } from '@/theme/tokens';
 import { optimizeLineupWithRules } from '@/utils/constrainedLineup';
 import { withExpectedPoints, type AverageDifficulty } from '@/utils/fixtureDifficulty';
 import { formatCurrency, formatPoints } from '@/utils/format';
@@ -39,46 +40,89 @@ export function TransferPlanner({ squad, market, balance, constraints, difficult
     return optimizeLineupWithRules(withExpectedPoints(next, difficulty), 'expectedPoints', undefined, constraints).best;
   }, [squad, sales, target, difficulty, constraints]);
 
+  const difference = before?.score != null && after?.score != null ? after.score - before.score : null;
+
   return (
-    <Modal open onClose={onClose} title="Transferpaket durchspielen" panelClassName={styles.panel}>
-      <label>Geplanter Zugang
-        <select value={target?.id ?? ''} onChange={(event) => {
-          const player = candidates.find((p) => p.id === event.target.value);
-          setTargetId(player?.id ?? '');
-          setBid(player ? String(player.ownOfferPrice ?? player.price) : '');
-        }}>
-          <option value="">Marktspieler wählen</option>
-          {candidates.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </label>
-      {target && <>
-        <TextField aria-label="Geplantes Gebot in Euro" inputMode="numeric" value={bid} onChange={setBid} suffix="€" />
-        <fieldset><legend>Geplante Verkäufe</legend>
-          {squad.map((p) => <div key={p.id}>
-            <Checkbox label={p.name} checked={Object.hasOwn(sales, p.id)} onChange={(checked) => {
-              const next = { ...sales };
-              if (checked) next[p.id] = String(p.marketValue);
-              else delete next[p.id];
-              setSales(next);
-            }} />
-            {Object.hasOwn(sales, p.id) && <TextField aria-label={`Erlös für ${p.name} in Euro`}
-              inputMode="numeric" suffix="€" value={sales[p.id]} onChange={(price) => setSales({ ...sales, [p.id]: price })} />}
-          </div>)}
-        </fieldset>
-        <section aria-live="polite">
-          <h3>Nach den Transfers</h3>
-          <p>{pricesValid ? `Kontostand ${formatCurrency(remainingMoney)}` : 'Bitte positive Beträge in ganzen Euro eingeben.'}</p>
-          {after ? <>
-            <p>Formation {after.formation} · {formatPoints(after.score ?? 0)} erwartete Punkte</p>
-            {before?.score != null && after.score != null && <p>Differenz zur heutigen besten Elf: {formatPoints(after.score - before.score)} Punkte</p>}
-            {!before && <p>Der bisherige Kader kann keine vollständige Elf stellen.</p>}
-            <ul>{after.playerIds.map((id) => <li key={id}>{id === target.id ? target.name : squad.find((p) => p.id === id)?.name}
-              {after.fillerIds.includes(id) && ' · Ausfall'}</li>)}</ul>
-            {target.averagePointsKnown === false && <p>Für den Zugang fehlt ein Punkteschnitt. Er geht mit 0 Punkten in die Schätzung ein.</p>}
-          </> : <p>Mit diesem Kader ist keine vollständige regelkonforme Elf möglich.</p>}
-        </section>
-      </>}
-      <button type="button" onClick={onClose}>Schließen</button>
+    <Modal open onClose={onClose} title="Transferpaket planen" panelClassName={styles.panel}>
+      <div className={styles.body}>
+        <p className={styles.hint}>Nur eine Simulation: Es werden keine Gebote abgegeben und keine Spieler verkauft.</p>
+        {candidates.length === 0 ? (
+          <p className={styles.card}>Aktuell gibt es keinen Marktspieler, den du für deinen Kader einplanen kannst.</p>
+        ) : (
+          <section className={styles.card}>
+            <h3 className={styles.heading}><label htmlFor="transfer-target">Geplanter Zugang</label></h3>
+            <select id="transfer-target" className={styles.select} value={target?.id ?? ''} onChange={(event) => {
+              const player = candidates.find((candidate) => candidate.id === event.target.value);
+              setTargetId(player?.id ?? '');
+              setBid(player ? String(player.ownOfferPrice ?? player.price) : '');
+            }}>
+              <option value="">Marktspieler wählen</option>
+              {candidates.map((player) => <option key={player.id} value={player.id}>{player.name} · {positionLabels[player.position]}</option>)}
+            </select>
+            {target && <>
+              <label className={styles.label} htmlFor="transfer-bid">Geplantes Gebot</label>
+              <TextField id="transfer-bid" inputMode="numeric" value={bid} onChange={setBid} suffix="€" aria-invalid={!validPrice(bid)} />
+            </>}
+          </section>
+        )}
+        {target && <>
+          {squad.length > 0 && <details className={styles.disclosure}>
+            <summary className={styles.summary}>Geplante Verkäufe <span className={styles.badge}>{sold.length || 'Optional'}</span></summary>
+            {squad.map((player) => {
+              const selected = Object.hasOwn(sales, player.id);
+              return (
+                <div className={styles.sale} key={player.id}>
+                  <Checkbox label={player.name} hint={`${positionLabels[player.position]} · Marktwert ${formatCurrency(player.marketValue)}`}
+                    checked={selected} onChange={(checked) => {
+                      const next = { ...sales };
+                      if (checked) next[player.id] = String(player.marketValue);
+                      else delete next[player.id];
+                      setSales(next);
+                    }} />
+                  {selected && <>
+                    <label className={styles.label} htmlFor={`proceeds-${player.id}`}>Geplanter Erlös</label>
+                    <TextField id={`proceeds-${player.id}`} aria-label={`Erlös für ${player.name} in Euro`}
+                      aria-invalid={!validPrice(sales[player.id])} inputMode="numeric" suffix="€" value={sales[player.id]}
+                      onChange={(price) => setSales({ ...sales, [player.id]: price })} />
+                  </>}
+                </div>
+              );
+            })}
+          </details>}
+          <section className={styles.result}>
+            <h3 className={styles.heading}>Nach den Transfers</h3>
+            <div className={styles.metrics} aria-live="polite">
+              <div className={styles.metric}>
+                <span className={styles.label}>Kontostand</span>
+                <strong className={styles.value} data-negative={pricesValid && remainingMoney < 0}>
+                  {pricesValid ? `${remainingMoney.toLocaleString('de-DE')} €` : '—'}
+                </strong>
+              </div>
+              {after && <div className={styles.metric}>
+                <span className={styles.label}>Erwartete Punkte</span>
+                <strong className={styles.value}>{formatPoints(after.score ?? 0)}</strong>
+              </div>}
+            </div>
+            {!pricesValid && <p className={styles.warning} role="status">Bitte positive Beträge in ganzen Euro eingeben.</p>}
+            {after ? <>
+              {difference !== null && <p className={styles.hint}>{difference > 0 ? '+' : ''}{formatPoints(difference)} Punkte gegenüber deiner bisherigen besten Elf.</p>}
+              {!before && <p className={styles.hint}>Der bisherige Kader kann keine vollständige Elf stellen.</p>}
+              <details className={styles.disclosure}>
+                <summary className={styles.summary}>Beste Elf <span className={styles.badge}>{after.formation}</span></summary>
+                <ul className={styles.lineup}>{after.playerIds.map((id) => {
+                  const player = id === target.id ? target : squad.find((member) => member.id === id);
+                  return player && <li key={id} className={styles.lineupRow}>
+                    <span className={styles.position}>{positionLabels[player.position]}</span>
+                    {player.name}{after.fillerIds.includes(id) && ' · Ausfall'}
+                  </li>;
+                })}</ul>
+              </details>
+              {target.averagePointsKnown === false && <p className={styles.hint}>Für den Zugang fehlt ein Punkteschnitt. Er geht mit 0 Punkten in die Schätzung ein.</p>}
+            </> : <p className={styles.hint}>Mit diesem Kader ist keine vollständige regelkonforme Elf möglich.</p>}
+          </section>
+        </>}
+      </div>
+      <button type="button" className={styles.close} onClick={onClose}>Schließen</button>
     </Modal>
   );
 }
