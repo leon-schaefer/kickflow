@@ -37,6 +37,10 @@ export const APP_KEY_PREFIX = 'kickflow.';
 /** Anmeldung: Token und Refresh-Token. Siehe src/auth/tokenStore.ts. */
 export const SESSION_KEY = 'kickflow.session.v1';
 
+export function wishlistKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.wishlist.v1.${leagueId}.${account}`;
+}
+
 /** Zuletzt benutzte Liga — nur für das Badge im Ligen-Picker, kein Auto-Resume. */
 export const LAST_LEAGUE_KEY = 'kickflow.lastLeagueId';
 

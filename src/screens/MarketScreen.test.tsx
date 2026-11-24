@@ -24,6 +24,7 @@ const playtimeState = vi.hoisted(() => ({
 }));
 const limit = vi.hoisted(() => ({ current: null as BudgetLimit | null }));
 
+vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ userId: 'me' }) }));
 vi.mock('@/queries/hooks', () => ({
   useMarket: () => market,
   useCompetitionTeams: () => teams,
