@@ -1,3 +1,4 @@
+import { PlayerComparison } from '@/components/PlayerComparison';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { PlayerTransfer } from '@/api/kickbase';
@@ -263,6 +264,9 @@ export function PlayerDetailScreen() {
                   />
                 </div>
               )}
+
+              <PlayerComparison key={player.id} first={player} squad={lineupQuery.data?.players ?? []}
+                market={marketQuery.data?.players ?? []} schedule={matchdaysQuery.data} teamNames={teamNames} />
 
               {nextOpponentRatings.length > 0 && (
                 <section className={styles.section}>

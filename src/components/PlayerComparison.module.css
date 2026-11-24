@@ -1,0 +1,24 @@
+.action {
+  composes: pressable from '@/theme/layout.module.css';
+  color: var(--color-accent);
+  padding: var(--space-sm);
+}
+.panel {
+  composes: v from '@/theme/layout.module.css';
+  overflow: auto;
+  max-width: 36rem;
+  color: var(--color-text-primary);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+}
+.table :is(th, td) {
+  text-align: start;
+  padding: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
