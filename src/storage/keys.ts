@@ -45,6 +45,10 @@ export function leagueRulesKey(leagueId: string): string {
   return `kickflow.rules.v1.${leagueId}`;
 }
 
+export function variantsKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.variants.v1.${leagueId}.${account}`;
+}
+
 /** Vom Verkauf ausgeschlossene Spieler, pro Liga. */
 export function excludedFromSaleKey(leagueId: string): string {
   return `kickflow.excludedFromSale.v1.${leagueId}`;

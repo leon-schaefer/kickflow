@@ -22,6 +22,7 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
+import { LineupVariants } from '@/lineup/LineupVariants';
 import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
 import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useReplacementAdvice } from '@/lineup/useReplacementAdvice';
@@ -538,6 +539,18 @@ export function LineupScreen() {
               <p className={styles.hint}>
                 {pointAverageNotice(lineupQuery.pointAverageState?.basis, lineupQuery.pointAverageState?.pending)}
               </p>
+
+              {editing && hasOpenMatchday && (
+                <LineupVariants formation={formation} draftIds={draftIds} players={playersById}
+                  onLoad={(nextFormation, ids, note) => {
+                    clearEditMarkers();
+                    setSaveError(null);
+                    setSelectedBenchId(null);
+                    setFormation(nextFormation);
+                    setDraftIds(ids);
+                    setAutoNote(note);
+                  }} />
+              )}
 
               {editing && (
                 <OptimizerBar

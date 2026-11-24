@@ -5,6 +5,7 @@ import {
   SESSION_KEY,
   excludedFromSaleKey,
   leagueRulesKey,
+  variantsKey,
 } from './keys';
 
 /**
@@ -76,6 +77,13 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
       'Deine Einstellungen für den Optimizer (Formation, Budgetgrenze, maximale Spieler pro Verein), je Liga getrennt.',
     lifetime: 'Bis du die lokalen Daten löschst.',
     personal: false,
+  },
+  {
+    key: variantsKey('<Liga-ID>'),
+    label: 'Aufstellungsvarianten',
+    purpose: 'Zwei von dir benannte Aufstellungen mit Formation und Spielerkennungen werden deinem Konto und deiner Liga zugeordnet.',
+    lifetime: 'Bis du die Variante überschreibst oder die lokalen Daten löschst.',
+    personal: true,
   },
   {
     key: excludedFromSaleKey('<Liga-ID>'),
