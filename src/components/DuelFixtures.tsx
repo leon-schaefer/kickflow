@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { LeagueRankingEntry, PlayerDetail, ScheduledMatchday } from '@/api/kickbase';
 import { useLeagueRanking, useManagerLineup } from '@/queries/hooks';
+import disclosure from '@/components/Disclosure.module.css';
+import styles from './DuelFixtures.module.css';
 
 interface Props {
   leagueId: string;
@@ -19,9 +21,9 @@ export function DuelFixtures({ leagueId, day, ownId, opponentId, now }: Props) {
     [own, opponent]);
   const { players } = useManagerLineup(leagueId, ids, { averages: false });
   if (!own || !opponent || (own.h2hOpponentUserId && own.h2hOpponentUserId !== opponentId)) {
-    return <p>Die Duell-Aufstellungen für Spieltag {day.day} sind noch nicht verfügbar.</p>;
+    return <p className={disclosure.note}>Die Duell-Aufstellungen für Spieltag {day.day} sind noch nicht verfügbar.</p>;
   }
-  return <section aria-label="Ausstehende Partien im Duell">
+  return <section className={styles.sides} aria-label="Ausstehende Partien im Duell">
     <DuelSide label="Du" entry={own} day={day} now={now} players={players} />
     <DuelSide label={opponent.userName} entry={opponent} day={day} now={now} players={players} />
   </section>;
@@ -35,7 +37,7 @@ function DuelSide({ label, entry, day, now, players }: {
   players: ReadonlyMap<string, PlayerDetail>;
 }) {
   const ids = entry.lineupPlayerIds.filter((id): id is string => !!id);
-  if (!ids.length) return <p>{label} · Startelf noch nicht sichtbar</p>;
+  if (!ids.length) return <p className={disclosure.note}>{label} · Startelf noch nicht sichtbar</p>;
   const upcoming: { id: string; name: string; kickoff: number }[] = [];
   let unknown = 0;
   for (const id of ids) {
@@ -47,13 +49,13 @@ function DuelSide({ label, entry, day, now, players }: {
     else if (kickoff > now) upcoming.push({ id, name: player.name, kickoff });
   }
   upcoming.sort((a, b) => a.kickoff - b.kickoff);
-  return <details>
-    <summary>{label} · {upcoming.length} vor Anstoß{unknown > 0 && ` · ${unknown} ungeklärt`}</summary>
-    {upcoming.length > 0 && <ul>{upcoming.map((p) => <li key={p.id}>
-      {p.name} · <time dateTime={new Date(p.kickoff).toISOString()}>
+  return <details className={disclosure.disclosure}>
+    <summary className={disclosure.summary}>{label} · {upcoming.length} vor Anstoß{unknown > 0 && ` · ${unknown} ungeklärt`}</summary>
+    {upcoming.length > 0 && <ul className={disclosure.list}>{upcoming.map((p) => <li key={p.id} className={styles.fixture}>
+      <span>{p.name}</span> <time className={styles.kickoff} dateTime={new Date(p.kickoff).toISOString()}>
         {new Date(p.kickoff).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
       </time>
     </li>)}</ul>}
-    {unknown > 0 && <p>Für diese Spieler fehlen Spielerdaten oder Anstoßzeit.</p>}
+    {unknown > 0 && <p className={styles.missing}>Für diese Spieler fehlen Spielerdaten oder Anstoßzeit.</p>}
   </details>;
 }
