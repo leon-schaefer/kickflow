@@ -16,6 +16,12 @@
   text-align: left;
 }
 
+/* Der Kartenrand schneidet einen außen liegenden Fokusring ab. */
+.header:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
 .headerText {
   composes: v from '@/theme/layout.module.css';
   flex: 1 1 0;
@@ -24,7 +30,7 @@
 
 .title {
   font-size: var(--font-size-heading);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -36,6 +42,7 @@
 
 .chevron {
   font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-muted);
 }
 
@@ -68,7 +75,7 @@
 
 .totalValue {
   font-size: var(--font-size-heading);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -127,7 +134,7 @@
 .rowName {
   composes: line1 from '@/theme/layout.module.css';
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -142,7 +149,7 @@
   align-items: flex-end;
   gap: 2px;
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 

@@ -20,7 +20,7 @@
 .summaryTitle {
   margin: 0;
   font-size: var(--font-size-heading);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -47,7 +47,7 @@
 
 .statValue {
   font-size: var(--font-size-heading);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -73,6 +73,7 @@
 
 .segmentGroup {
   composes: h from '@/theme/layout.module.css';
+  flex-wrap: wrap;
   gap: var(--space-xs);
 }
 
@@ -92,7 +93,7 @@
   border-color: var(--color-accent);
   background: var(--color-accent-muted);
   color: var(--color-accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
 }
 
 .list {
@@ -135,7 +136,7 @@
 .rowName {
   composes: line1 from '@/theme/layout.module.css';
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-text-primary);
 }
 
@@ -154,7 +155,7 @@
 
 .rowPoints {
   font-size: var(--font-size-heading);
-  font-weight: 600;
+  font-weight: var(--font-weight-heading);
   color: var(--color-accent);
 }
 
