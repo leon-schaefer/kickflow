@@ -24,6 +24,7 @@ import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { LineupVariants } from '@/lineup/LineupVariants';
 import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
+import { MatchdayReview, useMatchdayArchive } from '@/lineup/MatchdayReview';
 import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useReplacementAdvice } from '@/lineup/useReplacementAdvice';
 import {
@@ -96,7 +97,8 @@ export function LineupScreen() {
   const league = useCurrentLeague();
   const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
-  const { rules } = useLeagueRulesContext();
+  const { rules, loaded: rulesLoaded } = useLeagueRulesContext();
+  const archive = useMatchdayArchive(leagueId);
   const { excludedIds, toggleExcluded } = useExcludedFromSaleContext();
   const [, forceTick] = useState(0);
 
@@ -412,6 +414,10 @@ export function LineupScreen() {
     try {
       const orderedIds = orderIdsByPosition(draftIds, (id) => playersById.get(id)?.position);
       await saveLineup.mutateAsync({ formation, playerIds: orderedIds });
+      const open = matchdayState?.open;
+      if (data && rulesLoaded && open && archive.snapshots.some((s) => s.deadline === open.deadline)) {
+        archive.record(open, data.players, formation, orderedIds, rules);
+      }
       setEditing(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
@@ -657,6 +663,10 @@ export function LineupScreen() {
                   />
                 ))}
               </div>
+
+              <MatchdayReview leagueId={leagueId} archive={archive} schedule={matchdaysQuery.data} ready={rulesLoaded}
+                onRecord={() => archive.record(matchdayState?.open ?? null, data.players, data.formation,
+                  data.players.filter((p) => p.inLineup).map((p) => p.id), rules)} />
 
               <SellAdviceSection
                 players={data.players}

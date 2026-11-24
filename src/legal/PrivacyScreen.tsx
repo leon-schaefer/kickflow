@@ -68,7 +68,7 @@ export function PrivacyScreen() {
           Deshalb findest du hier auch kein Zustimmungsbanner: § 25 Abs. 2 Nr. 2 TTDSG nimmt
           Zugriffe auf dein Gerät von der Einwilligung aus, die für den ausdrücklich gewünschten
           Dienst unbedingt erforderlich sind. Genau das ist der lokale Speicher unten — er hält
-          deine Anmeldung und deine eigenen Einstellungen, sonst nichts. Es gäbe nichts, wozu ein
+          deine Anmeldung, deine Einstellungen und die von dir gesicherten Spieltagsstände. Es gäbe nichts, wozu ein
           Banner dir eine Wahl anbieten könnte.
         </p>
       </section>
