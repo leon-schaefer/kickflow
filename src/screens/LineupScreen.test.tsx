@@ -459,6 +459,22 @@ describe('LineupScreen', () => {
     expect(screen.getByRole('dialog', { name: 'Gebot für Nico Bauer' })).toBeInTheDocument();
   });
 
+  it('berücksichtigt das Restprogramm eines Marktvereins außerhalb des eigenen Kaders', async () => {
+    const schedule = openSchedule();
+    schedule.matchdays[0]!.fixtures.push({
+      homeTeamId: 'Marktverein', awayTeamId: 'Gast', homeGoals: null, awayGoals: null,
+      homeLogoUrl: null, awayLogoUrl: null, hasResult: false,
+    });
+    matchdays.data = schedule;
+    // Beide Torhüter haben 90 Punkte. Der Heimvorteil ergibt 90 × 1,02 = 91,8.
+    market.data = { players: [marketPlayer({ teamId: 'Marktverein', position: 'GK', averagePoints: 90 })], marketValueUpdateAt: null };
+    setup();
+    await startEditing();
+    expect(screen.queryByText(/Bester Ersatz:/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Erwartete Punkte' }));
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toHaveTextContent('+1,8 Punkte für die Elf');
+  });
+
   /**
    * Die Liga-Regel muss auf BEIDEN Seiten des Optimizers gelten. Dass der
    * Kaufvorschlag unter derselben Schranke rechnet wie die angezeigte Elf,

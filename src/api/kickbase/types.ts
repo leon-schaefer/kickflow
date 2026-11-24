@@ -32,6 +32,8 @@ export interface NextMatch {
 
 /** Herkunft des angezeigten Durchschnitts; fehlende Historien sind keine Null-Einsätze. */
 export interface PointAverageFields {
+  /** false, wenn der numerische Anzeigewert nur ein Platzhalter für ein fehlendes API-Feld ist. */
+  averagePointsKnown?: boolean;
   averagePointsBasis?: 'kickbase' | 'matchdays';
   /** Eigener Einsatzschnitt aus derselben Historie; null ohne belegten Einsatz. */
   appearanceAveragePoints?: number | null;
@@ -230,7 +232,7 @@ export interface MatchdayPerformance {
   /** Punkte GENAU dieses Spieltags (Rohfeld `p`). */
   points: number;
   /** Saison-Ø bzw. -Summe — auf jedem Spieltag derselbe Wert, NICHT je Spieltag. */
-  seasonAveragePoints: number;
+  seasonAveragePoints: number | null;
   seasonTotalPoints: number;
   minutesPlayed: number;
   isCurrent: boolean;

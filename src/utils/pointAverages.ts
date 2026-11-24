@@ -3,6 +3,8 @@ import { formWeightedAverage } from './formWeightedAverage';
 import { pointsPerMillion } from './valueScore';
 
 export interface PointAverages {
+  /** Von Kickbase gemeldeter Saison-Ø, falls das Marktlisting ihn auslässt. */
+  kickbaseAverage?: number;
   matchdayAverage: number;
   appearanceAverage: number | null;
   matches: number;
@@ -21,6 +23,7 @@ export interface PointAverages {
  * flachen Saison-Ø und Formgewichtung. Chronologisch nach Anstoß sortiert.
  */
 export interface SettledMatchPoints {
+  seasonAveragePoints: number | null;
   matchday: number;
   points: number;
   minutesPlayed: number;
@@ -79,6 +82,7 @@ export function settledMatchPoints(
       if (seen.has(key)) continue;
       seen.add(key);
       settled.push({
+        seasonAveragePoints: md.seasonAveragePoints,
         matchday: md.matchday,
         points: md.points,
         minutesPlayed: md.minutesPlayed,
@@ -93,8 +97,10 @@ export function settledMatchPoints(
 
 function averagesFromSettled(settled: readonly SettledMatchPoints[]): PointAverages {
   let points = 0;
+  let kickbaseAverage: number | undefined;
   let appearances = 0;
   for (const md of settled) {
+    if (md.seasonAveragePoints != null) kickbaseAverage = md.seasonAveragePoints;
     points += md.points;
     // Fehlende/gerundete Minuten dürfen echte Punkte nicht verschwinden lassen.
     if (md.minutesPlayed > 0 || md.points !== 0) appearances += 1;
@@ -103,6 +109,7 @@ function averagesFromSettled(settled: readonly SettledMatchPoints[]): PointAvera
   const matchdayAverage = matches > 0 ? points / matches : 0;
   const form = formWeightedAverage(settled, matchdayAverage);
   return {
+    kickbaseAverage,
     matchdayAverage,
     appearanceAverage: appearances > 0 ? points / appearances : null,
     matches,
@@ -130,6 +137,7 @@ export function withPointAverages<T extends { averagePoints: number; marketValue
   return {
     ...player,
     averagePoints,
+    averagePointsKnown: true,
     averagePointsBasis: 'matchdays',
     appearanceAveragePoints: averages.appearanceAverage,
     averageMatchCount: averages.matches,

@@ -148,6 +148,19 @@ describe('deriveReplacementAdvice — Ausfälle', () => {
     expect(result.gaps[0]!.breaksLineup).toBe(false);
   });
 
+  it('zählt die Punkte konkurrierender Ersatztorhüter im Gesamtverlust nur einmal', () => {
+    const players = baseSquad({
+      GK: [
+        { status: 'injured', averagePoints: 100 },
+        { status: 'injured', averagePoints: 80 },
+        { averagePoints: 40 },
+      ],
+    }, { GK: 3 });
+    const advice = advise(players, []);
+    expect(advice.gaps.map((g) => g.loss)).toEqual([60, 40]);
+    expect(advice.totalLoss).toBe(60);
+  });
+
   it('meldet einen Ausfall, ohne den die Elf nur noch aufgefüllt besetzbar ist', () => {
     // Nur ein Torwart im Kader, und der ist verletzt: er steht als Auffüller
     // mit 0 Punkten im Tor (siehe utils/lineupOptimizer.ts). Die Elf hat
@@ -334,6 +347,21 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
 
     expect(result.baselineScore).toBeNull();
     expect(result.options).toEqual([]);
+  });
+
+  it.each([
+    ['points', 35],
+    ['valuePerMillion', 35],
+    ['expectedPoints', 42],
+  ] as const)('wertet den ersten Torwart bei %s nur mit seinem eigenen Beitrag', (metric, points) => {
+    const players = baseSquad({}, { GK: 0 });
+    const keeper = makeCandidate({
+      id: 'Torwart', position: 'GK', averagePoints: 20, formAveragePoints: 35, expectedPoints: 42,
+    });
+    const advice = deriveReplacementAdvice({ players, market: [keeper], metric });
+    expect(advice.baselineScore).toBeNull();
+    expect(advice.options[0]).toMatchObject({ enablesLineup: true, gain: points });
+    expect(advice.options[0]!.gainPerMillion).toBeCloseTo(points / (advice.options[0]!.cost / 1_000_000));
   });
 
   it('respektiert die Vereins-Obergrenze — ein Spieler, der nicht spielen darf, bringt nichts', () => {
@@ -680,7 +708,7 @@ describe('describeRuleSwap', () => {
 
   it('sagt bei einem Tausch ohne Wirkung nichts von Kosten', () => {
     const text = describeRuleSwap(blocked({ swapGain: 0 }), () => 'Max Meier');
-    expect(text).toContain('ändert an den Ø-Punkten nichts');
+    expect(text).toContain('ändert an den Punkten nichts');
   });
 
   it('schweigt, wenn es unter der Regel gar keine Elf mit ihm gibt', () => {

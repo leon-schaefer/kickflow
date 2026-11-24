@@ -164,18 +164,17 @@ export function LineupScreen() {
   // (Query lädt noch) bleibt die Map undefined — useLineupOptimizer
   // degradiert dann sauber auf reine Ø-Punkte.
   const fixtureDifficultyByTeam = useMemo(() => {
-    if (!matchdaysQuery.data || !data) return undefined;
+    if (!matchdaysQuery.data) return undefined;
     const fromDay = matchdayState?.open?.day ?? matchdaysQuery.data.currentDay ?? 1;
     const index = buildFixtureIndex(matchdaysQuery.data);
     const strengths = teamStrength(teamGoalRecord(matchdaysQuery.data));
-    const teamIds = new Set(data.players.map((p) => p.teamId));
     const map = new Map<string, AverageDifficulty>();
-    for (const teamId of teamIds) {
+    for (const teamId of index.keys()) {
       const upcoming = remainingFixtures(teamId, index, fromDay, FIXTURE_LOOKAHEAD);
       map.set(teamId, averageDifficulty(fixtureDifficulty(upcoming, strengths)));
     }
     return map;
-  }, [matchdaysQuery.data, data, matchdayState]);
+  }, [matchdaysQuery.data, matchdayState]);
 
   const optimizer = useLineupOptimizer(
     data?.players ?? NO_SQUAD_PLAYERS,
@@ -643,6 +642,7 @@ export function LineupScreen() {
                 players={comparisonSquad}
                 market={comparisonMarket}
                 advice={replacement}
+                expectedPoints={optimizer.metric === 'expectedPoints'}
                 marketPending={!marketQuery.data}
                 rules={optimizer.rules}
                 onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}
