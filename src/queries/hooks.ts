@@ -167,7 +167,9 @@ export interface ManagerLineupState {
  * über withPlayerLookupLimit (siehe limiter.ts). Analog zu usePlaytimes() oben:
  * `playerIds` muss stabil sein (useMemo beim Aufrufer).
  */
-export function useManagerLineup(leagueId: string, playerIds: readonly (string | null)[]): ManagerLineupState {
+export function useManagerLineup(leagueId: string, playerIds: readonly (string | null)[],
+  { averages: includeAverages = true } = {},
+): ManagerLineupState {
   const { token } = useAuth();
   const ids = useMemo(() => [...new Set(playerIds.filter((id): id is string => id !== null))], [playerIds]);
   const results = useQueries({
@@ -179,7 +181,7 @@ export function useManagerLineup(leagueId: string, playerIds: readonly (string |
     })),
   });
 
-  const averages = usePointAverages(leagueId, ids);
+  const averages = usePointAverages(leagueId, ids, includeAverages);
   const players = useMemo(() => {
     const map = new Map<string, PlayerDetail>();
     results.forEach((result, index) => {
