@@ -1,3 +1,4 @@
+import { WishEditor } from '@/players/Wishlist';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { PlayerTransfer } from '@/api/kickbase';
@@ -8,6 +9,7 @@ import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
+import { PlayerComparison } from '@/components/PlayerComparison';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
@@ -43,6 +45,7 @@ import {
 import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
 import { resolvePlayerOwner, type PlayerOwnerInfo } from '@/utils/playerOwnership';
 import { resolveOwnPurchase } from '@/utils/playerPurchase';
+import { pointAverageLabel } from '@/utils/pointAverages';
 import { EMPTY_PLAYTIME, latestSeason, pointsPerMinute, sumPlaytime } from '@/utils/playtime';
 import layout from '@/theme/layout.module.css';
 import styles from './PlayerDetailScreen.module.css';
@@ -220,10 +223,14 @@ export function PlayerDetailScreen() {
                 </div>
               </div>
 
+              <WishEditor key={player.id} player={player} />
+
               <dl className={styles.statsGrid}>
                 <Stat label="Marktwert" value={formatCurrency(player.marketValue)} />
                 <Stat label="Punkte gesamt" value={formatPoints(player.totalPoints)} />
-                <Stat label="Ø Punkte" value={formatPoints(player.averagePoints)} />
+                <Stat label={pointAverageLabel(player)} value={formatPoints(Math.round(player.averagePoints))} />
+                <Stat label="Ø je Einsatz" value={player.appearanceAveragePoints == null
+                  ? '—' : formatPoints(Math.round(player.appearanceAveragePoints))} />
                 <Stat label="Tore" value={String(player.goals)} />
                 <Stat label="Assists" value={String(player.assists)} />
                 <Stat label="Gelb / Rot" value={`${player.yellowCards} / ${player.redCards}`} />
@@ -237,6 +244,12 @@ export function PlayerDetailScreen() {
                   }
                 />
               </dl>
+
+              <p className={styles.statusDetails}>
+                {player.averagePointsBasis === 'matchdays'
+                  ? `${player.averageMatchCount} bestätigte Mannschaftsspiele, ${player.appearanceCount} Einsätze. Spiele ohne Einsatz zählen mit 0 Punkten mit. Fehlende Historieneinträge werden nicht ergänzt.`
+                  : 'Eigener Spieltags- und Einsatzschnitt noch nicht verfügbar. Angezeigt wird der unveränderte Kickbase-Ø.'}
+              </p>
 
               {/*
                * Nur für eigene Kaderspieler sinnvoll — bei fremden Spielern gibt
@@ -254,6 +267,9 @@ export function PlayerDetailScreen() {
                   />
                 </div>
               )}
+
+              <PlayerComparison key={player.id} first={player} squad={lineupQuery.data?.players ?? []}
+                market={marketQuery.data?.players ?? []} schedule={matchdaysQuery.data} teamNames={teamNames} />
 
               {nextOpponentRatings.length > 0 && (
                 <section className={styles.section}>

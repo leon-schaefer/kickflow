@@ -3,7 +3,12 @@ import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
 import { describeRule, type LineupRule } from '@/lineup/rules';
 import { statusLabels } from '@/theme/tokens';
 import { formatCurrency, formatValueScore } from '@/utils/format';
-import { describeReplacement, type ReplacementAdvice } from '@/utils/replacementAdvice';
+import {
+  describeReplacement,
+  describeRuleSwap,
+  formatReplacementPoints,
+  type ReplacementAdvice,
+} from '@/utils/replacementAdvice';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
 import styles from './BuyAdviceSection.module.css';
@@ -16,6 +21,7 @@ interface BuyAdviceSectionProps {
   /** Der Transfermarkt der Liga — löst die IDs der Empfehlungen auf. */
   market: MarketPlayer[];
   advice: ReplacementAdvice;
+  expectedPoints?: boolean;
   /**
    * true, solange die Markt-Query noch keine Daten hat. Ohne das Flag wäre der
    * leere Markt während des Ladens nicht von einem wirklich leeren zu
@@ -70,6 +76,7 @@ export function BuyAdviceSection({
   players,
   market,
   advice,
+  expectedPoints = false,
   marketPending = false,
   rules = [],
   onOpenRules,
@@ -84,6 +91,13 @@ export function BuyAdviceSection({
 
   const best = advice.bestGainId ? marketById.get(advice.bestGainId) : undefined;
   const bestOption = advice.options.find((option) => option.playerId === advice.bestGainId);
+  const openSlot = advice.baselineScore === null;
+  const missingAverages = advice.missingAverageCount > 0
+    ? `Ohne Punkteschnitt: ${advice.missingAverageCount} noch nicht bewertet.`
+    : null;
+  const scoreBasis = players[0]?.averagePointsBasis === 'matchdays'
+    ? 'Der Form-Ø gewichtet jüngere Spieltage stärker.'
+    : 'Grundlage ist der Kickbase-Ø.';
   const urgentGaps = advice.gaps.filter((gap) => gap.breaksLineup || gap.loss > 0);
 
   // Die Regeln, die tatsächlich einen Kandidaten aus der Elf halten — nicht
@@ -110,22 +124,30 @@ export function BuyAdviceSection({
         {urgentGaps.length > 0 && (
           <span className={styles.warning}>
             {gapLabel(urgentGaps.length)} in der Elf
-            {advice.totalLoss > 0 && ` · kosten ${formatValueScore(advice.totalLoss)} Ø-Punkte`}
-            {!advice.baselineFeasible && ' · Elf derzeit nicht besetzbar'}
+            {advice.totalLoss > 0 && ` · ${formatValueScore(advice.totalLoss)} Punkte Verlust`}
+            {!advice.baselineFeasible &&
+              (advice.baselineScore === null
+                ? ' · Elf derzeit nicht besetzbar'
+                : ' · Elf derzeit nur mit Ausfall aufgefüllt')}
           </span>
         )}
 
         <span className={styles.summary}>
           {best && bestOption
-            ? `Bester Ersatz: ${best.name} · +${formatValueScore(bestOption.gain)} Ø-Punkte${
-                bestOption.bid.bid !== null
-                  ? ` · ${formatCurrency(bestOption.bid.bid)} bieten`
-                  : ' · Budget reicht nicht'
+            ? `Bester Ersatz: ${best.name} · ${formatReplacementPoints(bestOption.gain, openSlot)}${
+                // Das Urteil kommt aus der Empfehlung selbst — ein zweiter
+                // Vergleich hier würde am gedeckelten `bid` messen und ein
+                // Gebot unter der Empfehlung fälschlich als gedeckt ausweisen.
+                bestOption.bid.coveredByOwnOffer && best.ownOfferPrice != null
+                  ? ` · dein Gebot ${formatCurrency(best.ownOfferPrice)} deckt das`
+                  : bestOption.bid.bid === null
+                    ? ' · Budget reicht nicht'
+                    : ` · ${formatCurrency(bestOption.bid.bid)} bieten`
               }`
             : marketPending
               ? 'Transfermarkt wird geladen …'
               : advice.consideredCount === 0
-                ? 'Kein einsatzfähiger Spieler am Transfermarkt.'
+                ? missingAverages ?? 'Kein einsatzfähiger Spieler am Transfermarkt.'
                 : advice.blockedByRule.length > 0
                   ? // Der Fall, in dem Schweigen am meisten verwirrt: es gäbe
                     // einen Zugewinn, nur verbietet ihn eine eigene Regel.
@@ -137,8 +159,13 @@ export function BuyAdviceSection({
       {expanded && (
         <div className={styles.list} id={listId}>
           <p className={styles.disclaimer}>
-            Zugewinn = beste Elf mit ihm minus beste Elf ohne ihn, in Ø-Punkten. Das empfohlene
-            Gebot ist eine Schätzung mit Aufschlag nach Augenmaß — Kickbase nennt keine
+            {openSlot
+              ? 'Ein Zukauf kann die Elf vervollständigen. Für den freien Platz zählt sein eigener Punktebeitrag.'
+              : 'Der Zugewinn ist die Punktedifferenz zwischen der besten Elf mit und ohne Zukauf.'}
+            {' '}{scoreBasis}
+            {expectedPoints && ' Bei erwarteten Punkten fließt auch die Stärke der kommenden Gegner ein, soweit Spielplandaten vorliegen.'}
+            {' '}Das empfohlene Gebot
+            ist eine Schätzung mit Aufschlag nach Augenmaß — Kickbase nennt keine
             Zuschlagsgrenze.
           </p>
 
@@ -153,9 +180,9 @@ export function BuyAdviceSection({
                     <span className={styles.gapName}>{player.name}</span>
                     <span className={styles.gapNote}>
                       {gap.breaksLineup
-                        ? 'Elf ohne ihn nicht besetzbar'
+                        ? 'Elf ohne ihn nicht voll besetzbar'
                         : gap.loss > 0
-                          ? `kostet ${formatValueScore(gap.loss)} Ø-Punkte`
+                          ? `kostet ${formatValueScore(gap.loss)} Punkte`
                           : 'ohne Folgen — die Bank fängt ihn auf'}
                       {` · ${statusLabels[player.status]}`}
                     </span>
@@ -170,10 +197,10 @@ export function BuyAdviceSection({
               {marketPending
                 ? 'Transfermarkt wird geladen …'
                 : advice.consideredCount === 0
-                  ? 'Am Transfermarkt steht gerade kein einsatzfähiger Spieler.'
+                  ? missingAverages ?? 'Am Transfermarkt steht gerade kein einsatzfähiger Spieler.'
                   : advice.blockedByRule.length > 0
                     ? 'Kein gelisteter Spieler würde die Elf verbessern, solange deine Regeln gelten.'
-                    : 'Keiner der gelisteten Spieler würde die Elf verbessern.'}
+                    : 'Keiner der geprüften Spieler würde die Elf verbessern.'}
             </p>
           ) : (
             advice.options.map((option) => {
@@ -184,6 +211,7 @@ export function BuyAdviceSection({
                   <BuyAdviceRow
                     player={player}
                     option={option}
+                    openSlot={openSlot}
                     note={describeReplacement(option, nameById)}
                     bestGain={option.playerId === advice.bestGainId}
                     bestEfficiency={option.playerId === advice.bestEfficiencyId}
@@ -193,6 +221,10 @@ export function BuyAdviceSection({
                 </div>
               );
             })
+          )}
+
+          {advice.consideredCount > 0 && missingAverages && (
+            <p className={styles.disclaimer}>{missingAverages}</p>
           )}
 
           {/*
@@ -210,13 +242,18 @@ export function BuyAdviceSection({
               {advice.blockedByRule.slice(0, BLOCKED_SHOWN).map((entry) => {
                 const player = marketById.get(entry.playerId);
                 if (!player) return null;
+                // Der Umbau ist die naheliegende Rückfrage („und wenn ein
+                // Vereinskollege weicht?") — sie hier zu beantworten ist der
+                // Unterschied zwischen einer Begründung und einem Machtwort.
+                const swap = describeRuleSwap(entry, nameById);
                 return (
                   <p key={entry.playerId} className={styles.blockedRow}>
                     <span className={styles.blockedName}>{player.name}</span>
                     <span className={styles.gapNote}>
-                      +{formatValueScore(entry.gainWithoutRule)} Ø-Punkte ohne die Regel ·{' '}
+                      +{formatValueScore(entry.gainWithoutRule)} Punkte ohne die Regel ·{' '}
                       {formatCurrency(player.price)}
                     </span>
+                    {swap && <span className={styles.blockedSwap}>{swap}</span>}
                   </p>
                 );
               })}

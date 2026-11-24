@@ -94,3 +94,66 @@ describe('cheapestLineup', () => {
     expect(cheapestLineup(players, 'points', ['4-4-2'])).toBeNull();
   });
 });
+
+/**
+ * Auffüllen mit Ausfällen (siehe Modul-Doku in lineupOptimizer.ts und
+ * cappedLineup.ts): ein nicht einsatzfähiger Spieler ist ein Item mit Beitrag
+ * 0, und weniger Auffüller schlagen mehr Score.
+ */
+describe('Auffüllen mit Ausfällen unter dem Cap', () => {
+  // 4-4-2 ohne Bank außer im Sturm: FWD0 stark und teuer, FWD1/FWD2 billig
+  // und schwach, FWDx verletzt und fast umsonst.
+  function squadWithInjuredForward(): OptimizerPlayer[] {
+    return [
+      makePlayer({ id: 'GK0', position: 'GK', averagePoints: 5, marketValue: 10_000_000 }),
+      ...['DEF0', 'DEF1', 'DEF2', 'DEF3'].map((id, i) =>
+        makePlayer({ id, position: 'DEF', averagePoints: 10 - i, marketValue: 20_000_000 }),
+      ),
+      ...['MID0', 'MID1', 'MID2', 'MID3'].map((id, i) =>
+        makePlayer({ id, position: 'MID', averagePoints: 10 - i, marketValue: 20_000_000 }),
+      ),
+      makePlayer({ id: 'FWD0', position: 'FWD', averagePoints: 10, marketValue: 20_000_000 }),
+      makePlayer({ id: 'FWD1', position: 'FWD', averagePoints: 2, marketValue: 3_000_000 }),
+      makePlayer({ id: 'FWD2', position: 'FWD', averagePoints: 1, marketValue: 3_000_000 }),
+      makePlayer({ id: 'FWDx', position: 'FWD', averagePoints: 50, marketValue: 1_000_000, status: 'injured' as PlayerStatus }),
+    ];
+  }
+
+  it('füllt mit dem Ausfall auf, wenn kein einsatzfähiger Spieler mehr übrig ist', () => {
+    const players = makeSquad().map((p) => (p.id === 'GK0' ? { ...p, status: 'injured' as PlayerStatus } : p));
+    const unconstrained = optimizeLineup(players, 'points', ['4-4-2']);
+    const capped = bestLineupUnderValueCap(players, 'points', ['4-4-2'], 1_000_000_000);
+
+    expect(unconstrained.best?.fillerIds).toEqual(['GK0']);
+    expect(capped?.playerIds).toContain('GK0');
+    expect(capped?.playerIds.sort()).toEqual([...unconstrained.best!.playerIds].sort());
+    // Der Torwart zählt 0 — sein Marktwert bleibt aber in der Elf gebunden.
+    expect(capped?.score).toBe(unconstrained.best!.score);
+    expect(capped?.marketValue).toBe(players.filter((p) => capped!.playerIds.includes(p.id)).reduce((s, p) => s + p.marketValue, 0));
+  });
+
+  it('zieht unter dem Cap eine Elf ohne Ausfall einer punktstärkeren mit Ausfall vor', () => {
+    const players = squadWithInjuredForward();
+    // Cap = Rest der Elf (170 Mio) + 21 Mio: {FWD0, FWDx} (21 Mio, 10 Punkte,
+    // ein Ausfall) passt, {FWD1, FWD2} (6 Mio, 3 Punkte, kein Ausfall) auch —
+    // und gewinnt, obwohl es weniger Punkte sind.
+    const capped = bestLineupUnderValueCap(players, 'points', ['4-4-2'], 191_000_000);
+    expect(capped?.playerIds).toContain('FWD1');
+    expect(capped?.playerIds).toContain('FWD2');
+    expect(capped?.playerIds).not.toContain('FWDx');
+    expect(capped?.score).toBe(5 + 34 + 34 + 3);
+
+    // Reicht der Cap für zwei fitte Stürmer inklusive FWD0, ist das die Wahl.
+    const roomier = bestLineupUnderValueCap(players, 'points', ['4-4-2'], 193_000_000);
+    expect(roomier?.playerIds).toContain('FWD0');
+    expect(roomier?.playerIds).toContain('FWD1');
+  });
+
+  it('ein günstiger Ausfall kann in der günstigsten Elf stehen — hier zählt nur der Erlös', () => {
+    const cheapest = cheapestLineup(squadWithInjuredForward(), 'points', ['4-4-2']);
+    expect(cheapest?.playerIds).toContain('FWDx');
+    expect(cheapest?.marketValue).toBe(170_000_000 + 1_000_000 + 3_000_000);
+    // Beitrag 0, nicht seine 50 Ø-Punkte.
+    expect(cheapest?.score).toBe(5 + 34 + 34 + 2);
+  });
+});

@@ -455,6 +455,7 @@ describe('toMatchdaySchedule', () => {
         allPlayed: false,
         fixtures: [
           {
+            kickoffAt: '2026-08-28T18:30:00Z',
             homeTeamId: '5',
             awayTeamId: '9',
             homeLogoUrl: null,
@@ -464,6 +465,7 @@ describe('toMatchdaySchedule', () => {
             hasResult: true,
           },
           {
+            kickoffAt: '2026-08-29T18:30:00Z',
             homeTeamId: '3',
             awayTeamId: '7',
             homeLogoUrl: null,
@@ -480,6 +482,7 @@ describe('toMatchdaySchedule', () => {
         allPlayed: false,
         fixtures: [
           {
+            kickoffAt: '2026-09-05T13:30:00Z',
             homeTeamId: '10',
             awayTeamId: '43',
             homeLogoUrl: null,

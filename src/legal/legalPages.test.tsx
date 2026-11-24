@@ -65,6 +65,13 @@ describe('Rechtsseiten', () => {
   });
 
   describe('Datenschutzerklärung', () => {
+    it('unterscheidet verschlüsselte Inhalte und sichtbare Relay-Verbindungsdaten', async () => {
+      renderRoute(PRIVACY_PATH, { session: false });
+      await screen.findByRole('heading', { level: 1, name: PRIVACY_TITLE });
+      expect(screen.getByText(/besitzt keinen Schlüssel zum Entschlüsseln/)).toBeInTheDocument();
+      expect(screen.getByText(/Render in Frankfurt/)).toHaveTextContent(/IP-Adresse/);
+      expect(screen.getByText(/Du vertraust weiterhin dem ausgelieferten App-Code/)).toBeInTheDocument();
+    });
     it('führt JEDEN gespeicherten Eintrag in der Tabelle auf', async () => {
       renderRoute(PRIVACY_PATH, { session: false });
       await screen.findByRole('heading', { level: 1, name: PRIVACY_TITLE });

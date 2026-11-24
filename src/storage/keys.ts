@@ -37,12 +37,20 @@ export const APP_KEY_PREFIX = 'kickflow.';
 /** Anmeldung: Token und Refresh-Token. Siehe src/auth/tokenStore.ts. */
 export const SESSION_KEY = 'kickflow.session.v1';
 
+export function wishlistKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.wishlist.v1.${leagueId}.${account}`;
+}
+
 /** Zuletzt benutzte Liga — nur für das Badge im Ligen-Picker, kein Auto-Resume. */
 export const LAST_LEAGUE_KEY = 'kickflow.lastLeagueId';
 
 /** Optimizer-Regeln, pro Liga. */
 export function leagueRulesKey(leagueId: string): string {
   return `kickflow.rules.v1.${leagueId}`;
+}
+
+export function variantsKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.variants.v1.${leagueId}.${account}`;
 }
 
 /** Vom Verkauf ausgeschlossene Spieler, pro Liga. */

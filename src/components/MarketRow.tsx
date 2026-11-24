@@ -6,7 +6,7 @@ import {
   formatPercentDelta,
 } from '@/utils/format';
 import { marketMarkupPercent } from '@/utils/marketList';
-import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
+import { formatMetric, metricLabel, type PlayerMetric } from '@/utils/playerMetric';
 import type { PlaytimeTotals } from '@/utils/playtime';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
@@ -45,13 +45,13 @@ export function MarketRow({ player, playtime, metric, onClick, onBid }: MarketRo
   const cells: StatCell[] = [
     {
       value: formatMetric(player, metric, playtime),
-      label: metricLabels[metric].cell,
+      label: metricLabel(player, metric),
       tone: 'accent',
       emphasis: true,
     },
     {
       value: formatMetric(player, contextMetric, undefined),
-      label: metricLabels[contextMetric].cell,
+      label: metricLabel(player, contextMetric),
     },
   ];
 

@@ -1,29 +1,35 @@
 import type { Position } from '@/api/kickbase';
+import type { PointAverageFields } from '@/api/kickbase/types';
 import { positionLabels } from '@/theme/tokens';
 import { bidVerdictLabels } from '@/utils/bidAdvice';
 import { formatCountdown, formatCurrency, formatValueScore } from '@/utils/format';
 import { marketMarkupPercent } from '@/utils/marketList';
-import type { ReplacementOption } from '@/utils/replacementAdvice';
+import { pointAverageLabel } from '@/utils/pointAverages';
+import { formatReplacementPoints, type ReplacementOption } from '@/utils/replacementAdvice';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
 import styles from './BuyAdviceRow.module.css';
 
 /** Minimale Feldmenge — von `MarketPlayer` erfüllt. */
-export interface BuyAdviceRowPlayer {
+export interface BuyAdviceRowPlayer extends PointAverageFields {
   id: string;
   name: string;
   position: Position;
   imageUrl: string | null;
   marketValue: number;
+  averagePoints: number;
   price: number;
   isBotListing: boolean;
   sellerName: string | null;
   expiresInSeconds: number | null;
+  /** Mein eigenes Gebot, `null` ohne (`MarketPlayer.ownOfferPrice`). */
+  ownOfferPrice: number | null;
 }
 
 interface BuyAdviceRowProps {
   player: BuyAdviceRowPlayer;
   option: ReplacementOption;
+  openSlot: boolean;
   /** Was der Zukauf mit der Elf macht — `describeReplacement`, siehe utils/replacementAdvice.ts. */
   note: string;
   /** Größter absoluter Zugewinn der Liste. */
@@ -52,6 +58,7 @@ interface BuyAdviceRowProps {
 export function BuyAdviceRow({
   player,
   option,
+  openSlot,
   note,
   bestGain = false,
   bestEfficiency = false,
@@ -67,6 +74,11 @@ export function BuyAdviceRow({
       ? null
       : `${Math.abs(markup).toLocaleString('de-DE')} % ${markup > 0 ? 'über' : 'unter'} MW`;
   const { bid } = option;
+  // Ein Spieler, auf den ich schon geboten habe, bleibt eine Empfehlung —
+  // aber die Zeile muss es sagen, sonst liest sich „X bieten" wie eine
+  // Aufforderung, ein zweites Mal zu bieten. Und der Knopf ändert dann das
+  // Gebot, er gibt keines ab (Upsert, siehe endpoints.ts).
+  const hasOwnOffer = player.ownOfferPrice != null;
 
   return (
     <div
@@ -101,13 +113,18 @@ export function BuyAdviceRow({
             <span className={styles.name}>{player.name}</span>
             {/* Beide Auszeichnungen können auf verschiedenen Zeilen stehen —
                 „am besten" und „am effizientesten" sind zwei Antworten. */}
-            {bestGain && <span className={styles.tag}>★ bester Zugewinn</span>}
+            {bestGain && <span className={styles.tag}>★ {openSlot ? 'höchster Beitrag' : 'bester Zugewinn'}</span>}
             {bestEfficiency && <span className={styles.tag}>⚡ effizientester</span>}
           </span>
+          <span className={styles.meta}>
+            {pointAverageLabel(player)}: {formatValueScore(player.averagePoints)}
+          </span>
           <span className={styles.gainRow}>
-            <span className={styles.gain}>+{formatValueScore(option.gain)} Ø-Punkte</span>
+            <span className={styles.gain}>
+              {formatReplacementPoints(option.gain, openSlot)}
+            </span>
             <span className={styles.meta}>
-              {formatValueScore(option.gainPerMillion)} Ø-Pkt/Mio
+              {formatValueScore(option.gainPerMillion)} Pkt/Mio
             </span>
           </span>
           <span className={styles.meta}>
@@ -118,6 +135,11 @@ export function BuyAdviceRow({
             {player.expiresInSeconds != null &&
               ` · ${formatCountdown(player.expiresInSeconds * 1000)}`}
           </span>
+          {hasOwnOffer && (
+            <span className={styles.ownOffer}>
+              Dein Gebot: {formatCurrency(player.ownOfferPrice!)}
+            </span>
+          )}
         </span>
 
         <span className={styles.badgeColumn}>
@@ -135,9 +157,9 @@ export function BuyAdviceRow({
                 onBid(player);
               }}
               className={cx(layout.pressable, layout.hitSlopSm, styles.bidButton)}
-              aria-label={`Gebot für ${player.name} abgeben`}
+              aria-label={`Gebot für ${player.name} ${hasOwnOffer ? 'ändern' : 'abgeben'}`}
             >
-              Bieten
+              {hasOwnOffer ? 'Ändern' : 'Bieten'}
             </button>
           )}
         </span>

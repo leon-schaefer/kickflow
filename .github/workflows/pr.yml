@@ -49,6 +49,9 @@ jobs:
       - name: Dependencies installieren
         run: npm ci
 
+      - name: Relay-Dependencies installieren
+        run: npm ci --prefix relay
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -58,4 +61,4 @@ jobs:
       # Schreibt public/build-id.txt und exportiert nach dist/ — derselbe
       # Befehl, den vercel.json als buildCommand fährt.
       - name: Web-Build
-        run: npm run build:web
+        run: node scripts/ci-web-build.mjs

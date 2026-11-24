@@ -81,6 +81,29 @@ describe('BuyAdviceSection', () => {
     expect(screen.getByText(/Kein Zukauf verbessert die Elf/)).toBeInTheDocument();
   });
 
+  it('unterscheidet den Spieltags-Ø vom formgewichteten Zugewinn für die Elf', async () => {
+    const players = squad().map((p) => ({ ...p, averagePointsBasis: 'matchdays' as const, formAveragePoints: 50 }));
+    setup(players, [marketPlayer({
+      averagePointsBasis: 'matchdays', averagePoints: 80, formAveragePoints: 95,
+    })]);
+    expect(toggle()).toHaveTextContent('+45,0 Punkte für die Elf');
+    await userEvent.click(toggle());
+    expect(screen.getByText('Ø/Spieltag: 80,0')).toBeInTheDocument();
+    expect(screen.getByText('+45,0 Punkte für die Elf')).toBeInTheDocument();
+  });
+
+  it('bewertet einen fehlenden Kickbase-Ø anders als einen gemeldeten Nullwert', async () => {
+    const players = squad().filter((p) => p.position !== 'GK');
+    setup(players, [
+      marketPlayer({ position: 'GK', averagePoints: 0, averagePointsKnown: false }),
+      marketPlayer({ id: 'torwart', name: 'Tom', position: 'GK', averagePoints: 0 }),
+    ]);
+    expect(toggle()).toHaveTextContent('Bester Ersatz: Tom · 0,0 Punkte auf dem freien Platz');
+    await userEvent.click(toggle());
+    expect(screen.getByText('Kickbase-Ø: 0,0')).toBeInTheDocument();
+    expect(screen.getByText(/1 noch nicht bewertet/)).toBeInTheDocument();
+  });
+
   it('unterscheidet einen leeren Markt von einem ohne Kandidaten', () => {
     setup(squad(), []);
     expect(screen.getByText(/Kein einsatzfähiger Spieler am Transfermarkt/)).toBeInTheDocument();
@@ -107,6 +130,20 @@ describe('BuyAdviceSection', () => {
 
     expect(advice.gaps[0]!.loss).toBeGreaterThan(0);
     expect(screen.getByText(/1 Ausfall in der Elf/)).toBeInTheDocument();
+  });
+
+  it('sagt in der Kopfzeile, wenn die Elf nur mit einem Ausfall aufgefüllt ist', async () => {
+    // Einziger Torwart, verletzt: er steht als Auffüller im Tor (siehe
+    // utils/lineupOptimizer.ts) — die Elf hat einen Punktwert, aber ein Loch.
+    const players = squad([{ status: 'injured' }]).filter((p) => p.id !== 'GK1');
+    const { advice } = setup(players, []);
+
+    expect(advice.baselineFeasible).toBe(false);
+    expect(advice.baselineScore).not.toBeNull();
+    expect(screen.getByText(/Elf derzeit nur mit Ausfall aufgefüllt/)).toBeInTheDocument();
+
+    await userEvent.click(toggle());
+    expect(screen.getByText(/Elf ohne ihn nicht voll besetzbar/)).toBeInTheDocument();
   });
 
   it('schweigt in der Kopfzeile über einen Ausfall, den die Bank auffängt', () => {
@@ -172,10 +209,46 @@ describe('BuyAdviceSection', () => {
     await userEvent.click(toggle());
     expect(screen.getByText(/Max. 2 Spieler pro Verein — deshalb nicht empfohlen/)).toBeInTheDocument();
     expect(screen.getByText('Harry Kane')).toBeInTheDocument();
-    expect(screen.getByText(/Ø-Punkte ohne die Regel/)).toBeInTheDocument();
+    expect(screen.getByText(/Punkte ohne die Regel/)).toBeInTheDocument();
+
+    // Die naheliegende Rückfrage — „und wenn ein Vereinskollege weicht?" —
+    // beantwortet die Zeile gleich mit, samt Preis. Ohne sie liest sich die
+    // Regel wie ein Verbot, obwohl sie nur eine Rechnung ist.
+    expect(screen.getByText(/Aufstellbar wäre er, wenn MID 1 weicht/)).toBeInTheDocument();
+    expect(screen.getByText(/das kostet .* Punkte/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Regeln ansehen/ }));
     expect(onOpenRules).toHaveBeenCalled();
+  });
+
+  /**
+   * Der Gegenfall zum Test darüber, und der wichtigere von beiden: ein dritter
+   * Spieler desselben Vereins ist NICHT pauschal verboten. Ist er besser als
+   * einer der beiden, räumt dieser den Platz — die Elf bleibt regelkonform und
+   * er steht als ganz normale Empfehlung in der Liste.
+   */
+  it('empfiehlt den dritten Spieler eines Vereins, wenn ein Kollege für ihn weicht', async () => {
+    const players = squad().map((player) =>
+      player.id === 'MID0'
+        ? { ...player, teamId: 'BAY', averagePoints: 200 }
+        : player.id === 'MID1'
+          ? // Stark genug, dass er ohne den Zukauf in der Elf steht — erst dann
+            // ist die Quote von 2 wirklich voll und die Regel im Spiel.
+            { ...player, teamId: 'BAY', averagePoints: 60 }
+          : { ...player, teamId: `T-${player.id}` },
+    );
+    const market = [marketPlayer({ name: 'Harry Kane', teamId: 'BAY', averagePoints: 120 })];
+    const { advice } = setup(players, market, { maxPerTeam: 2 });
+
+    expect(advice.blockedByRule).toHaveLength(0);
+    expect(advice.options.map((option) => option.playerId)).toEqual(['m1']);
+    expect(screen.getByText(/Bester Ersatz: Harry Kane/)).toBeInTheDocument();
+
+    await userEvent.click(toggle());
+    // Der Vereinskollege, der den Platz räumt, wird namentlich genannt — das
+    // ist die Information, die aus einem Vorschlag eine Entscheidung macht.
+    expect(advice.options[0]!.replacesPlayerIds).toContain('MID1');
+    expect(screen.getByText(/MID 1/)).toBeInTheDocument();
   });
 
   it('öffnet über den Knopf das Gebot, über die Zeile das Spielerprofil', async () => {
@@ -191,5 +264,24 @@ describe('BuyAdviceSection', () => {
     // steht auch in der Kopfzeile und im aria-label des Knopfes.
     await userEvent.click(screen.getByRole('button', { name: /Kommt für/ }));
     expect(onSelectPlayer).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }));
+  });
+
+  it('zeigt das eigene Gebot in der Zeile und bietet an, es zu ändern statt neu zu bieten', async () => {
+    // Nach dem eigenen Gebot zählt Kickbase es in offerCount mit.
+    setup(squad(), [
+      marketPlayer({ averagePoints: 200, offerCount: 1, ownOfferPrice: 10_300_000 }),
+    ]);
+
+    // Schon zugeklappt: kein „bieten" für ein Gebot, das längst liegt.
+    expect(toggle()).toHaveTextContent(/dein Gebot 10,3 Mio € deckt das/);
+    expect(toggle()).not.toHaveTextContent(/bieten/);
+
+    await userEvent.click(toggle());
+    expect(screen.getByText('Dein Gebot: 10,3 Mio €')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gebot für Nico Bauer ändern' })).toHaveTextContent(
+      'Ändern',
+    );
+    // Das eigene Gebot ist kein Mitbieter — die Begründung nennt keines.
+    expect(screen.queryByText(/liegt bereits vor/)).not.toBeInTheDocument();
   });
 });

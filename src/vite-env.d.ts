@@ -21,6 +21,7 @@ declare const __APP_VERSION__: string;
 declare const __GIT_SHA__: string | null;
 
 interface ImportMetaEnv {
+  readonly VITE_TUNNEL_URL?: string;
   /**
    * Ziel der Unterstützen-Karte im Mehr-Tab. Muss mit `https://` beginnen,
    * sonst wird sie verworfen; nicht gesetzt heißt, die Karte erscheint nicht.

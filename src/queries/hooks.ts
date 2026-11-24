@@ -28,6 +28,9 @@ import type {
   PlayerTransfer,
   SaveLineupInput,
 } from '@/api/kickbase';
+import { useCompetitionId } from '@/leagues/useCompetitionId';
+import { pointAverages, withPointAverages, type PointAverages } from '@/utils/pointAverages';
+import { pointsPerMillion } from '@/utils/valueScore';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import { resolveOwnPurchase } from '@/utils/playerPurchase';
@@ -57,22 +60,57 @@ export function useLeagues() {
 export function useLineup(leagueId: string, options: { enabled?: boolean } = {}) {
   const { token } = useAuth();
   const { enabled = true } = options;
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.lineup(leagueId),
     queryFn: () => (USE_MOCK_LINEUP ? Promise.resolve(mockLineupData) : getLineup(token!, leagueId)),
     enabled: USE_MOCK_LINEUP || (!!token && !!leagueId && enabled),
     staleTime: 60_000,
   });
+  const ids = useMemo(() => query.data?.players.map((p) => p.id) ?? [], [query.data]);
+  const averages = usePointAverages(leagueId, ids, enabled && !USE_MOCK_LINEUP);
+  const data = useMemo(() => query.data && ({
+    ...query.data,
+    players: applyAveragePool(query.data.players, averages),
+  }), [query.data, averages.values, averages.basis]);
+  const refetch = useCallback(async () => {
+    await Promise.all([query.refetch(), averages.refetch()]);
+  }, [query.refetch, averages.refetch]);
+  return { ...query, data, rawData: query.data, pointAverageState: averages, refetch };
 }
 
 export function useMarket(leagueId: string, options: { enabled?: boolean } = {}) {
   const { token } = useAuth();
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.market(leagueId),
     queryFn: () => getMarket(token!, leagueId),
     enabled: !!token && !!leagueId && (options.enabled ?? true),
     staleTime: 60_000,
   });
+  const ids = useMemo(() => query.data?.players.map((p) => p.id) ?? [], [query.data]);
+  const averages = usePointAverages(leagueId, ids, options.enabled ?? true);
+  // Fehlt ap im Listing, kann dieselbe Kickbase-Kennzahl in der bereits
+  // geladenen Saisonhistorie stehen. Ein explizites ap=0 bleibt erhalten.
+  const rawData = useMemo(() => query.data && ({
+    ...query.data,
+    players: query.data.players.map((player) => {
+      const averagePoints = averages.values.get(player.id)?.kickbaseAverage;
+      if (player.averagePointsKnown !== false || averagePoints === undefined) return player;
+      return {
+        ...player,
+        averagePoints,
+        averagePointsKnown: true,
+        valueScoreAvg: pointsPerMillion(averagePoints, player.marketValue),
+      };
+    }),
+  }), [query.data, averages.values]);
+  const data = useMemo(() => rawData && ({
+    ...rawData,
+    players: applyAveragePool(rawData.players, averages),
+  }), [rawData, averages.values, averages.basis]);
+  const refetch = useCallback(async () => {
+    await Promise.all([query.refetch(), averages.refetch()]);
+  }, [query.refetch, averages.refetch]);
+  return { ...query, data, rawData, pointAverageState: averages, refetch };
 }
 
 /**
@@ -131,14 +169,17 @@ export interface PlayerBasicsState {
  * limiter.ts). Analog zu usePlaytimes() oben: `playerIds` muss stabil sein
  * (useMemo beim Aufrufer).
  *
- * Zwei Aufrufer mit demselben Bedarf: die Rivalen-Elf im Liga-Tab
- * (LeagueRankingEntry.lineupPlayerIds) und die Punkte-Statistik, die auch
- * längst VERKAUFTE Spieler benennen muss — für die liefert der eigene Kader
- * keinen Namen mehr.
+ * Die Rivalen-Elf zeigt auch Punkteschnitte. Der Duell-Ausblick braucht nur
+ * die Vereinszuordnung, die Punkte-Statistik die Stammdaten längst verkaufter
+ * Spieler. Beide können das Nachladen der Schnitte abschalten.
  */
-export function usePlayerBasics(leagueId: string, playerIds: readonly (string | null)[]): PlayerBasicsState {
+export function usePlayerBasics(
+  leagueId: string,
+  playerIds: readonly (string | null)[],
+  { averages: includeAverages = true } = {},
+): PlayerBasicsState {
   const { token } = useAuth();
-  const ids = playerIds.filter((id): id is string => id !== null);
+  const ids = useMemo(() => [...new Set(playerIds.filter((id): id is string => id !== null))], [playerIds]);
   const results = useQueries({
     queries: ids.map((playerId) => ({
       queryKey: queryKeys.playerBasic(leagueId, playerId),
@@ -148,17 +189,21 @@ export function usePlayerBasics(leagueId: string, playerIds: readonly (string | 
     })),
   });
 
+  const averages = usePointAverages(leagueId, ids, includeAverages);
   const players = useMemo(() => {
     const map = new Map<string, PlayerDetail>();
     results.forEach((result, index) => {
       const playerId = ids[index];
-      if (playerId && result.data) map.set(playerId, result.data);
+      if (playerId && result.data) map.set(playerId, averages.basis === 'matchdays'
+        ? withPointAverages(result.data, averages.values.get(playerId)!) : result.data);
     });
     return map;
-  }, [results, playerIds]);
+  }, [results, ids, averages.values, averages.basis]);
 
   const pending = results.reduce((count, r) => (r.isPending ? count + 1 : count), 0);
-  const refetch = useCallback(() => Promise.all(results.map((r) => r.refetch())), [results]);
+  const refetch = useCallback(() => Promise.all([
+    ...results.map((r) => r.refetch()), averages.refetch(),
+  ]), [results, averages.refetch]);
 
   return { players, pending, total: ids.length, refetch };
 }
@@ -318,12 +363,30 @@ export function useTransferHistories(
 
 export function usePlayer(leagueId: string, playerId: string) {
   const { token } = useAuth();
-  return useQuery({
+  const queryClient = useQueryClient();
+  const schedule = useMatchdays(useCompetitionId());
+  const query = useQuery({
     queryKey: queryKeys.player(leagueId, playerId),
-    queryFn: () => getPlayer(token!, leagueId, playerId),
+    queryFn: () => getPlayer(token!, leagueId, playerId, () => queryClient.fetchQuery({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId),
+      queryFn: () => getPlayerPerformance(token!, leagueId, playerId),
+      staleTime: 5 * 60_000,
+    })),
     enabled: !!token && !!leagueId && !!playerId,
     staleTime: 5 * 60_000,
   });
+  const data = useMemo(() => {
+    if (!query.data) return undefined;
+    const averages = pointAverages(query.data.performance, schedule.data, Date.now());
+    return averages ? withPointAverages(query.data, averages) : query.data;
+  }, [query.data, query.dataUpdatedAt, schedule.data, schedule.dataUpdatedAt]);
+  const refetch = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.playerPerformance(leagueId, playerId), refetchType: 'none',
+    });
+    return query.refetch();
+  }, [queryClient, leagueId, playerId, query.refetch]);
+  return { ...query, data, refetch };
 }
 
 /**
@@ -419,6 +482,61 @@ export function usePurchases(
   const pending = enabled ? results.reduce((count, r) => (r.isPending ? count + 1 : count), 0) : 0;
 
   return { purchases, pending, total: playerIds.length };
+}
+
+export interface PointAverageState {
+  values: Map<string, PointAverages>;
+  basis: 'kickbase' | 'matchdays';
+  pending: number;
+  refetch: () => Promise<unknown>;
+}
+
+/**
+ * Nur begrenzte Pools (Kader, Markt, Rivalen-Elf), nie der Competition-Bestand.
+ * Identischer Key und Limiter wie bei Punkte/Min und Spielerprofil. Die ganze
+ * Gruppe wechselt gemeinsam auf den neuen Schnitt: kein Vorteil für Spieler,
+ * deren Historie nur langsamer lädt oder ausfällt.
+ */
+export function usePointAverages(leagueId: string, playerIds: readonly string[], enabled = true): PointAverageState {
+  const { token } = useAuth();
+  const schedule = useMatchdays(useCompetitionId());
+  const ids = useMemo(() => [...new Set(playerIds)], [playerIds]);
+  const results = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: queryKeys.playerPerformance(leagueId, id),
+      queryFn: () => getPlayerPerformance(token!, leagueId, id),
+      enabled: enabled && !!token && !!leagueId && !!id,
+      staleTime: 5 * 60_000,
+    })),
+    combine: (queries) => ({
+      data: queries.map((query) => query.data),
+      updatedAt: queries.map((query) => query.dataUpdatedAt),
+      pending: queries.filter((query) => query.isPending).length,
+      refetchers: queries.map((query) => query.refetch),
+    }),
+  });
+  const values = useMemo(() => {
+    const map = new Map<string, PointAverages>();
+    results.data.forEach((performance, index) => {
+      const value = performance && pointAverages(performance, schedule.data, Date.now());
+      if (value) map.set(ids[index]!, value);
+    });
+    return map;
+  }, [results.data, results.updatedAt, ids, schedule.data, schedule.dataUpdatedAt]);
+  const basis = enabled && values.size === ids.length ? 'matchdays' : 'kickbase';
+  const pending = enabled ? results.pending + (schedule.isPending ? 1 : 0) : 0;
+  const refetch = useCallback(() => enabled ? Promise.all([
+    schedule.refetch(), ...results.refetchers.map((refetch) => refetch()),
+  ]) : Promise.resolve(), [enabled, schedule.refetch, results.refetchers]);
+  return { values, basis, pending, refetch };
+}
+
+function applyAveragePool<T extends { id: string; averagePoints: number; marketValue: number }>(
+  players: T[], state: PointAverageState,
+): T[] {
+  return state.basis === 'matchdays'
+    ? players.map((player) => withPointAverages(player, state.values.get(player.id)!))
+    : players;
 }
 
 export interface PlaytimeState {

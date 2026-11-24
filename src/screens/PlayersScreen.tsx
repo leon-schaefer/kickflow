@@ -35,6 +35,7 @@ import {
 import type { PlayerOrigin } from '@/utils/playerOwnership';
 import { playerOrigins } from '@/utils/playerOwnership';
 import type { PlaytimeTotals } from '@/utils/playtime';
+import { pointAverageNotice } from '@/utils/pointAverages';
 import { pointsPerMillion } from '@/utils/valueScore';
 import type { RefreshableChildProps } from '@/components/Refreshable.types';
 import layout from '@/theme/layout.module.css';
@@ -101,6 +102,12 @@ const ALL_SORT_OPTIONS = [...SORT_OPTIONS, ...SQUAD_SORT_OPTIONS];
 function withSquadTotals(player: CompetitionPlayer, mine: SquadPlayer): CompetitionPlayer {
   return {
     ...player,
+    averagePoints: mine.averagePoints,
+    averagePointsBasis: mine.averagePointsBasis,
+    appearanceAveragePoints: mine.appearanceAveragePoints,
+    averageMatchCount: mine.averageMatchCount,
+    appearanceCount: mine.appearanceCount,
+    valueScoreAvg: pointsPerMillion(mine.averagePoints, player.marketValue),
     totalPoints: mine.totalPoints,
     valueScoreTotal: pointsPerMillion(mine.totalPoints, player.marketValue),
   };
@@ -299,6 +306,12 @@ export function PlayersScreen() {
         {visiblePlayers.length === playersQuery.data.length
           ? `${playersQuery.data.length} Spieler`
           : `${visiblePlayers.length} von ${playersQuery.data.length} Spielern`}
+      </p>
+
+      <p className={styles.countHint}>
+        {onlyMySquad
+          ? pointAverageNotice(lineupQuery.pointAverageState?.basis, lineupQuery.pointAverageState?.pending)
+          : 'Ø-Werte der Gesamtübersicht sind unveränderte Kickbase-Werte (Kickbase-Ø). Den Schnitt inklusive Spielen ohne Einsatz findest du im Spielerprofil und unter Mein Kader.'}
       </p>
 
       {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}

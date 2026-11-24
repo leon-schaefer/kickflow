@@ -1,3 +1,5 @@
+import { MarketWishlist } from '@/players/Wishlist';
+import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { MarketPlayer } from '@/api/kickbase';
@@ -151,6 +153,10 @@ export function MarketScreen() {
         </p>
       )}
 
+      <p className={styles.hint}>
+        {pointAverageNotice(market.pointAverageState?.basis, market.pointAverageState?.pending)}
+      </p>
+
       {/* Ohne diesen Hinweis wirkt das Nachsortieren während des Ladens wie ein Fehler. */}
       {playtimeState.pending > 0 && (
         <p className={styles.hint}>
@@ -166,6 +172,7 @@ export function MarketScreen() {
         <Refreshable {...refresh}>
           {(p) => (
             <div {...p} className={styles.scroll}>
+              <MarketWishlist market={rawPlayers} updatedAt={market.dataUpdatedAt} />
               {sorted.length === 0 ? (
                 <div className={styles.center}>
                   {/* Eigener Text bei aktivem Filter — „Keine Spieler gefunden"

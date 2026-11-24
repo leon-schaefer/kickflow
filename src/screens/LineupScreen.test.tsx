@@ -25,6 +25,8 @@ import { LineupScreen } from './LineupScreen';
  */
 const lineup = vi.hoisted(() => ({
   data: undefined as LineupData | undefined,
+  rawData: undefined as LineupData | undefined,
+  pointAverageState: undefined as { basis: 'kickbase' | 'matchdays'; pending: number } | undefined,
   error: null as unknown,
   refetch: vi.fn().mockResolvedValue(undefined),
 }));
@@ -34,6 +36,8 @@ const matchdays = vi.hoisted(() => ({
 }));
 const market = vi.hoisted(() => ({
   data: { players: [], marketValueUpdateAt: null } as MarketData,
+  rawData: undefined as MarketData | undefined,
+  pointAverageState: undefined as { basis: 'kickbase' | 'matchdays'; pending: number } | undefined,
   refetch: vi.fn().mockResolvedValue(undefined),
 }));
 const leagues = vi.hoisted(() => ({ data: [], refetch: vi.fn().mockResolvedValue(undefined) }));
@@ -54,6 +58,7 @@ const removeOffer = vi.hoisted(() => ({
   isPending: false,
 }));
 
+vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ userId: 'me' }) }));
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
   useMatchdays: () => matchdays,
@@ -167,6 +172,10 @@ async function startEditing() {
 beforeEach(() => {
   fakeLayout();
   lineup.data = mockLineupData;
+  lineup.rawData = undefined;
+  lineup.pointAverageState = undefined;
+  market.rawData = undefined;
+  market.pointAverageState = undefined;
   lineup.error = null;
   // Der Markt speist die Kaufempfehlung (BuyAdviceSection) — leer als
   // Voreinstellung, damit ein Test ihn nicht für den nächsten stehen lässt.
@@ -424,6 +433,29 @@ describe('LineupScreen', () => {
    * Zusammenspiel — die Rechnung liegt in src/utils/replacementAdvice.test.ts,
    * die Sektion in src/components/BuyAdviceSection.test.tsx.
    */
+  it('vergleicht einen schon bereinigten Kader nicht mit einem noch rohen Marktschnitt', () => {
+    lineup.rawData = { ...mockLineupData, players: mockLineupData.players.map((p) => ({ ...p, averagePoints: 200 })) };
+    lineup.data = { ...mockLineupData, players: mockLineupData.players.map((p) => ({ ...p, averagePoints: 0 })) };
+    lineup.pointAverageState = { basis: 'matchdays', pending: 0 };
+    market.data = { players: [marketPlayer({ averagePoints: 100 })], marketValueUpdateAt: null };
+    market.rawData = market.data;
+    market.pointAverageState = { basis: 'kickbase', pending: 1 };
+    setup();
+    expect(screen.queryByText(/Bester Ersatz:/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Kaufempfehlungen verwenden auf beiden Seiten den Kickbase-Ø/)).toBeInTheDocument();
+  });
+
+  it('nimmt auch auf der Marktseite den Rohwert, solange der Kader ihn noch braucht', () => {
+    lineup.data = { ...mockLineupData, players: mockLineupData.players.map((p) => ({ ...p, averagePoints: 200 })) };
+    lineup.rawData = lineup.data;
+    lineup.pointAverageState = { basis: 'kickbase', pending: 1 };
+    market.rawData = { players: [marketPlayer({ averagePoints: 300 })], marketValueUpdateAt: null };
+    market.data = { players: [marketPlayer({ averagePoints: 100 })], marketValueUpdateAt: null };
+    market.pointAverageState = { basis: 'matchdays', pending: 0 };
+    setup();
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toBeInTheDocument();
+  });
+
   it('empfiehlt einen Zukauf vom Markt und öffnet dafür den Gebots-Dialog', async () => {
     // 200 Ø-Punkte im Mittelfeld — im Mock-Kader liefert der beste 150, der
     // Zugewinn ist also unabhängig von der gewählten Formation echt.
@@ -440,6 +472,22 @@ describe('LineupScreen', () => {
 
     // Der Dialog ist derselbe wie im Markt-Tab (OfferModal, per Portal am body).
     expect(screen.getByRole('dialog', { name: 'Gebot für Nico Bauer' })).toBeInTheDocument();
+  });
+
+  it('berücksichtigt das Restprogramm eines Marktvereins außerhalb des eigenen Kaders', async () => {
+    const schedule = openSchedule();
+    schedule.matchdays[0]!.fixtures.push({
+      homeTeamId: 'Marktverein', awayTeamId: 'Gast', homeGoals: null, awayGoals: null,
+      homeLogoUrl: null, awayLogoUrl: null, hasResult: false,
+    });
+    matchdays.data = schedule;
+    // Beide Torhüter haben 90 Punkte. Der Heimvorteil ergibt 90 × 1,02 = 91,8.
+    market.data = { players: [marketPlayer({ teamId: 'Marktverein', position: 'GK', averagePoints: 90 })], marketValueUpdateAt: null };
+    setup();
+    await startEditing();
+    expect(screen.queryByText(/Bester Ersatz:/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Erwartete Punkte' }));
+    expect(screen.getByText(/Bester Ersatz: Nico Bauer/)).toHaveTextContent('+1,8 Punkte für die Elf');
   });
 
   /**

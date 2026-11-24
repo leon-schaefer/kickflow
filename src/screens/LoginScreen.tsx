@@ -9,6 +9,8 @@ import {
 import { hasErrors, validateCredentials, type LoginFieldErrors } from '@/auth/loginValidation';
 import { ExternalLink } from '@/components/ExternalLink';
 import { Spinner } from '@/components/Spinner';
+import { TunnelNotice } from '@/components/TunnelNotice';
+import { KickbaseError } from '@/api/kickbase/client';
 import { TextField } from '@/components/TextField';
 import {
   PRIVACY_PATH,
@@ -91,7 +93,10 @@ export function LoginScreen() {
       navigate('/leagues', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen.');
-      setBlockedSeconds(recordFailure());
+      // Infrastructure failures say nothing about whether the password was correct.
+      if (!(err instanceof KickbaseError) || err.isUnauthorized || err.status === 400) {
+        setBlockedSeconds(recordFailure());
+      }
     } finally {
       setLoading(false);
     }
@@ -232,11 +237,12 @@ export function LoginScreen() {
             'Anmelden'
           )}
         </button>
+        {loading && <TunnelNotice />}
       </form>
 
       <p className={styles.hint}>
-        Kickflow spricht direkt mit der Kickbase-API. Deine Zugangsdaten und dein Zugriffstoken
-        verlassen dieses Gerät ausschließlich in Richtung Kickbase.
+        Deine Zugangsdaten und dein Zugriffstoken werden bis zu Kickbase verschlüsselt.
+        Unser Verbindungsserver leitet ausschließlich die verschlüsselten Daten weiter.
       </p>
 
       {/*

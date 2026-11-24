@@ -201,3 +201,57 @@ describe('buildSellPlan mit Vereins-Regel', () => {
     expect([...counts.values()].every((c) => c <= 2)).toBe(true);
   });
 });
+
+/** Auffüllen mit Ausfällen (siehe Modul-Doku in lineupOptimizer.ts) auf dem DP-Pfad. */
+describe('Auffüllen mit Ausfällen unter Regeln', () => {
+  it('liefert mit nicht bindender Regel dieselbe aufgefüllte Elf wie optimizeLineup', () => {
+    const players = concentratedSquad().map((p) => (p.position === 'GK' ? { ...p, status: 'injured' as const } : p));
+    const plain = optimizeLineup(players, 'points');
+    const ruled = optimizeLineupWithRules(players, 'points', AVAILABLE_FORMATIONS, { maxPerTeam: 11 });
+
+    expect(plain.best?.fillerIds).toEqual(['GK0']);
+    expect(ruled.best?.formation).toBe(plain.best?.formation);
+    expect(ruled.best?.score).toBe(plain.best?.score);
+    expect(ruled.best?.playerIds).toEqual(plain.best?.playerIds);
+    expect(ruled.best?.fillerIds).toEqual(plain.best?.fillerIds);
+    expect(ruled.ranking.map((r) => [r.formation, r.fillerIds.length])).toEqual(
+      plain.ranking.map((r) => [r.formation, r.fillerIds.length]),
+    );
+  });
+
+  /**
+   * Beide Torhüter verletzt. Unter max. 2 pro Verein tragen T1, T2, T3, T5,
+   * T6 je zwei Feldspieler bei — das sind genau die zehn Feldplätze. Der
+   * Torwart-Auffüller muss also von T4 kommen (GK1): GK0 würde T1 einen der
+   * beiden Plätze wegnehmen, obwohl er 0 Punkte bringt, und die Elf platzen
+   * lassen. Ohne Regel nähme der Optimizer den stärkeren GK0 (5 statt 3).
+   */
+  const bothKeepersInjured = () =>
+    concentratedSquad().map((p) => (p.position === 'GK' ? { ...p, status: 'injured' as const } : p));
+
+  it('ein Auffüller zählt gegen die Vereins-Obergrenze', () => {
+    const players = bothKeepersInjured();
+    const constraints: LineupConstraints = { maxPerTeam: 2 };
+    const result = optimizeLineupWithRules(players, 'points', AVAILABLE_FORMATIONS, constraints);
+
+    expect(optimizeLineup(players, 'points').best!.fillerIds).toEqual(['GK0']);
+    expect(result.best).not.toBeNull();
+    expect(result.best!.fillerIds).toEqual(['GK1']);
+    expect(result.best!.playerIds[0]).toBe('GK1');
+    for (const count of teamCounts(players, result.best!.playerIds).values()) {
+      expect(count).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('der Cap-Pfad unter Regeln füllt ebenfalls auf', () => {
+    const pick = bestLineupUnderValueCapWithRules(
+      bothKeepersInjured(),
+      'points',
+      AVAILABLE_FORMATIONS,
+      1_000_000_000,
+      { maxPerTeam: 2 },
+    );
+    expect(pick?.playerIds).toContain('GK1');
+    expect(pick?.playerIds).toHaveLength(11);
+  });
+});

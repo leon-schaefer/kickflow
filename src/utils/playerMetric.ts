@@ -4,6 +4,7 @@
  * Reine Helfer, damit sie ohne UI testbar bleiben (Vorbild: playerFilter.ts,
  * marketList.ts).
  */
+import type { PointAverageFields } from '@/api/kickbase/types';
 import type { PlaytimeTotals } from './playtime';
 import { pointsPerMinute } from './playtime';
 import { formatPoints, formatPointsPerMinute, formatValueScore } from './format';
@@ -20,7 +21,7 @@ export type PlayerMetric =
 export type PlayerSortKey = PlayerMetric | 'position' | 'expiry';
 
 /** Feldmenge, die SquadPlayer UND MarketPlayer erfüllen — genug für jede Kennzahl hier. */
-export interface MetricPlayer {
+export interface MetricPlayer extends PointAverageFields {
   marketValue: number;
   /**
    * `null` = die Quelle liefert die Gesamtpunkte nicht. Kader und Markt tragen
@@ -84,11 +85,11 @@ export function formatMetric(player: MetricPlayer, metric: PlayerMetric, playtim
     case 'marketValue':
       // Nur als Fallback relevant (siehe metricForSort) — der Marktwert selbst
       // steht in der Zeile bereits als Anker, hier wird er nicht noch einmal gebraucht.
-      return formatPoints(player.averagePoints);
+      return formatPoints(Math.round(player.averagePoints));
     case 'totalPoints':
       return player.totalPoints === null ? '—' : formatPoints(player.totalPoints);
     case 'avgPoints':
-      return formatPoints(player.averagePoints);
+      return formatPoints(Math.round(player.averagePoints));
     case 'avgPerMillion':
       return formatValueScore(player.valueScoreAvg);
     case 'totalPerMillion':
@@ -109,4 +110,14 @@ export function formatMetric(player: MetricPlayer, metric: PlayerMetric, playtim
 export function metricForSort(key: PlayerSortKey, fallback: PlayerMetric): PlayerMetric {
   if (key === 'position' || key === 'expiry') return fallback;
   return key;
+}
+
+/** Die kompakte Spalte nennt den Rohwert, solange die neue Grundlage fehlt. */
+export function metricLabel(player: PointAverageFields, metric: PlayerMetric): string {
+  if (metric === 'avgPoints') {
+    if (player.averagePointsBasis === 'matchdays') return 'Ø/Spieltag';
+    if (player.averagePointsBasis === 'kickbase') return 'Kickbase-Ø';
+  }
+  if (metric === 'avgPerMillion' && player.averagePointsBasis === 'kickbase') return 'Kickbase-Ø/Mio';
+  return metricLabels[metric].cell;
 }

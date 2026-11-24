@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeBudgetLimit, sumOpenOffers } from './budget';
+import { availableForRebid, computeBudgetLimit, sumOpenOffers } from './budget';
 
 describe('computeBudgetLimit', () => {
   it('rechnet das Beispiel aus der Kickbase-Hilfe exakt nach', () => {
@@ -48,6 +48,28 @@ describe('computeBudgetLimit', () => {
     expect(computeBudgetLimit({ budget: -12_400_000, teamValue: 100_000_000 }).deficit).toBe(12_400_000);
     expect(computeBudgetLimit({ budget: 5_000_000, teamValue: 100_000_000 }).deficit).toBe(0);
     expect(computeBudgetLimit({ budget: 0, teamValue: 100_000_000 }).deficit).toBe(0);
+  });
+});
+
+describe('availableForRebid', () => {
+  it('gibt das eigene Gebot auf denselben Spieler wieder frei — ein Nachgebot ersetzt es', () => {
+    const limit = computeBudgetLimit({ budget: 5_000_000, teamValue: 90_000_000, pendingOffers: 3_000_000 });
+    expect(availableForRebid(limit, 3_000_000)).toBe(limit.available + 3_000_000);
+  });
+
+  it('lässt den Spielraum ohne eigenes Gebot unverändert', () => {
+    const limit = computeBudgetLimit({ budget: 5_000_000, teamValue: 90_000_000, pendingOffers: 3_000_000 });
+    expect(availableForRebid(limit, null)).toBe(limit.available);
+  });
+
+  it('rechnet unter der Grenze exakt statt das Gebot auf die geklemmte 0 zu addieren', () => {
+    // Konto 5 Mio, Rahmen 30 Mio, eigenes Gebot 40 Mio (etwa nach
+    // Marktwertverfall überzeichnet): mit ihm liegt das Konto 5 Mio unter der
+    // Grenze, `available` klemmt auf 0. Frei für ein Nachgebot sind 35 Mio —
+    // nicht die 40 Mio, die 0 + eigenes Gebot ergäbe.
+    const limit = computeBudgetLimit({ budget: 5_000_000, teamValue: 90_000_000, pendingOffers: 40_000_000 });
+    expect(limit.available).toBe(0);
+    expect(availableForRebid(limit, 40_000_000)).toBe(35_000_000);
   });
 });
 

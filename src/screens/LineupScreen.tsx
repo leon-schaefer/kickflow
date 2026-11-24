@@ -1,3 +1,4 @@
+import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { MarketPlayer, Position, SquadPlayer } from '@/api/kickbase';
@@ -6,6 +7,7 @@ import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MarketListingModal } from '@/components/MarketListingModal';
 import { OfferModal } from '@/components/OfferModal';
 import { OptimizerBar } from '@/components/OptimizerBar';
+import { TransferPlanner } from '@/components/TransferPlanner';
 import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
 import { QueryState } from '@/components/QueryState';
@@ -20,6 +22,7 @@ import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { useCurrentLeague } from '@/leagues/useCurrentLeague';
 import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
 import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
+import { LineupVariants } from '@/lineup/LineupVariants';
 import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
 import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
 import { useReplacementAdvice } from '@/lineup/useReplacementAdvice';
@@ -120,6 +123,7 @@ export function LineupScreen() {
   // „Auf den Markt stellen" für die Pflichtverkäufe — der Dialog hängt an der
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
+  const [planning, setPlanning] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   // Ob die Kaufen/Verkaufen-Sektion aufgeklappt ist. Hängt hier und nicht nur
   // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
@@ -164,18 +168,17 @@ export function LineupScreen() {
   // (Query lädt noch) bleibt die Map undefined — useLineupOptimizer
   // degradiert dann sauber auf reine Ø-Punkte.
   const fixtureDifficultyByTeam = useMemo(() => {
-    if (!matchdaysQuery.data || !data) return undefined;
+    if (!matchdaysQuery.data) return undefined;
     const fromDay = matchdayState?.open?.day ?? matchdaysQuery.data.currentDay ?? 1;
     const index = buildFixtureIndex(matchdaysQuery.data);
     const strengths = teamStrength(teamGoalRecord(matchdaysQuery.data));
-    const teamIds = new Set(data.players.map((p) => p.teamId));
     const map = new Map<string, AverageDifficulty>();
-    for (const teamId of teamIds) {
+    for (const teamId of index.keys()) {
       const upcoming = remainingFixtures(teamId, index, fromDay, FIXTURE_LOOKAHEAD);
       map.set(teamId, averageDifficulty(fixtureDifficulty(upcoming, strengths)));
     }
     return map;
-  }, [matchdaysQuery.data, data, matchdayState]);
+  }, [matchdaysQuery.data, matchdayState]);
 
   const optimizer = useLineupOptimizer(
     data?.players ?? NO_SQUAD_PLAYERS,
@@ -191,12 +194,21 @@ export function LineupScreen() {
   // gegen die ANGEZEIGTE Elf gemessen, also muss er unter denselben Schranken
   // rechnen — inklusive eines Session-„Ignorieren" (siehe useReplacementAdvice).
   const marketPlayers = marketQuery.data?.players ?? NO_MARKET_PLAYERS;
+  // Vergleiche verwenden dieselbe Grundlage auf BEIDEN Seiten, auch wenn
+  // z. B. der Kader schon vollständig geladen ist und der Markt noch nicht.
+  const comparisonUsesKickbase = lineupQuery.pointAverageState?.basis === 'kickbase' ||
+    marketQuery.pointAverageState?.basis === 'kickbase';
+  const comparisonSquad = comparisonUsesKickbase
+    ? lineupQuery.rawData?.players ?? data?.players ?? NO_SQUAD_PLAYERS
+    : data?.players ?? NO_SQUAD_PLAYERS;
+  const comparisonMarket = comparisonUsesKickbase
+    ? marketQuery.rawData?.players ?? marketPlayers : marketPlayers;
   const replacement = useReplacementAdvice(
-    data?.players ?? NO_SQUAD_PLAYERS,
-    marketPlayers,
+    comparisonSquad,
+    comparisonMarket,
     optimizer.metric,
     optimizer.constraints,
-    budgetLimit?.available ?? null,
+    budgetLimit,
     fixtureDifficultyByTeam,
   );
 
@@ -506,6 +518,21 @@ export function LineupScreen() {
                 </span>
               </Link>
 
+              {league && marketQuery.data && (
+                <button type="button" className={styles.plannerButton} aria-haspopup="dialog" onClick={() => setPlanning(true)}>
+                  <span className={styles.plannerIcon} aria-hidden="true">⇄</span>
+                  <span className={styles.plannerCopy}>
+                    <strong>Transferpaket planen</strong>
+                    <span className={styles.navRowText}>Was bleibt vom Budget? Wie stark ist deine Elf?</span>
+                  </span>
+                  <span className={styles.navRowChevron} aria-hidden="true">›</span>
+                </button>
+              )}
+              {planning && league && (
+                <TransferPlanner squad={comparisonSquad} market={comparisonMarket} balance={league.budget}
+                  difficulty={fixtureDifficultyByTeam} constraints={optimizer.constraints} onClose={() => setPlanning(false)} />
+              )}
+
               {hasOpenMatchday && (
                 <button
                   type="button"
@@ -515,6 +542,22 @@ export function LineupScreen() {
                 >
                   {editing ? 'Abbrechen' : 'Aufstellung bearbeiten'}
                 </button>
+              )}
+
+              <p className={styles.hint}>
+                {pointAverageNotice(lineupQuery.pointAverageState?.basis, lineupQuery.pointAverageState?.pending)}
+              </p>
+
+              {editing && hasOpenMatchday && (
+                <LineupVariants formation={formation} draftIds={draftIds} players={playersById}
+                  onLoad={(nextFormation, ids, note) => {
+                    clearEditMarkers();
+                    setSaveError(null);
+                    setSelectedBenchId(null);
+                    setFormation(nextFormation);
+                    setDraftIds(ids);
+                    setAutoNote(note);
+                  }} />
               )}
 
               {editing && (
@@ -532,6 +575,7 @@ export function LineupScreen() {
                   onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}
                   onIgnoreRule={optimizer.ignoreRule}
                   draftViolations={optimizer.draftViolations}
+                  nameById={(id) => playersById.get(id)?.name}
                 />
               )}
 
@@ -629,10 +673,14 @@ export function LineupScreen() {
 
               {/* Direkt unter der Verkaufsseite: erst „wer muss weg", dann „wer
                   kommt dafür". Beide unabhängig vom Edit-Modus. */}
+              {comparisonUsesKickbase && lineupQuery.pointAverageState?.basis === 'matchdays' && (
+                <p className={styles.hint}>Kaufempfehlungen verwenden auf beiden Seiten den Kickbase-Ø, bis auch die Markthistorien vollständig verfügbar sind.</p>
+              )}
               <BuyAdviceSection
-                players={data.players}
-                market={marketPlayers}
+                players={comparisonSquad}
+                market={comparisonMarket}
                 advice={replacement}
+                expectedPoints={optimizer.metric === 'expectedPoints'}
                 marketPending={!marketQuery.data}
                 rules={optimizer.rules}
                 onOpenRules={() => navigate(`/${leagueId}/rules`, origin)}

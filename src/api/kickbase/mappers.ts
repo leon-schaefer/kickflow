@@ -198,6 +198,7 @@ export function toSquadPlayer(
 
     totalPoints,
     averagePoints,
+    averagePointsBasis: 'kickbase',
     valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
     valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
 
@@ -268,6 +269,7 @@ export function toCompetitionPlayer(raw: RawCompetitionPlayer, fallbackTeamId: s
 
     totalPoints,
     averagePoints,
+    averagePointsBasis: 'kickbase',
     valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
     valueScoreTotal: totalPoints === null ? null : pointsPerMillion(totalPoints, marketValue),
 
@@ -312,6 +314,8 @@ export function toMarketPlayer(raw: RawMarketPlayer): MarketPlayer {
 
     totalPoints,
     averagePoints,
+    averagePointsKnown: raw.ap !== undefined,
+    averagePointsBasis: 'kickbase',
     valueScoreAvg: pointsPerMillion(averagePoints, marketValue),
     valueScoreTotal: pointsPerMillion(totalPoints, marketValue),
 
@@ -442,6 +446,7 @@ export function toPlayerDetail(raw: RawPlayerDetail, performance: RawPerformance
     assists: raw.a ?? 0,
     totalPoints: raw.tp ?? 0,
     averagePoints: raw.ap ?? 0,
+    averagePointsBasis: 'kickbase',
     secondsPlayed: raw.sec ?? 0,
     marketValue: raw.mv ?? 0,
     marketValueTrend: mapMarketValueTrend(raw.mvt),
@@ -512,7 +517,7 @@ function toMatchdayPerformance(
     // daran unterscheiden wir bereits ausgetragene von noch ausstehenden.
     hasResult: raw.t1g !== undefined && raw.t2g !== undefined,
     points: raw.p ?? 0,
-    seasonAveragePoints: raw.ap ?? 0,
+    seasonAveragePoints: raw.ap ?? null,
     seasonTotalPoints: raw.tp ?? 0,
     // "90'" / "0'" laut echter Antwort, nicht die von der Doku behauptete Zahl.
     minutesPlayed: raw.mp ? Number.parseInt(raw.mp, 10) || 0 : 0,
@@ -548,6 +553,7 @@ function toScheduledMatchday(raw: RawCompetitionMatchdays['it'][number] & { day:
 
 function toScheduledFixture(raw: RawFixture): ScheduledFixture {
   return {
+    kickoffAt: raw.dt ?? null,
     homeTeamId: raw.t1 ?? '',
     awayTeamId: raw.t2 ?? '',
     homeLogoUrl: imageUrl(raw.t1im),

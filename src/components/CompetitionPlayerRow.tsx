@@ -1,6 +1,6 @@
 import type { CompetitionPlayer } from '@/api/kickbase';
 import { formatCurrency, formatMinutes } from '@/utils/format';
-import { formatMetric, metricLabels, type PlayerMetric } from '@/utils/playerMetric';
+import { formatMetric, metricLabel, type PlayerMetric } from '@/utils/playerMetric';
 import type { PlayerOrigin } from '@/utils/playerOwnership';
 import type { PlaytimeTotals } from '@/utils/playtime';
 import styles from './CompetitionPlayerRow.module.css';
@@ -45,7 +45,7 @@ export function CompetitionPlayerRow({
 
   const cells: StatCell[] = [
     { value: formatCurrency(player.marketValue) },
-    { value: formatMetric(player, secondary, playtime), label: metricLabels[secondary].cell },
+    { value: formatMetric(player, secondary, playtime), label: metricLabel(player, secondary) },
   ];
 
   return (

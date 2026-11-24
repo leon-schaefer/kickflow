@@ -1,10 +1,9 @@
 /**
  * Dünner fetch-Wrapper um die inoffizielle Kickbase-v4-API.
  *
- * Bewusst framework-frei: kein React-Native-, kein DOM-Import. Läuft
- * unverändert im Browser, in React Native und (falls Kickbase seine
- * CORS-Policy je schließt) in einer Node-Umgebung.
+ * Der konfigurierte Tunnel transportiert TLS-Bytes; erst der Client liest HTTP.
  */
+import { prepareTunnel, requestText } from './tunnel';
 
 const BASE_URL = 'https://api.kickbase.com';
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -40,13 +39,16 @@ export async function kbFetch<T = unknown>(path: string, options: KbFetchOptions
   const { token, method = 'GET', body, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  // Falls der Aufrufer ein eigenes Signal mitgibt, brechen wir zusätzlich ab.
-  options.signal?.addEventListener('abort', () => controller.abort());
-
-  let response: Response;
+  const cancel = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) cancel();
+  else options.signal?.addEventListener('abort', cancel, { once: true });
+  let timedOut = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    await prepareTunnel(controller.signal);
+    controller.signal.throwIfAborted();
+    timeout = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+    const response = await requestText(`${BASE_URL}${path}`, {
       method,
       signal: controller.signal,
       headers: {
@@ -56,27 +58,25 @@ export async function kbFetch<T = unknown>(path: string, options: KbFetchOptions
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    const data = response.text.length > 0 ? safeJsonParse(response.text) : null;
+    if (!response.ok) {
+      const message =
+        (data && typeof data === 'object' && 'errMsg' in data && typeof data.errMsg === 'string'
+          ? data.errMsg : null) ?? `Kickbase antwortete mit Status ${response.status}.`;
+      throw new KickbaseError(message, response.status, data);
+    }
+    return data as T;
   } catch (cause) {
-    if (controller.signal.aborted) {
+    if (cause instanceof KickbaseError) throw cause;
+    if (timedOut) {
       throw new KickbaseError('Kickbase-Anfrage hat zu lange gedauert (Timeout).', 408, null);
     }
-    throw new KickbaseError('Kickbase ist gerade nicht erreichbar.', 0, cause);
+    if (options.signal?.aborted) throw options.signal.reason ?? new DOMException('Abgebrochen', 'AbortError');
+    throw new KickbaseError('Die sichere Verbindung zu Kickbase konnte nicht aufgebaut werden. Bitte erneut versuchen.', 0, cause);
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', cancel);
   }
-
-  const text = await response.text();
-  const data = text.length > 0 ? safeJsonParse(text) : null;
-
-  if (!response.ok) {
-    const message =
-      (data && typeof data === 'object' && 'errMsg' in data && typeof data.errMsg === 'string'
-        ? data.errMsg
-        : null) ?? `Kickbase antwortete mit Status ${response.status}.`;
-    throw new KickbaseError(message, response.status, data);
-  }
-
-  return data as T;
 }
 
 function safeJsonParse(text: string): unknown {

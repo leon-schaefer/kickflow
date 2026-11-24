@@ -74,6 +74,41 @@
   color: var(--color-text-muted);
 }
 
+.plannerButton {
+  composes: pressableH from '@/theme/layout.module.css';
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.plannerButton:is(:hover, :focus-visible) {
+  border-color: var(--color-accent);
+}
+
+.plannerIcon {
+  composes: h from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-title);
+}
+
+.plannerCopy {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1;
+  gap: var(--space-xs);
+  font-size: var(--font-size-body);
+}
+
 .editToggle {
   align-self: flex-start;
   padding-inline: var(--space-md);

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kickflow-tunnel
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: relay
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: ALLOWED_ORIGINS
+        value: https://www.kickflow.online,https://kickflow.online

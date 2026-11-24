@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Position } from '@/api/kickbase';
+import { computeBudgetLimit } from './budget';
 import type { OptimizerPlayer } from './lineupOptimizer';
+import { optimizeLineupWithRules } from './constrainedLineup';
+import { violatedRules } from '@/lineup/rules';
 import {
   describeReplacement,
+  describeRuleSwap,
   deriveReplacementAdvice,
   type ReplacementCandidatePlayer,
 } from './replacementAdvice';
@@ -37,6 +41,7 @@ function makeCandidate(
     isBotListing: true,
     offerCount: 0,
     expiresInSeconds: null,
+    ownOfferPrice: null,
     ...overrides,
   };
 }
@@ -71,14 +76,19 @@ function baseSquad(
 /**
  * Kader für die Regel-Tests: jeder Spieler bei einem EIGENEN Verein, damit die
  * Vereins-Obergrenze nur dort greift, wo der Test sie greifen lassen will —
- * bei MID0/MID1, die beide bei 'BAY' stehen und mit 100/99 Ø-Punkten die
- * Quote von 2 mit Spielern füllen, die stärker sind als jeder Kandidat.
+ * bei MID0/MID1, die beide bei 'BAY' stehen und die Quote von 2 füllen.
+ *
+ * Die Punkte der beiden sind der eigentliche Schalter: mit dem Default 100/99
+ * sind sie stärker als jeder Kandidat, ein dritter Bayer ist also wirklich
+ * chancenlos. Gibt ein Test einen schwächeren zweiten Wert mit, wird daraus
+ * der andere Fall — der Kandidat verdrängt ihn, und die Quote bleibt trotzdem
+ * eingehalten.
  */
-function squadWithFullTeamQuota(): OptimizerPlayer[] {
+function squadWithFullTeamQuota(points: [number, number] = [100, 99]): OptimizerPlayer[] {
   const players = baseSquad({
     MID: [
-      { averagePoints: 100, valueScoreAvg: 100 },
-      { averagePoints: 99, valueScoreAvg: 99 },
+      { averagePoints: points[0], valueScoreAvg: points[0] },
+      { averagePoints: points[1], valueScoreAvg: points[1] },
     ],
   });
   return players.map((player) =>
@@ -91,13 +101,21 @@ function squadWithFullTeamQuota(): OptimizerPlayer[] {
 function advise(
   players: OptimizerPlayer[],
   market: ReplacementCandidatePlayer[],
-  overrides: { metric?: 'points' | 'valuePerMillion'; available?: number | null } = {},
+  overrides: {
+    metric?: 'points' | 'valuePerMillion';
+    /** Spielraum ohne offene Gebote — wird hier zu einem Limit mit genau diesem `available`. */
+    available?: number | null;
+  } = {},
 ) {
   return deriveReplacementAdvice({
     players,
     market,
     metric: overrides.metric ?? 'points',
-    available: overrides.available ?? null,
+    budget:
+      overrides.available == null
+        ? null
+        : // Mannschaftswert 0 heißt kein Überziehungsrahmen: available === budget.
+          computeBudgetLimit({ budget: overrides.available, teamValue: 0 }),
   });
 }
 
@@ -130,13 +148,39 @@ describe('deriveReplacementAdvice — Ausfälle', () => {
     expect(result.gaps[0]!.breaksLineup).toBe(false);
   });
 
-  it('meldet einen Ausfall, der die Elf unbesetzbar macht', () => {
-    // Nur ein Torwart im Kader, und der ist verletzt.
+  it('zählt die Punkte konkurrierender Ersatztorhüter im Gesamtverlust nur einmal', () => {
+    const players = baseSquad({
+      GK: [
+        { status: 'injured', averagePoints: 100 },
+        { status: 'injured', averagePoints: 80 },
+        { averagePoints: 40 },
+      ],
+    }, { GK: 3 });
+    const advice = advise(players, []);
+    expect(advice.gaps.map((g) => g.loss)).toEqual([60, 40]);
+    expect(advice.totalLoss).toBe(60);
+  });
+
+  it('meldet einen Ausfall, ohne den die Elf nur noch aufgefüllt besetzbar ist', () => {
+    // Nur ein Torwart im Kader, und der ist verletzt: er steht als Auffüller
+    // mit 0 Punkten im Tor (siehe utils/lineupOptimizer.ts). Die Elf hat
+    // also einen Punktwert, ist aber nicht voll besetzt — und sein Ausfall
+    // kostet genau das, was er selbst gebracht hätte.
     const players = baseSquad({ GK: [{ status: 'injured' }] });
     const result = advise(players, []);
 
     expect(result.baselineFeasible).toBe(false);
+    expect(result.baselineScore).not.toBeNull();
     expect(result.gaps[0]!.breaksLineup).toBe(true);
+    expect(result.gaps[0]!.loss).toBe(players.find((p) => p.id === 'GK0')!.averagePoints);
+  });
+
+  it('meldet einen Ausfall NICHT als Loch, wenn ein zweiter Torwart einspringt', () => {
+    const players = baseSquad({ GK: [{ status: 'injured' }, {}] }, { GK: 2 });
+    const result = advise(players, []);
+
+    expect(result.baselineFeasible).toBe(true);
+    expect(result.gaps[0]!.breaksLineup).toBe(false);
   });
 });
 
@@ -205,6 +249,27 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     );
   });
 
+  it('wertet formAveragePoints statt des flachen Ø — heiße Form schlägt kalten Saisonschnitt', () => {
+    const players = baseSquad();
+    // FWD4 startet mit 6 Ø; 5 flach bringt nichts, 20 Form schon.
+    expect(
+      advise(players, [
+        makeCandidate({ id: 'kalt', position: 'FWD', averagePoints: 5, valueScoreAvg: 1 }),
+      ]).options,
+    ).toHaveLength(0);
+    const hot = advise(players, [
+      makeCandidate({
+        id: 'heiss',
+        position: 'FWD',
+        averagePoints: 5,
+        formAveragePoints: 20,
+        valueScoreAvg: 1,
+      }),
+    ]);
+    expect(hot.bestGainId).toBe('heiss');
+    expect(hot.options[0]!.gain).toBeGreaterThan(0);
+  });
+
   it('lässt Kandidaten weg, die die Elf nicht anheben', () => {
     // Der Kader spielt im Mittelfeld 10..6 Punkte; ein Spieler mit 1 Punkt
     // käme in keiner Formation in die Elf.
@@ -259,7 +324,7 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     expect(result.options[0]!.replacesPlayerIds.length).toBeGreaterThan(0);
   });
 
-  it('zeigt bei unbesetzbarer Elf den Kandidaten, der sie möglich macht', () => {
+  it('zeigt den Kandidaten, der den aufgefüllten Platz mit einem Einsatzfähigen besetzt', () => {
     const players = baseSquad({ GK: [{ status: 'injured' }] });
     const market = [makeCandidate({ id: 'G-neu', position: 'GK', averagePoints: 5 })];
     const result = advise(players, market);
@@ -267,8 +332,36 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     expect(result.baselineFeasible).toBe(false);
     expect(result.options[0]!.playerId).toBe('G-neu');
     expect(result.options[0]!.enablesLineup).toBe(true);
-    // Ohne Bezugself ist der „Zugewinn" der Punktwert der ganzen Elf.
-    expect(result.options[0]!.gain).toBeGreaterThan(0);
+    // Der Auffüller zählt 0 — der Zugewinn ist genau sein eigener Wert, und
+    // er verdrängt den Verletzten aus dem Tor.
+    expect(result.options[0]!.gain).toBe(5);
+    expect(result.options[0]!.replacesPlayerIds).toEqual(['GK0']);
+  });
+
+  it('empfiehlt keinen verletzten Kandidaten, nur weil er als Auffüller eine Elf ermöglichen würde', () => {
+    // Kein Torwart im Kader — ein verletzter Torwart vom Markt würde die Elf
+    // "besetzbar" machen, brächte aber am Spieltag nichts.
+    const players = baseSquad({}, { GK: 0 });
+    const market = [makeCandidate({ id: 'G-verletzt', position: 'GK', averagePoints: 50, status: 'injured' })];
+    const result = advise(players, market);
+
+    expect(result.baselineScore).toBeNull();
+    expect(result.options).toEqual([]);
+  });
+
+  it.each([
+    ['points', 35],
+    ['valuePerMillion', 35],
+    ['expectedPoints', 42],
+  ] as const)('wertet den ersten Torwart bei %s nur mit seinem eigenen Beitrag', (metric, points) => {
+    const players = baseSquad({}, { GK: 0 });
+    const keeper = makeCandidate({
+      id: 'Torwart', position: 'GK', averagePoints: 20, formAveragePoints: 35, expectedPoints: 42,
+    });
+    const advice = deriveReplacementAdvice({ players, market: [keeper], metric });
+    expect(advice.baselineScore).toBeNull();
+    expect(advice.options[0]).toMatchObject({ enablesLineup: true, gain: points });
+    expect(advice.options[0]!.gainPerMillion).toBeCloseTo(points / (advice.options[0]!.cost / 1_000_000));
   });
 
   it('respektiert die Vereins-Obergrenze — ein Spieler, der nicht spielen darf, bringt nichts', () => {
@@ -311,6 +404,72 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     // Ohne die Regel wären beide gleich gut — sie ist der ganze Unterschied.
     const open = deriveReplacementAdvice({ players, market, metric: 'points' });
     expect(open.options.map((option) => option.playerId).sort()).toEqual(['BAY-neu', 'BVB-neu']);
+  });
+
+  it('empfiehlt den dritten Vereinsspieler, wenn ein Kollege für ihn den Platz räumt', () => {
+    // Die Quote ist voll, der zweite Bayer aber schwächer als der Kandidat. Die
+    // Neuoptimierung stellt die ganze Elf neu auf, tauscht ihn also aus — die
+    // Regel bleibt eingehalten, ohne dass irgendwer sie lockern müsste.
+    const players = squadWithFullTeamQuota([100, 40]);
+    const candidate = makeCandidate({
+      id: 'BAY-neu',
+      position: 'MID',
+      averagePoints: 60,
+      teamId: 'BAY',
+    });
+    const constraints = { maxPerTeam: 2 };
+
+    const result = deriveReplacementAdvice({ players, market: [candidate], metric: 'points', constraints });
+
+    expect(result.options.map((option) => option.playerId)).toEqual(['BAY-neu']);
+    expect(result.options[0]!.replacesPlayerIds).toContain('MID1');
+    expect(result.blockedByRule).toHaveLength(0);
+
+    // Und die Elf, die dabei herauskommt, hält die Regel wirklich ein — das ist
+    // die Zusicherung, nicht nur der Zugewinn daneben.
+    const withHim = optimizeLineupWithRules([...players, candidate], 'points', undefined, constraints);
+    expect(withHim.best!.playerIds).toContain('BAY-neu');
+    expect(
+      violatedRules(
+        [{ kind: 'maxPerTeam', id: 'maxPerTeam', enabled: true, max: 2 }],
+        [...players, candidate],
+        withHim.best!.playerIds,
+      ),
+    ).toEqual([]);
+  });
+
+  it('räumt für ihn auch quer über die Positionen auf', () => {
+    // Zwei starke Bayern-Verteidiger füllen die Quote, das Mittelfeld ist
+    // schwach, der Kandidat ist ein herausragender Bayern-Mittelfeldspieler.
+    // Aufstellbar ist er nur, wenn einer der beiden Verteidiger weicht und ein
+    // fremder Verteidiger nachrückt — ein Umbau an zwei Stellen.
+    const players = baseSquad({
+      DEF: [
+        { averagePoints: 100, valueScoreAvg: 100 },
+        { averagePoints: 95, valueScoreAvg: 95 },
+        { averagePoints: 50, valueScoreAvg: 50 },
+        { averagePoints: 40, valueScoreAvg: 40 },
+        { averagePoints: 30, valueScoreAvg: 30 },
+      ],
+    }).map((player) =>
+      player.id === 'DEF0' || player.id === 'DEF1'
+        ? { ...player, teamId: 'BAY' }
+        : { ...player, teamId: `T-${player.id}` },
+    );
+    const market = [
+      makeCandidate({ id: 'BAY-neu', position: 'MID', averagePoints: 200, teamId: 'BAY' }),
+    ];
+
+    const result = deriveReplacementAdvice({
+      players,
+      market,
+      metric: 'points',
+      constraints: { maxPerTeam: 2 },
+    });
+
+    expect(result.options.map((option) => option.playerId)).toEqual(['BAY-neu']);
+    expect(result.options[0]!.gain).toBeGreaterThan(0);
+    expect(result.options[0]!.replacesPlayerIds).toContain('DEF1');
   });
 
   it('benennt den von der Regel geblockten Kandidaten samt entgangenem Zugewinn', () => {
@@ -373,6 +532,51 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     ]);
   });
 
+  it('rechnet dem Geblockten vor, was der Tausch mit dem Vereinskollegen kostet', () => {
+    const players = squadWithFullTeamQuota();
+    const market = [
+      makeCandidate({ id: 'BAY-neu', position: 'MID', averagePoints: 50, teamId: 'BAY' }),
+    ];
+
+    const result = deriveReplacementAdvice({
+      players,
+      market,
+      metric: 'points',
+      constraints: { maxPerTeam: 2 },
+    });
+
+    const entry = result.blockedByRule[0]!;
+    // Aufstellbar WÄRE er — nur weicht dafür der schwächere der beiden Bayern,
+    // und der ist immer noch besser als er.
+    expect(entry.swapOutPlayerIds).toContain('MID1');
+    expect(entry.swapGain).toBeLessThan(0);
+  });
+
+  /**
+   * Die strukturelle Aussage hinter `swapGain`: ein Tausch, der die Elf anhebt,
+   * wird von der Neuoptimierung ohnehin gemacht — der Kandidat stünde dann in
+   * `options`. Was in `blockedByRule` landet, kann also nie einen positiven
+   * Tausch haben. Wäre es anders, hielte die Liste eine Empfehlung zurück.
+   */
+  it('weist einem Geblockten nie einen Tausch aus, der die Elf anheben würde', () => {
+    const constraints = { maxPerTeam: 2 };
+    for (const candidatePoints of [1, 30, 50, 98, 99, 100, 150]) {
+      const players = squadWithFullTeamQuota();
+      const market = [
+        makeCandidate({
+          id: 'BAY-neu',
+          position: 'MID',
+          averagePoints: candidatePoints,
+          teamId: 'BAY',
+        }),
+      ];
+      const result = deriveReplacementAdvice({ players, market, metric: 'points', constraints });
+      for (const entry of result.blockedByRule) {
+        expect(entry.swapGain ?? 0).toBeLessThanOrEqual(0);
+      }
+    }
+  });
+
   it('meldet ohne aktive Regel nie eine Blockade', () => {
     const players = baseSquad();
     const market = [makeCandidate({ id: 'M-schwach', position: 'MID', averagePoints: 1 })];
@@ -400,6 +604,34 @@ describe('deriveReplacementAdvice — Kandidaten', () => {
     expect(result.options[0]!.cost).toBe(20_000_000);
   });
 
+  it('gibt für einen Spieler mit eigenem Gebot dessen Betrag im Rahmen wieder frei', () => {
+    const players = baseSquad();
+    const candidate = makeCandidate({
+      id: 'M-neu',
+      position: 'MID',
+      averagePoints: 50,
+      marketValue: 20_000_000,
+      price: 20_000_000,
+    });
+    // 21 Mio Konto, davon 20 Mio durch das eigene Gebot auf GENAU diesen
+    // Spieler gebunden. Ohne die Freigabe hieße es „kein Budget" — für ein
+    // Gebot, das längst angenommen ist.
+    const budget = computeBudgetLimit({ budget: 21_000_000, teamValue: 0, pendingOffers: 20_000_000 });
+    expect(budget.available).toBe(1_000_000);
+
+    const without = deriveReplacementAdvice({ players, market: [candidate], metric: 'points', budget });
+    expect(without.options[0]!.bid.verdict).toBe('kein-budget');
+
+    const withOwn = deriveReplacementAdvice({
+      players,
+      market: [{ ...candidate, offerCount: 1, ownOfferPrice: 20_000_000 }],
+      metric: 'points',
+      budget,
+    });
+    expect(withOwn.options[0]!.bid.verdict).not.toBe('kein-budget');
+    expect(withOwn.options[0]!.bid.bid).toBe(20_600_000);
+  });
+
   it('leitet die Wertobergrenze aus der Elf ab, nicht aus dem ganzen Kader', () => {
     // Elf-Median der Ø-Punkte/Mio liegt bei den Startelf-Spielern; die
     // schwachen Bankspieler dürfen ihn nicht drücken.
@@ -423,10 +655,10 @@ describe('describeReplacement', () => {
   };
   const names = (id: string) => ({ A: 'Anton', B: 'Berta' })[id];
 
-  it('nennt die unbesetzbare Elf zuerst — sie ist die dringendste Aussage', () => {
+  it('nennt den sonst unbesetzten Platz zuerst — er ist die dringendste Aussage', () => {
     expect(
       describeReplacement({ ...base, enablesLineup: true, coversGapPlayerIds: ['A'] }, names),
-    ).toContain('besetzbar');
+    ).toContain('kein einsatzfähiger Spieler');
   });
 
   it('nennt den Ausfall, den er direkt ersetzt', () => {
@@ -443,5 +675,49 @@ describe('describeReplacement', () => {
     const text = describeReplacement({ ...base, replacesPlayerIds: ['unbekannt'] }, names);
     expect(text).not.toContain('unbekannt');
     expect(text).toBe('Hebt die Elf an, ohne einen Ausfall zu ersetzen.');
+  });
+});
+
+describe('describeRuleSwap', () => {
+  function blocked(overrides: Partial<Parameters<typeof describeRuleSwap>[0]> = {}) {
+    return {
+      playerId: 'BAY-neu',
+      gainWithoutRule: 5,
+      blockedByRuleIds: ['maxPerTeam'],
+      swapGain: -12.5,
+      swapOutPlayerIds: ['MID1'],
+      ...overrides,
+    };
+  }
+
+  it('nennt den Vereinskollegen, der weichen müsste, und den Preis dafür', () => {
+    const text = describeRuleSwap(blocked(), (id) => (id === 'MID1' ? 'Max Meier' : undefined));
+    expect(text).toContain('Max Meier');
+    expect(text).toContain('12,5');
+  });
+
+  it('setzt das Verb in den Plural, wenn der Umbau mehrere Plätze berührt', () => {
+    const names: Record<string, string> = { MID1: 'Max Meier', DEF3: 'Tim Braun' };
+    const text = describeRuleSwap(
+      blocked({ swapOutPlayerIds: ['MID1', 'DEF3'] }),
+      (id) => names[id],
+    );
+    expect(text).toContain('Max Meier, Tim Braun weichen');
+    expect(text).not.toContain('weicht');
+  });
+
+  it('sagt bei einem Tausch ohne Wirkung nichts von Kosten', () => {
+    const text = describeRuleSwap(blocked({ swapGain: 0 }), () => 'Max Meier');
+    expect(text).toContain('ändert an den Punkten nichts');
+  });
+
+  it('schweigt, wenn es unter der Regel gar keine Elf mit ihm gibt', () => {
+    expect(describeRuleSwap(blocked({ swapGain: null }), () => 'Max Meier')).toBeNull();
+  });
+
+  it('fällt bei unbekannter ID auf die allgemeine Formulierung zurück', () => {
+    const text = describeRuleSwap(blocked(), () => undefined);
+    expect(text).toContain('ein Vereinskollege');
+    expect(text).not.toContain('MID1');
   });
 });

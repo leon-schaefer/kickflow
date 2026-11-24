@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { MarketPlayer, SquadPlayer } from '@/api/kickbase';
 import { UNCONSTRAINED_CONSTRAINTS, type LineupConstraints } from '@/lineup/rules';
+import type { BudgetLimit } from '@/utils/budget';
 import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
 import { withExpectedPoints } from '@/utils/fixtureDifficulty';
 import { AVAILABLE_FORMATIONS } from '@/utils/formations';
@@ -34,8 +35,15 @@ export function useReplacementAdvice(
   market: readonly MarketPlayer[],
   metric: OptimizerMetric,
   constraints: LineupConstraints = UNCONSTRAINED_CONSTRAINTS,
-  /** `BudgetLimit.available` (utils/budget.ts). `null` = noch unbekannt, dann deckelt kein Budget das Gebot. */
-  available: number | null = null,
+  /**
+   * Der 33%-Rahmen (utils/budget.ts). `null` = noch unbekannt, dann deckelt
+   * kein Budget das Gebot. Das ganze Limit statt nur `available`, weil der
+   * Spielraum je Kandidat ein anderer ist, sobald ich auf ihn schon geboten
+   * habe (siehe `availableForRebid`). Als Memo-Abhängigkeit unkritisch:
+   * useBudgetLimit memoisiert es, eine neue Referenz kommt nur mit neuen
+   * Liga- oder Marktdaten — und neue Marktdaten ändern hier ohnehin `market`.
+   */
+  budget: BudgetLimit | null = null,
   /** Restprogramm-Härte je Verein — dieselbe Map wie beim Optimizer, siehe LineupScreen.tsx. */
   fixtureDifficultyByTeam?: ReadonlyMap<string, AverageDifficulty>,
 ): ReplacementAdvice {
@@ -58,8 +66,8 @@ export function useReplacementAdvice(
         metric,
         formations: AVAILABLE_FORMATIONS,
         constraints,
-        available,
+        budget,
       }),
-    [squad, listings, metric, constraints, available],
+    [squad, listings, metric, constraints, budget],
   );
 }

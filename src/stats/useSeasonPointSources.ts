@@ -163,7 +163,7 @@ export function useSeasonPointSources(leagueId: string): SeasonPointSources {
   );
 
   const points = useMatchdayPoints(leagueId, fieldedIds);
-  const basics = usePlayerBasics(leagueId, unknownIds);
+  const basics = usePlayerBasics(leagueId, unknownIds, { averages: false });
 
   const meta = useMemo(() => {
     const map = new Map<string, StatsPlayerMeta>();

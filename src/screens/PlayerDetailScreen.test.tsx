@@ -119,11 +119,22 @@ describe('PlayerDetailScreen', () => {
     expect(screen.getByText('Assists')).toBeInTheDocument();
   });
 
+  it('stellt Spieltags- und Einsatzschnitt mit ihrer Datenbasis nebeneinander', () => {
+    playerQuery.data = playerDetail({
+      averagePoints: 60, averagePointsBasis: 'matchdays', appearanceAveragePoints: 150,
+      averageMatchCount: 5, appearanceCount: 2,
+    });
+    setup();
+    expect(screen.getByText('Ø/Spieltag').parentElement).toHaveTextContent('60');
+    expect(screen.getByText('Ø je Einsatz').parentElement).toHaveTextContent('150');
+    expect(screen.getByText(/5 bestätigte Mannschaftsspiele, 2 Einsätze/)).toBeInTheDocument();
+  });
+
   it('zeigt „—" bei Punkte/Min ohne Spielminuten', () => {
     // Kein Fake-„0,00": ohne Spielzeit gibt es kein Verhältnis.
     setup();
     expect(screen.getByText('Punkte/Min')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Punkte/Min').parentElement).toHaveTextContent('—');
   });
 
   it('hält „Besitzer unbekannt" zurück, solange eine Quelle noch lädt', () => {

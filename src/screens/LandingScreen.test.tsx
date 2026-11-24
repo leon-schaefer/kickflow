@@ -51,7 +51,7 @@ describe('LandingScreen', () => {
     expect(
       screen.getByRole('heading', { name: 'Was mit deinen Daten passiert' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/verlassen dieses Gerät ausschließlich/)).toBeInTheDocument();
+    expect(screen.getByText(/kann ihren Inhalt nicht entschlüsseln/)).toBeInTheDocument();
     // Auf den href geprüft und nicht nur auf die Existenz: die Erklärung ist
     // jetzt eine App-Route (src/legal/) statt eines externen Links, und für
     // DIESE Seite ist das mehr als Kosmetik — sie wirbt damit, dass nichts

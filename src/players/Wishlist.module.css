@@ -1,0 +1,22 @@
+.playerLink {
+  align-self: flex-start;
+  color: var(--color-accent);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-heading);
+  text-underline-offset: 0.15em;
+}
+
+.offer, .error {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+}
+
+.offer {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.offer[data-over-limit='true'], .error {
+  color: var(--color-negative);
+}

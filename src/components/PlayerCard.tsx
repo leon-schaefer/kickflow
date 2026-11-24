@@ -1,4 +1,5 @@
 import type { SquadPlayer } from '@/api/kickbase';
+import { pointAverageLabel } from '@/utils/pointAverages';
 import { formatPoints } from '@/utils/format';
 import { cx } from '@/utils/cx';
 import layout from '@/theme/layout.module.css';
@@ -60,7 +61,7 @@ export function PlayerCard({
       <span className={styles.name}>{player.name}</span>
       <span className={styles.statsRow}>
         <span className={styles.positionDot} data-position={player.position} />
-        <span className={styles.points}>{formatPoints(player.averagePoints)}</span>
+        <span className={styles.points} title={pointAverageLabel(player)}>{formatPoints(Math.round(player.averagePoints))}</span>
       </span>
     </button>
   );
