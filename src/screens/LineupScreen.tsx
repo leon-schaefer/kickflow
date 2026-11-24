@@ -7,6 +7,7 @@ import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MarketListingModal } from '@/components/MarketListingModal';
 import { OfferModal } from '@/components/OfferModal';
 import { OptimizerBar } from '@/components/OptimizerBar';
+import { TransferPlanner } from '@/components/TransferPlanner';
 import { Pitch } from '@/components/Pitch';
 import { PlayerCard } from '@/components/PlayerCard';
 import { QueryState } from '@/components/QueryState';
@@ -120,6 +121,7 @@ export function LineupScreen() {
   // „Auf den Markt stellen" für die Pflichtverkäufe — der Dialog hängt an der
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
+  const [planning, setPlanning] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   // Ob die Kaufen/Verkaufen-Sektion aufgeklappt ist. Hängt hier und nicht nur
   // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
@@ -506,6 +508,16 @@ export function LineupScreen() {
                   ›
                 </span>
               </Link>
+
+              {league && marketQuery.data && (
+                <button type="button" className={styles.navRow} onClick={() => setPlanning(true)}>
+                  Transferpaket durchspielen
+                </button>
+              )}
+              {planning && league && (
+                <TransferPlanner squad={comparisonSquad} market={comparisonMarket} balance={league.budget}
+                  difficulty={fixtureDifficultyByTeam} constraints={optimizer.constraints} onClose={() => setPlanning(false)} />
+              )}
 
               {hasOpenMatchday && (
                 <button

@@ -1,0 +1,5 @@
+.panel {
+  composes: v from '@/theme/layout.module.css';
+  overflow-y: auto;
+  color: var(--color-text-primary);
+}
