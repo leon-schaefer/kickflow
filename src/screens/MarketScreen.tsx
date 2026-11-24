@@ -1,3 +1,4 @@
+import { MarketWishlist } from '@/players/Wishlist';
 import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -171,6 +172,7 @@ export function MarketScreen() {
         <Refreshable {...refresh}>
           {(p) => (
             <div {...p} className={styles.scroll}>
+              <MarketWishlist market={rawPlayers} updatedAt={market.dataUpdatedAt} />
               {sorted.length === 0 ? (
                 <div className={styles.center}>
                   {/* Eigener Text bei aktivem Filter — „Keine Spieler gefunden"

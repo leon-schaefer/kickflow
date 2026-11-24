@@ -1,3 +1,4 @@
+import { WishEditor } from '@/players/Wishlist';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import type { PlayerTransfer } from '@/api/kickbase';
@@ -221,6 +222,8 @@ export function PlayerDetailScreen() {
                   )}
                 </div>
               </div>
+
+              <WishEditor key={player.id} player={player} />
 
               <dl className={styles.statsGrid}>
                 <Stat label="Marktwert" value={formatCurrency(player.marketValue)} />
