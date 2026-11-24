@@ -8,7 +8,7 @@ const ranking = vi.hoisted(() => ({ day: 7, entries: [
 ] }));
 vi.mock('@/queries/hooks', () => ({
   useLeagueRanking: () => ({ data: ranking }),
-  useManagerLineup: () => ({ players: new Map([['a', playerDetail({ teamId: 'home' })]]) }),
+  usePlayerBasics: () => ({ players: new Map([['a', playerDetail({ teamId: 'home' })]]) }),
 }));
 
 it('zählt nur sichtbare Spieler mit künftigem Anstoß am angefragten Spieltag', () => {

@@ -10,7 +10,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KickbaseError } from './client';
-import { listPlayerOnMarket, placeOffer } from './endpoints';
+import { getLeagueRanking, getLeagueRankingAtMatchday, listPlayerOnMarket, placeOffer } from './endpoints';
 
 interface Call {
   url: string;
@@ -106,5 +106,29 @@ describe('placeOffer', () => {
     expect(calls[0].url).toBe('https://api.kickbase.com/v4/leagues/league-1/market/4242/offers');
     expect(calls[0].method).toBe('POST');
     expect(calls[0].body).toEqual({ price: 500_000 });
+  });
+});
+
+/**
+ * Der `dayNumber`-Parameter ist der ganze Unterschied zwischen „Stand der
+ * Saison" und „Elf GENAU dieses Spieltags" (siehe getLeagueRanking) — und die
+ * Punkte-Statistik hängt daran: ohne ihn rechnet sie jeden Spieltag gegen
+ * dieselbe, zuletzt abgerechnete Elf.
+ */
+describe('getLeagueRanking / getLeagueRankingAtMatchday', () => {
+  it('fragt die Saisonwertung ohne dayNumber ab', async () => {
+    const calls = stubFetch();
+
+    await getLeagueRanking('token', 'league-1');
+
+    expect(calls[0].url).toBe('https://api.kickbase.com/v4/leagues/league-1/ranking');
+  });
+
+  it('hängt den Spieltag als dayNumber an', async () => {
+    const calls = stubFetch();
+
+    await getLeagueRankingAtMatchday('token', 'league-1', 7);
+
+    expect(calls[0].url).toBe('https://api.kickbase.com/v4/leagues/league-1/ranking?dayNumber=7');
   });
 });

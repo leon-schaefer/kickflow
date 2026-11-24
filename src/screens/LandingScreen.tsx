@@ -101,6 +101,13 @@ export function LandingScreen() {
               </p>
             </li>
             <li className={styles.feature}>
+              <h3 className={styles.featureTitle}>Wer bringt dir die Punkte?</h3>
+              <p className={styles.featureBody}>
+                Die Statistik rechnet Spieltag für Spieltag nach, welcher Spieler in DEINER Elf
+                wie viel geholt hat — samt Verein, Schnitt und der Bilanz deiner Transfers.
+              </p>
+            </li>
+            <li className={styles.feature}>
               <h3 className={styles.featureTitle}>Restprogramm, Markt und Kader</h3>
               <p className={styles.featureBody}>
                 Wie schwer die nächsten Gegner sind, fließt in die Empfehlung ein. Dazu Markt,

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { LeagueRankingEntry, PlayerDetail, ScheduledMatchday } from '@/api/kickbase';
-import { useLeagueRanking, useManagerLineup } from '@/queries/hooks';
+import { useLeagueRanking, usePlayerBasics } from '@/queries/hooks';
 import disclosure from '@/components/Disclosure.module.css';
 import styles from './DuelFixtures.module.css';
 
@@ -19,7 +19,7 @@ export function DuelFixtures({ leagueId, day, ownId, opponentId, now }: Props) {
   const opponent = entries.find((p) => p.userId === opponentId);
   const ids = useMemo(() => [...(own?.lineupPlayerIds ?? []), ...(opponent?.lineupPlayerIds ?? [])],
     [own, opponent]);
-  const { players } = useManagerLineup(leagueId, ids, { averages: false });
+  const { players } = usePlayerBasics(leagueId, ids, { averages: false });
   if (!own || !opponent || (own.h2hOpponentUserId && own.h2hOpponentUserId !== opponentId)) {
     return <p className={disclosure.note}>Die Duell-Aufstellungen für Spieltag {day.day} sind noch nicht verfügbar.</p>;
   }
