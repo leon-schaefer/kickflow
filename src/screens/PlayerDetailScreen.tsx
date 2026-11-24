@@ -8,6 +8,7 @@ import { MarketValueSparkline } from '@/components/MarketValueSparkline';
 import { MatchdayRow } from '@/components/MatchdayRow';
 import { QueryState } from '@/components/QueryState';
 import { Refreshable } from '@/components/Refreshable';
+import { PlayerComparison } from '@/components/PlayerComparison';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
@@ -263,6 +264,9 @@ export function PlayerDetailScreen() {
                   />
                 </div>
               )}
+
+              <PlayerComparison key={player.id} first={player} squad={lineupQuery.data?.players ?? []}
+                market={marketQuery.data?.players ?? []} schedule={matchdaysQuery.data} teamNames={teamNames} />
 
               {nextOpponentRatings.length > 0 && (
                 <section className={styles.section}>

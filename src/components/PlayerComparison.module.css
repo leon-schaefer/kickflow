@@ -1,0 +1,51 @@
+.panel {
+  composes: v from '@/theme/layout.module.css';
+  color: var(--color-text-primary);
+}
+dialog .panel {
+  max-width: var(--layout-max-content-width);
+  max-height: min(84dvh, calc(100dvh - 2 * var(--space-xl)));
+}
+
+.body {
+  composes: v from '@/theme/layout.module.css';
+  flex-shrink: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--space-md);
+  padding: var(--space-xs);
+}
+
+.notice, .table caption {
+  margin: 0;
+  text-align: start;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+}
+
+.table caption {
+  padding-bottom: var(--space-sm);
+}
+
+.table th {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-heading);
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  border-collapse: collapse;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+}
+.table :is(th, td) {
+  text-align: start;
+  vertical-align: top;
+  padding: var(--space-sm) var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
