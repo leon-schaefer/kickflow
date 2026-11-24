@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { DuelFixtures } from '@/components/DuelFixtures';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { LeagueRankingEntry } from '@/api/kickbase';
 import { useAuth } from '@/auth/AuthProvider';
@@ -43,10 +44,16 @@ export function LeagueScreen() {
   // Anders als im Restprogramm und im Aufstellungs-Tab zählt hier der
   // LAUFENDE Spieltag zuerst, nicht der nächste offene — das Duell
   // interessiert während des Spieltags, nicht erst danach.
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const matchdayState = useMemo(() => {
     if (!matchdaysQuery.data) return null;
-    return resolveMatchdayState(matchdaysQuery.data, Date.now());
-  }, [matchdaysQuery.data]);
+    return resolveMatchdayState(matchdaysQuery.data, now);
+  }, [matchdaysQuery.data, now]);
+  const running = matchdaysQuery.data?.matchdays.find((d) => d.day === matchdayState?.running?.day);
   const matchday =
     matchdayState?.running?.day ??
     matchdayState?.open?.day ??
@@ -119,6 +126,10 @@ export function LeagueScreen() {
                     matchday={matchday}
                     onClick={() => openManager(opponent)}
                   />
+                )}
+                {own && opponent && running && (
+                  <DuelFixtures leagueId={leagueId} day={running} ownId={own.userId}
+                    opponentId={opponent.userId} now={now} />
                 )}
                 {loaded && (
                   <MaxPerTeamRuleCard
