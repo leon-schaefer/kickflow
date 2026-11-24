@@ -28,6 +28,7 @@ import type {
 } from '@/api/kickbase';
 import { useCompetitionId } from '@/leagues/useCompetitionId';
 import { pointAverages, withPointAverages, type PointAverages } from '@/utils/pointAverages';
+import { pointsPerMillion } from '@/utils/valueScore';
 import { useAuth } from '@/auth/AuthProvider';
 import { mockLineupData } from '@/mock/mockLineup';
 import { resolveOwnPurchase } from '@/utils/playerPurchase';
@@ -85,14 +86,29 @@ export function useMarket(leagueId: string, options: { enabled?: boolean } = {})
   });
   const ids = useMemo(() => query.data?.players.map((p) => p.id) ?? [], [query.data]);
   const averages = usePointAverages(leagueId, ids, options.enabled ?? true);
-  const data = useMemo(() => query.data && ({
+  // Fehlt ap im Listing, kann dieselbe Kickbase-Kennzahl in der bereits
+  // geladenen Saisonhistorie stehen. Ein explizites ap=0 bleibt erhalten.
+  const rawData = useMemo(() => query.data && ({
     ...query.data,
-    players: applyAveragePool(query.data.players, averages),
-  }), [query.data, averages.values, averages.basis]);
+    players: query.data.players.map((player) => {
+      const averagePoints = averages.values.get(player.id)?.kickbaseAverage;
+      if (player.averagePointsKnown !== false || averagePoints === undefined) return player;
+      return {
+        ...player,
+        averagePoints,
+        averagePointsKnown: true,
+        valueScoreAvg: pointsPerMillion(averagePoints, player.marketValue),
+      };
+    }),
+  }), [query.data, averages.values]);
+  const data = useMemo(() => rawData && ({
+    ...rawData,
+    players: applyAveragePool(rawData.players, averages),
+  }), [rawData, averages.values, averages.basis]);
   const refetch = useCallback(async () => {
     await Promise.all([query.refetch(), averages.refetch()]);
   }, [query.refetch, averages.refetch]);
-  return { ...query, data, rawData: query.data, pointAverageState: averages, refetch };
+  return { ...query, data, rawData, pointAverageState: averages, refetch };
 }
 
 /**

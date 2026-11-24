@@ -81,6 +81,29 @@ describe('BuyAdviceSection', () => {
     expect(screen.getByText(/Kein Zukauf verbessert die Elf/)).toBeInTheDocument();
   });
 
+  it('unterscheidet den Spieltags-Ø vom formgewichteten Zugewinn für die Elf', async () => {
+    const players = squad().map((p) => ({ ...p, averagePointsBasis: 'matchdays' as const, formAveragePoints: 50 }));
+    setup(players, [marketPlayer({
+      averagePointsBasis: 'matchdays', averagePoints: 80, formAveragePoints: 95,
+    })]);
+    expect(toggle()).toHaveTextContent('+45,0 Punkte für die Elf');
+    await userEvent.click(toggle());
+    expect(screen.getByText('Ø/Spieltag: 80,0')).toBeInTheDocument();
+    expect(screen.getByText('+45,0 Punkte für die Elf')).toBeInTheDocument();
+  });
+
+  it('bewertet einen fehlenden Kickbase-Ø anders als einen gemeldeten Nullwert', async () => {
+    const players = squad().filter((p) => p.position !== 'GK');
+    setup(players, [
+      marketPlayer({ position: 'GK', averagePoints: 0, averagePointsKnown: false }),
+      marketPlayer({ id: 'torwart', name: 'Tom', position: 'GK', averagePoints: 0 }),
+    ]);
+    expect(toggle()).toHaveTextContent('Bester Ersatz: Tom · 0,0 Punkte auf dem freien Platz');
+    await userEvent.click(toggle());
+    expect(screen.getByText('Kickbase-Ø: 0,0')).toBeInTheDocument();
+    expect(screen.getByText(/1 noch nicht bewertet/)).toBeInTheDocument();
+  });
+
   it('unterscheidet einen leeren Markt von einem ohne Kandidaten', () => {
     setup(squad(), []);
     expect(screen.getByText(/Kein einsatzfähiger Spieler am Transfermarkt/)).toBeInTheDocument();
@@ -186,13 +209,13 @@ describe('BuyAdviceSection', () => {
     await userEvent.click(toggle());
     expect(screen.getByText(/Max. 2 Spieler pro Verein — deshalb nicht empfohlen/)).toBeInTheDocument();
     expect(screen.getByText('Harry Kane')).toBeInTheDocument();
-    expect(screen.getByText(/Ø-Punkte ohne die Regel/)).toBeInTheDocument();
+    expect(screen.getByText(/Punkte ohne die Regel/)).toBeInTheDocument();
 
     // Die naheliegende Rückfrage — „und wenn ein Vereinskollege weicht?" —
     // beantwortet die Zeile gleich mit, samt Preis. Ohne sie liest sich die
     // Regel wie ein Verbot, obwohl sie nur eine Rechnung ist.
     expect(screen.getByText(/Aufstellbar wäre er, wenn MID 1 weicht/)).toBeInTheDocument();
-    expect(screen.getByText(/das kostet .* Ø-Punkte/)).toBeInTheDocument();
+    expect(screen.getByText(/das kostet .* Punkte/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Regeln ansehen/ }));
     expect(onOpenRules).toHaveBeenCalled();

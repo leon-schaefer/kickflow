@@ -2,7 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { toMatchdaySchedule, toSeasonPerformances } from '@/api/kickbase/mappers';
+import { toMarketPlayer, toMatchdaySchedule, toSeasonPerformances } from '@/api/kickbase/mappers';
 import { lineupData } from '@/test/lineupData';
 import { squadPlayer } from '@/test/squadPlayer';
 import { marketPlayer } from '@/test/marketPlayer';
@@ -80,6 +80,25 @@ describe('gemeinsame Schnitt-Historien', () => {
     await waitFor(() => expect(hook.result.current.pointAverageState.pending).toBe(0));
     expect(hook.result.current.data?.players.map((p) => p.averagePointsBasis)).toEqual(['kickbase', 'kickbase']);
     expect(hook.result.current.data?.players.map((p) => p.averagePoints)).toEqual([150, 150]);
+    client.clear();
+  });
+
+  it('ergänzt nur fehlende Markt-Schnitte aus dem Kickbase-Saisonwert der Historie', async () => {
+    api.getMarket.mockResolvedValue({ players: [
+      toMarketPlayer({ i: '1', mv: 10_000_000 }),
+      toMarketPlayer({ i: '2', mv: 10_000_000, ap: 0 }),
+      toMarketPlayer({ i: '3', mv: 10_000_000 }),
+    ] });
+    const history = toSeasonPerformances({ it: [{ ph: rows.map((r) => ({ ...r, ap: 150 })) }] });
+    api.getPlayerPerformance.mockImplementation((_token, _league, id) => Promise.resolve(id === '3' ? [] : history));
+    const { client, wrapper } = setup();
+    const hook = renderHook(() => useMarket('42'), { wrapper });
+    await waitFor(() => expect(hook.result.current.data?.players[0]?.averagePoints).toBe(150));
+    const result = hook.result.current;
+    expect(result.pointAverageState.basis).toBe('kickbase');
+    expect(result.rawData?.players[0]).toMatchObject({ valueScoreAvg: 15, averagePointsKnown: true });
+    expect(result.rawData?.players[1]).toMatchObject({ averagePoints: 0, averagePointsKnown: true });
+    expect(result.rawData?.players[2]?.averagePointsKnown).toBe(false);
     client.clear();
   });
 

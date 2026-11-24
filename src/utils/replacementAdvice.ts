@@ -85,6 +85,7 @@ import { median } from './median';
  * — `MarketPlayer` (src/api/kickbase/types.ts) erfüllt sie strukturell.
  */
 export interface ReplacementCandidatePlayer extends OptimizerPlayer {
+  averagePointsKnown?: boolean;
   /** Angebotspreis des Verkäufers, nicht der Marktwert. */
   price: number;
   isBotListing: boolean;
@@ -119,9 +120,7 @@ export interface ReplacementOption {
   /**
    * Zugewinn der Optimalelf in Ø-Punkten. Ist ohne ihn gar keine Elf
    * besetzbar (`ReplacementAdvice.baselineScore === null`, auch nicht mit
-   * Ausfällen als Auffüller), ist es stattdessen der Punktwert der Elf, die
-   * er erst möglich macht — vergleichbar innerhalb der Liste, aber keine
-   * Differenz.
+   * Ausfällen als Auffüller), zählt sein eigener Beitrag auf dem freien Platz.
    */
   gain: number;
   /** Zugewinn je Mio des Preises, den der Zukauf kostet — die Effizienz des Transfers. */
@@ -177,9 +176,9 @@ export interface RuleBlockedCandidate {
 
 export interface ReplacementAdvice {
   gaps: SquadGap[];
-  /** Summe der Verluste aller Ausfälle — die Punkte, um die es beim Nachkaufen geht. */
+  /** Gemeinsamer Verlust gegenüber der Elf mit allen Spielern einsatzfähig. */
   totalLoss: number;
-  /** Kandidaten mit echtem Zugewinn, sortiert nach der aktiven Metrik (siehe Modul-Doku). */
+  /** Kandidaten, die die Elf verbessern oder erstmals vervollständigen. */
   options: ReplacementOption[];
   /**
    * Kandidaten, die nur eine aktive Liga-Regel aus der Elf hält, absteigend
@@ -202,8 +201,15 @@ export interface ReplacementAdvice {
   baselineFeasible: boolean;
   /** Ø-Punkte/Mio, die der eigene Kader im Median liefert — Basis jeder Wertobergrenze. */
   referenceValueScore: number;
-  /** Wie viele Listings überhaupt geprüft wurden (nach Abzug eigener und ausgefallener). */
+  /** Einsatzfähige, bewertbare Kandidaten außerhalb des eigenen Kaders. */
   consideredCount: number;
+  missingAverageCount: number;
+}
+
+/** Bei einer erstmals besetzbaren Elf fehlt der Vergleichswert für eine Differenz. */
+export function formatReplacementPoints(points: number, openSlot: boolean): string {
+  const value = formatValueScore(points);
+  return openSlot ? `${value} Punkte auf dem freien Platz` : `+${value} Punkte für die Elf`;
 }
 
 /**
@@ -262,8 +268,8 @@ export function describeRuleSwap(
   // Ein Umbau quer über die Positionen kann mehrere Plätze berühren.
   const verb = leaving.length > 1 ? 'weichen' : 'weicht';
   return entry.swapGain < 0
-    ? `Aufstellbar wäre er, wenn ${who} ${verb} — das kostet ${formatValueScore(-entry.swapGain)} Ø-Punkte.`
-    : `Aufstellbar wäre er, wenn ${who} ${verb} — das ändert an den Ø-Punkten nichts.`;
+    ? `Aufstellbar wäre er, wenn ${who} ${verb} — das kostet ${formatValueScore(-entry.swapGain)} Punkte.`
+    : `Aufstellbar wäre er, wenn ${who} ${verb} — das ändert an den Punkten nichts.`;
 }
 
 export interface ReplacementAdviceInput {
@@ -418,6 +424,15 @@ export function deriveReplacementAdvice({
       };
     });
 
+  // Zwei Ausfälle können um denselben Startplatz konkurrieren. Bei mehreren
+  // Ausfällen ergibt erst die gemeinsame Rückkehr den Verlust für die Elf.
+  let totalLoss = gaps[0]?.loss ?? 0;
+  if (gaps.length > 1 && baselineScore !== null) {
+    const fitPlayers = players.map((player) => ({ ...player, status: 'fit' as const }));
+    const fitLineup = optimizeLineupWithRules(fitPlayers, scoreMetric, formations, constraints);
+    totalLoss = Math.max(0, (fitLineup.best?.score ?? baselineScore) - baselineScore);
+  }
+
   // Nur Ausfälle, die WEHTUN, machen einen Kandidaten zum „direkten Ersatz".
   // Ein verletzter Bankspieler teilt zwar die Position, aber ihn zu ersetzen
   // ist keine Aufgabe — die Elf hat ihn nie gebraucht. Alle Ausfälle bleiben
@@ -455,7 +470,12 @@ export function deriveReplacementAdvice({
 
   const options: ReplacementOption[] = [];
   const blockedByRule: RuleBlockedCandidate[] = [];
+  let missingAverageCount = 0;
   for (const candidate of candidates) {
+    if (candidate.averagePointsKnown === false) {
+      missingAverageCount++;
+      continue;
+    }
     const withCandidate = optimizeLineupWithRules(
       [...players, candidate],
       scoreMetric,
@@ -464,10 +484,12 @@ export function deriveReplacementAdvice({
     );
     const withScore = withCandidate.best?.score ?? null;
     if (withScore === null) continue;
-    const gain = baselineScore === null ? withScore : withScore - baselineScore;
+    // Fehlt die Vergleichself, sind nur die Punkte des neuen Spielers
+    // zurechenbar. Die anderen zehn waren schon im Kader.
+    const gain = baselineScore === null ? metricValue(candidate, scoreMetric) : withScore - baselineScore;
     // Nur echte Verbesserungen. Ein Kandidat, der die Elf nicht anhebt, ist
     // keine Kaufempfehlung — er wäre nur eine teurere Bank.
-    if (gain <= 0) {
+    if (baselineScore !== null && gain <= 0) {
       if (!rulesActive) continue;
       // Läge er ohne die Regel vorn, ist nicht er das Problem, sondern sie.
       const withoutRule = optimizeLineupWithRules(
@@ -477,8 +499,8 @@ export function deriveReplacementAdvice({
         UNCONSTRAINED_CONSTRAINTS,
       );
       const openScore = withoutRule.best?.score ?? null;
-      if (openScore === null) continue;
-      const openGain = openBaselineScore === null ? openScore : openScore - openBaselineScore;
+      if (openScore === null || openBaselineScore === null) continue;
+      const openGain = openScore - openBaselineScore;
       if (openGain > 0) {
         // Was der regelkonforme Umbau kostet — die Frage, die ein „von der
         // Regel geblockt" unbeantwortet lässt.
@@ -488,8 +510,7 @@ export function deriveReplacementAdvice({
           playerId: candidate.id,
           gainWithoutRule: openGain,
           blockedByRuleIds: ruleIds,
-          swapGain:
-            swap === null ? null : baselineScore === null ? swap.score : swap.score - baselineScore,
+          swapGain: swap === null ? null : swap.score - baselineScore,
           swapOutPlayerIds: swapIds ? baselineIds.filter((id) => !swapIds.has(id)) : [],
         });
       }
@@ -532,7 +553,7 @@ export function deriveReplacementAdvice({
 
   return {
     gaps,
-    totalLoss: gaps.reduce((sum, gap) => sum + gap.loss, 0),
+    totalLoss,
     options: options.sort(metric === 'valuePerMillion' ? compareByEfficiency : compareByGain),
     blockedByRule: blockedByRule.sort(
       (a, b) => b.gainWithoutRule - a.gainWithoutRule || a.playerId.localeCompare(b.playerId),
@@ -542,6 +563,7 @@ export function deriveReplacementAdvice({
     baselineScore,
     baselineFeasible,
     referenceValueScore,
-    consideredCount: candidates.length,
+    consideredCount: candidates.length - missingAverageCount,
+    missingAverageCount,
   };
 }
