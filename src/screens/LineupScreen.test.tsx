@@ -58,6 +58,7 @@ const removeOffer = vi.hoisted(() => ({
   isPending: false,
 }));
 
+vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ userId: 'me' }) }));
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
   useMatchdays: () => matchdays,
