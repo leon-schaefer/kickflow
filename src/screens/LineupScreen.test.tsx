@@ -58,6 +58,7 @@ const removeOffer = vi.hoisted(() => ({
   isPending: false,
 }));
 
+vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => ({ userId: 'me' }) }));
 vi.mock('@/queries/hooks', () => ({
   useLineup: () => lineup,
   useMatchdays: () => matchdays,
@@ -543,3 +544,18 @@ const POSITION_ORDER = ['GK', 'DEF', 'MID', 'FWD'];
 function byPositionOrder(a: string, b: string) {
   return POSITION_ORDER.indexOf(a) - POSITION_ORDER.indexOf(b);
 }
+
+it('sichert für den Rückblick die bestätigte Aufstellung getrennt vom laufenden Entwurf', async () => {
+  const { reviewKey } = await import('@/storage/keys');
+  const { readArchive } = await import('@/lineup/matchdayReview');
+  Object.assign(rulesValue, { loaded: true });
+  lineup.data = mockLineupData;
+  matchdays.data = openSchedule();
+  setup();
+  await userEvent.click(screen.getByText('Spieltagsrückblick'));
+  await userEvent.click(screen.getByRole('button', { name: 'Kader für Spieltag 3 sichern' }));
+  const [saved] = readArchive(localStorage.getItem(reviewKey('42', 'me')));
+  expect(saved.players).toHaveLength(mockLineupData.players.length);
+  expect(saved.submitted).toEqual(mockLineupData.players.filter((p) => p.inLineup).map((p) => p.id));
+  expect(saveLineup.mutateAsync).not.toHaveBeenCalled();
+});

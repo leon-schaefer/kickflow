@@ -61,13 +61,10 @@ describe('Speicher-Inventar', () => {
     }
   });
 
-  it('markiert die Anmeldung als personenbezogen und sonst nichts', () => {
-    // Genau ein Eintrag trägt personenbezogene Daten (Token, Nutzer-ID,
-    // Anzeigename). Wenn ein zweiter dazukommt, ist das eine
-    // datenschutzrechtlich relevante Änderung und soll hier auffallen, nicht
-    // beim Lesen der Seite.
-    const personal = STORAGE_INVENTORY.filter((e) => e.personal).map((e) => e.key);
-    expect(personal).toEqual([keys.SESSION_KEY]);
+  it('kennzeichnet Anmeldung und kontobezogene Einträge als personenbezogen', () => {
+    for (const entry of STORAGE_INVENTORY) {
+      expect(entry.personal).toBe(entry.key === keys.SESSION_KEY || entry.key.includes('<Konto-ID>'));
+    }
   });
 
   it('nennt das echte Präfix, über das gelöscht wird', () => {

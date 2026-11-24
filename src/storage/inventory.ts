@@ -1,4 +1,5 @@
 import {
+  reviewKey,
   APP_KEY_PREFIX,
   INSTALL_HINT_KEY,
   LAST_LEAGUE_KEY,
@@ -84,6 +85,13 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
       'Welche Spieler du vom Verkaufsvorschlag ausgenommen hast, je Liga getrennt.',
     lifetime: 'Bis du die lokalen Daten löschst.',
     personal: false,
+  },
+  {
+    key: reviewKey('<Liga-ID>'),
+    label: 'Spieltagsrückblick',
+    purpose: 'Kader, Formation, Aufstellung, Regeln und Zeitpunkt der Sicherung bleiben pro Liga und Konto für deinen Spieltagsrückblick auf diesem Gerät.',
+    lifetime: 'Die letzten 34 gesicherten Spieltage bleiben bis zum Löschen der lokalen Daten erhalten.',
+    personal: true,
   },
   {
     key: INSTALL_HINT_KEY,

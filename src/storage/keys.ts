@@ -55,3 +55,7 @@ export function excludedFromSaleKey(leagueId: string): string {
  * Absichtlich EIN Flag ohne Zähler: der Hinweis erscheint genau einmal.
  */
 export const INSTALL_HINT_KEY = 'kickflow.installHint.v1';
+
+export function reviewKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.matchdayReview.v1.${leagueId}.${account}`;
+}
