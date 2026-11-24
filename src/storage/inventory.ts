@@ -3,9 +3,9 @@ import {
   INSTALL_HINT_KEY,
   LAST_LEAGUE_KEY,
   SESSION_KEY,
-  variantsKey,
   excludedFromSaleKey,
   leagueRulesKey,
+  variantsKey,
 } from './keys';
 
 /**
