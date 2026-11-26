@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
+import { getLastLeagueId } from '@/leagues/lastLeague';
+import { useLeagues } from '@/queries/hooks';
+import { openRouterKey } from '@/storage/keys';
 import { PRIVACY_PATH, PRIVACY_TITLE } from '@/legal/legalRoutes';
 import { AppHeader } from '@/shell/AppHeader';
 import { useBackTarget, withOrigin } from '@/shell/useBackTarget';
@@ -77,12 +80,13 @@ export function SettingsScreen() {
             Abmelden
           </button>
 
+          <OpenRouterSettings preferredLeague={back.to.split('/')[1]} />
+
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>Lokale Daten</h2>
             <p className={styles.cardBody}>
-              kickflow speichert deine Anmeldung, die zuletzt genutzte Liga, deine
-              Aufstellungs-Regeln und deine Verkaufs-Ausschlüsse auf diesem Gerät. Nichts davon
-              wird übertragen oder ausgewertet.
+              kickflow speichert deine Anmeldung, Einstellungen und Transferchats in diesem Browser.
+              Die Datenschutzerklärung beschreibt, welche Daten bei der Nutzung übertragen werden.
             </p>
             <Link
               to={PRIVACY_PATH}
@@ -128,5 +132,75 @@ export function SettingsScreen() {
         </div>
       </div>
     </>
+  );
+}
+
+function OpenRouterSettings({ preferredLeague }: { preferredLeague: string }) {
+  const leagues = useLeagues();
+  const [selectedLeague, setSelectedLeague] = useState('');
+  const options = leagues.data ?? [];
+  const lastLeague = getLastLeagueId();
+  const activeLeague = options.find((league) => league.id === selectedLeague)
+    ?? options.find((league) => league.id === preferredLeague)
+    ?? options.find((league) => league.id === lastLeague)
+    ?? options[0];
+
+  return (
+    <section className={styles.card}>
+      <h2 className={styles.cardTitle}>KI-Transferassistent</h2>
+      {activeLeague ? (
+        <>
+          <label className={styles.settingField}>
+            Liga
+            <select className={styles.settingInput} value={activeLeague.id}
+              onChange={(event) => setSelectedLeague(event.target.value)}>
+              {options.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}
+            </select>
+          </label>
+          <OpenRouterKeyForm key={activeLeague.id} leagueId={activeLeague.id} />
+        </>
+      ) : (
+        <p className={styles.cardBody}>
+          {leagues.isPending ? 'Ligen werden geladen …'
+            : leagues.isError ? 'Die Ligen konnten nicht geladen werden.'
+              : 'Sobald du einer Liga beitrittst, kannst du hier einen Schlüssel hinterlegen.'}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function OpenRouterKeyForm({ leagueId }: { leagueId: string }) {
+  const storageKey = openRouterKey(leagueId);
+  const [value, setValue] = useState(() => localStore.getItemSync(storageKey) ?? '');
+  const [feedback, setFeedback] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const key = value.trim();
+    setSaving(true);
+    if (key) await localStore.setItem(storageKey, key);
+    else await localStore.removeItem(storageKey);
+    setValue(key);
+    setFeedback(localStore.getItemSync(storageKey) === (key || null)
+      ? key ? 'Schlüssel gespeichert.' : 'Schlüssel entfernt.'
+      : 'Die Änderung konnte in diesem Browser nicht gespeichert werden.');
+    setSaving(false);
+  }
+
+  return (
+    <form className={styles.keyForm} onSubmit={save} autoComplete="off">
+      <label className={styles.settingField}>
+        OpenRouter-API-Schlüssel
+        <input className={styles.settingInput} type="password" spellCheck={false}
+          value={value} onChange={(event) => { setValue(event.target.value); setFeedback(''); }} />
+      </label>
+      <p className={styles.cardBody}>Zum Entfernen das Feld leeren und speichern.</p>
+      <button type="submit" className={cx(layout.pressable, styles.cancelButton)} disabled={saving}>
+        Schlüssel speichern
+      </button>
+      {feedback && <p className={styles.cardBody} role="status">{feedback}</p>}
+    </form>
   );
 }

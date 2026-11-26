@@ -12,7 +12,6 @@
 }
 
 .form,
-.field,
 .turn {
   composes: v from '@/theme/layout.module.css';
   gap: var(--space-sm);
@@ -30,10 +29,8 @@
   color: var(--color-danger);
 }
 
-.field {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-body);
+.settingsLink {
+  color: var(--color-accent);
 }
 
 .input {
@@ -49,7 +46,9 @@
 
 .transcript {
   composes: v from '@/theme/layout.module.css';
-  max-height: 34dvh;
+  flex: 1 1 auto;
+  min-height: min(100px, 20dvh);
+  max-height: 56dvh;
   overflow-y: auto;
   gap: var(--space-md);
   padding: var(--space-md);
@@ -59,7 +58,10 @@
 
 .question,
 .answer {
+  max-width: 90%;
   margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--color-text-primary);
@@ -69,7 +71,27 @@
 }
 
 .question {
+  align-self: flex-end;
+  background: var(--color-accent-muted);
+  border-end-end-radius: var(--space-xs);
+}
+
+.answer {
+  align-self: flex-start;
+  background: var(--color-surface-raised);
+  border-end-start-radius: var(--space-xs);
+}
+
+.sender {
+  display: block;
+  margin-bottom: var(--space-xs);
   color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-heading);
+}
+
+.question .sender {
+  color: var(--color-text-primary);
 }
 
 .actions {

@@ -117,7 +117,8 @@ export function PrivacyScreen() {
           an den Modellanbieter weiter. Die Anbieter haben eigene Datenschutz- und Speicherregeln.
           kickflow speichert deinen OpenRouter-Schlüssel pro Liga im lokalen Speicher deines Browsers.
           Den Frageentwurf und die letzten acht Fragen und Antworten speichert kickflow pro Liga
-          und Kickbase-Konto in demselben Browser. Im Assistenten kannst du den Chat zurücksetzen.
+          und Kickbase-Konto in demselben Browser. Den Chat kannst du im Assistenten zurücksetzen,
+          den Schlüssel in den Einstellungen entfernen.
         </p>
         <ExternalLink url="https://openrouter.ai/privacy" label="Datenschutzerklärung von OpenRouter" />
       </section>

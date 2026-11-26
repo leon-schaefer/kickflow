@@ -22,6 +22,7 @@ function clamp(value: number) {
 
 export function AssistantBubble({ target }: { target: HTMLDivElement | null }) {
   const [open, setOpen] = useState(false);
+  const [started, setStarted] = useState(false);
   const [position, setPosition] = useState<Position>({ x: 1, y: 1 });
   const [dragging, setDragging] = useState(false);
   const area = useRef<HTMLDivElement>(null);
@@ -84,7 +85,10 @@ export function AssistantBubble({ target }: { target: HTMLDivElement | null }) {
         onPointerCancel={endDrag}
         onLostPointerCapture={endDrag}
         onClick={(event) => {
-          if (event.detail === 0 || !suppressClick.current) setOpen(true);
+          if (event.detail === 0 || !suppressClick.current) {
+            setStarted(true);
+            setOpen(true);
+          }
           suppressClick.current = false;
         }}
       >
@@ -100,9 +104,9 @@ export function AssistantBubble({ target }: { target: HTMLDivElement | null }) {
   return (
     <>
       {target ? createPortal(bubble, target) : bubble}
-      {open && (
-        <Suspense fallback={<Modal open onClose={close} title="KI-Transferassistent"><Spinner /></Modal>}>
-          <LeagueAssistantDialog onClose={close} />
+      {started && (
+        <Suspense fallback={<Modal open={open} onClose={close} title="KI-Transferassistent"><Spinner /></Modal>}>
+          <LeagueAssistantDialog open={open} onClose={close} />
         </Suspense>
       )}
     </>

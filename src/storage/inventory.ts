@@ -116,7 +116,7 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     label: 'OpenRouter-API-Schlüssel',
     purpose:
       'Dein API-Schlüssel für den KI-Transferassistenten, je Liga getrennt. kickflow speichert ihn im Browser und sendet ihn beim Absenden einer Frage zur Anmeldung an OpenRouter.',
-    lifetime: 'Bis du das Schlüsselfeld leerst oder die lokalen Daten löschst.',
+    lifetime: 'Bis du den Schlüssel in den Einstellungen entfernst oder die lokalen Daten löschst.',
     personal: true,
   },
   {

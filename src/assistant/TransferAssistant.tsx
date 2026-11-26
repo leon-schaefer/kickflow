@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useLocation } from 'react-router';
 import { abortable } from '@/api/kickbase/tunnel';
 import { useAuth } from '@/auth/AuthProvider';
 import { Modal } from '@/components/Modal';
 import { assistantChatKey, openRouterKey } from '@/storage/keys';
+import { withOrigin } from '@/shell/useBackTarget';
 import localStore from '@/storage/local';
 import { readChat, saveChat } from './chatStore';
 import { askTransferAssistant } from './openRouter';
@@ -11,17 +13,19 @@ import { usePlayerLookup } from './usePlayerLookup';
 import styles from './TransferAssistant.module.css';
 
 interface Props {
+  open: boolean;
   leagueId: string;
   competitionId: string | null;
   getContext: () => ReturnType<typeof transferContext>;
   onClose: () => void;
 }
 
-export function TransferAssistant({ leagueId, competitionId, getContext, onClose }: Props) {
+export function TransferAssistant({ open, leagueId, competitionId, getContext, onClose }: Props) {
   const { userId } = useAuth();
+  const location = useLocation();
   const lookupPlayer = usePlayerLookup(leagueId, competitionId);
   const storageKey = openRouterKey(leagueId);
-  const [apiKey, setApiKey] = useState(() => localStore.getItemSync(storageKey) ?? '');
+  const apiKey = open ? localStore.getItemSync(storageKey) : null;
   const chatKey = userId ? assistantChatKey(leagueId, userId) : null;
   const [chat, setChat] = useState(() => readChat(chatKey));
   const { draft: question, history } = chat;
@@ -37,14 +41,7 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
   useEffect(() => {
     const log = transcript.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [history, pending]);
-
-  function updateApiKey(value: string) {
-    setApiKey(value);
-    const key = value.trim();
-    if (key) void localStore.setItem(storageKey, key);
-    else void localStore.removeItem(storageKey);
-  }
+  }, [open, history, pending]);
 
   function updateChat(next: typeof chat) {
     setChat(next);
@@ -59,7 +56,7 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = question.trim();
-    const key = apiKey.trim();
+    const key = localStore.getItemSync(storageKey)?.trim();
     if (!text || !key || request.current) return;
 
     const controller = new AbortController();
@@ -95,37 +92,44 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
   }
 
   return (
-    <Modal open onClose={onClose} title="KI-Transferassistent" panelClassName={styles.panel}>
+    <Modal open={open} onClose={onClose} title="KI-Transferassistent" panelClassName={styles.panel}>
       <div className={styles.body}>
-        <p className={styles.notice}>
-          Beim Senden gehen deine Frage, der jüngste Chatverlauf, Kader, Markt und Budget
-          sowie bei Bedarf Spielerdetails an OpenRouter und den Modellanbieter.
-          Dein OpenRouter-Schlüssel wird für diese Liga im Browser gespeichert.
-          Du kannst ihn löschen, indem du das Schlüsselfeld leerst. Dein Chat bleibt hier gespeichert.
-        </p>
-        {history.length > 0 && (
-          <div className={styles.transcript} ref={transcript} role="log" aria-label="Chatverlauf">
+        {history.length === 0 && !pending && (
+          <p className={styles.notice}>
+            Beim Senden gehen deine Frage, der jüngste Chatverlauf und relevante Ligadaten
+            an OpenRouter und den Modellanbieter.
+          </p>
+        )}
+        {(history.length > 0 || pending) && (
+          <div className={styles.transcript} ref={transcript} role="log" aria-label="Chatverlauf" tabIndex={0}>
             {history.map((turn, index) => (
               <div className={styles.turn} key={index}>
-                <p className={styles.question}><strong>Du</strong> {turn.question}</p>
-                <p className={styles.answer}>{turn.answer}</p>
+                <p className={styles.question}><span className={styles.sender}>Du</span>{turn.question}</p>
+                <p className={styles.answer}><span className={styles.sender}>GPT-6 Luna</span>{turn.answer}</p>
               </div>
             ))}
+            {pending && (
+              <div className={styles.turn}>
+                <p className={styles.question}><span className={styles.sender}>Du</span>{question.trim()}</p>
+                <p className={styles.answer} role="status">GPT-6 Luna antwortet …</p>
+              </div>
+            )}
           </div>
         )}
+        {!apiKey?.trim() && (
+          <p className={styles.notice}>
+            Hinterlege den OpenRouter-Schlüssel für diese Liga in den{' '}
+            <Link className={styles.settingsLink} to="/settings"
+              state={withOrigin(location.pathname + location.search, 'Zur Liga').state}>
+              Einstellungen
+            </Link>.
+          </p>
+        )}
         <form className={styles.form} onSubmit={submit} autoComplete="off">
-          <label className={styles.field}>
-            OpenRouter-API-Schlüssel
-            <input className={styles.input} type="password" value={apiKey} required
-              onChange={(event) => updateApiKey(event.target.value)} spellCheck={false} disabled={pending} />
-          </label>
-          <label className={styles.field}>
-            Deine Transferfrage
-            <textarea className={styles.input} rows={3} value={question} required maxLength={1200}
-              placeholder="Wen sollte ich verkaufen, um mir eine Verstärkung leisten zu können?"
-              onChange={(event) => updateChat({ ...chat, draft: event.target.value })} disabled={pending} />
-          </label>
-          {pending && <p className={styles.notice} role="status">GPT-6 Luna prüft deine Frage …</p>}
+          <textarea className={styles.input} aria-label="Deine Transferfrage" rows={2}
+            value={pending ? '' : question} required maxLength={1200}
+            placeholder="Wen sollte ich kaufen oder verkaufen?"
+            onChange={(event) => updateChat({ ...chat, draft: event.target.value })} disabled={pending} />
           {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.actions}>
             <button className={styles.button} type="button" onClick={onClose}>Schließen</button>
@@ -134,7 +138,7 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
                 Chat zurücksetzen
               </button>
             )}
-            <button className={styles.submit} type="submit" disabled={pending || !apiKey.trim() || !question.trim()}>
+            <button className={styles.submit} type="submit" disabled={pending || !apiKey?.trim() || !question.trim()}>
               Frage senden
             </button>
           </div>

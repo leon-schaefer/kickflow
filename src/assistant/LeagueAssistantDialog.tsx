@@ -6,7 +6,7 @@ import { TransferAssistant } from './TransferAssistant';
 import { transferContext } from './transferContext';
 import styles from './TransferAssistant.module.css';
 
-export default function LeagueAssistantDialog({ onClose }: { onClose: () => void }) {
+export default function LeagueAssistantDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
     leagueId, competitionId, lineupQuery, data, marketQuery, league, budgetLimit,
     matchdayState, fixtureDifficultyByTeam, optimizer, comparisonSquad,
@@ -16,7 +16,7 @@ export default function LeagueAssistantDialog({ onClose }: { onClose: () => void
 
   if (!data) {
     return (
-      <Modal open onClose={onClose} title="KI-Transferassistent">
+      <Modal open={open} onClose={onClose} title="KI-Transferassistent">
         {lineupQuery.error ? (
           <>
             <p className={styles.error} role="alert">Der Kader konnte nicht geladen werden.</p>
@@ -32,6 +32,7 @@ export default function LeagueAssistantDialog({ onClose }: { onClose: () => void
 
   return (
     <TransferAssistant
+      open={open}
       leagueId={leagueId}
       competitionId={competitionId}
       onClose={onClose}
