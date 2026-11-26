@@ -116,7 +116,8 @@ export function PrivacyScreen() {
           OpenRouter verarbeitet die Anfrage und deine IP-Adresse und leitet die Anfrageinhalte
           an den Modellanbieter weiter. Die Anbieter haben eigene Datenschutz- und Speicherregeln.
           kickflow speichert deinen OpenRouter-Schlüssel pro Liga im lokalen Speicher deines Browsers.
-          Der Chat bleibt im Arbeitsspeicher des geöffneten Dialogs.
+          Den Frageentwurf und die letzten acht Fragen und Antworten speichert kickflow pro Liga
+          und Kickbase-Konto in demselben Browser. Im Assistenten kannst du den Chat zurücksetzen.
         </p>
         <ExternalLink url="https://openrouter.ai/privacy" label="Datenschutzerklärung von OpenRouter" />
       </section>

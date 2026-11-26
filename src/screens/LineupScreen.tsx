@@ -2,8 +2,6 @@ import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { MarketPlayer, Position, SquadPlayer } from '@/api/kickbase';
-import { TransferAssistant } from '@/assistant/TransferAssistant';
-import { transferContext } from '@/assistant/transferContext';
 import { BuyAdviceSection } from '@/components/BuyAdviceSection';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MarketListingModal } from '@/components/MarketListingModal';
@@ -17,46 +15,22 @@ import { Refreshable } from '@/components/Refreshable';
 import { SellAdviceSection } from '@/components/SellAdviceSection';
 import { SellPlanBar } from '@/components/SellPlanBar';
 import { Spinner } from '@/components/Spinner';
-import { useLeagueId } from '@/leagues/LeagueIdContext';
 import { leagueTabTitles } from '@/leagues/leagueTabs';
-import { useBudgetLimit } from '@/leagues/useBudgetLimit';
-import { useCompetitionId } from '@/leagues/useCompetitionId';
-import { useCurrentLeague } from '@/leagues/useCurrentLeague';
-import { useExcludedFromSaleContext } from '@/lineup/ExcludedFromSaleContext';
-import { useLeagueRulesContext } from '@/lineup/LeagueRulesContext';
 import { LineupVariants } from '@/lineup/LineupVariants';
 import { useLineupDraftContext } from '@/lineup/LineupDraftContext';
 import { MatchdayReview, useMatchdayArchive } from '@/lineup/MatchdayReview';
-import { useLineupOptimizer } from '@/lineup/useLineupOptimizer';
-import { useReplacementAdvice } from '@/lineup/useReplacementAdvice';
-import {
-  useLeagues,
-  useLineup,
-  useMarket,
-  useMatchdays,
-  usePurchases,
-  useSaveLineup,
-} from '@/queries/hooks';
+import { useTransferData } from '@/lineup/useTransferData';
+import { useLeagues, usePurchases, useSaveLineup } from '@/queries/hooks';
 import { useRefresh } from '@/queries/useRefresh';
 import { AppHeader } from '@/shell/AppHeader';
 import { STATS_TITLE, statsPath } from '@/stats/statsRoute';
 import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
-import type { AverageDifficulty } from '@/utils/fixtureDifficulty';
-import {
-  averageDifficulty,
-  buildFixtureIndex,
-  fixtureDifficulty,
-  remainingFixtures,
-  teamGoalRecord,
-  teamStrength,
-} from '@/utils/fixtureDifficulty';
 import {
   formatCountdown,
   formatCurrency,
   formatPoints,
   formatValueScore,
-  msUntil,
 } from '@/utils/format';
 import {
   AVAILABLE_FORMATIONS,
@@ -65,43 +39,21 @@ import {
   requiredCountsForFormation,
 } from '@/utils/formations';
 import { compareByMetric } from '@/utils/lineupOptimizer';
-import { resolveMatchdayState } from '@/utils/matchday';
 import layout from '@/theme/layout.module.css';
 import styles from './LineupScreen.module.css';
 
-/** Wie viele kommende Spieltage in die 'expectedPoints'-Metrik einfließen (siehe fixtureDifficulty.ts). */
-const FIXTURE_LOOKAHEAD = 5;
-
-/*
- * Stabile Leer-Listen als Modul-Konstanten. Ein `?? []` an der Aufrufstelle
- * erzeugt bei JEDEM Render eine neue Referenz und entwertet damit die
- * Memoisierung in useLineupOptimizer/useReplacementAdvice — bei der Kaufseite
- * ist das keine Kosmetik, dort hängt eine Optimierung pro Listing daran.
- */
-const NO_SQUAD_PLAYERS: SquadPlayer[] = [];
-const NO_MARKET_PLAYERS: MarketPlayer[] = [];
-
 export function LineupScreen() {
-  const leagueId = useLeagueId();
-  const competitionId = useCompetitionId();
   const navigate = useNavigate();
-  const lineupQuery = useLineup(leagueId);
-  const { data } = lineupQuery;
-  const matchdaysQuery = useMatchdays(competitionId);
+  const {
+    leagueId, lineupQuery, data, matchdaysQuery, marketQuery, league, budgetLimit, rules,
+    rulesLoaded, toggleExcluded, matchdayState, fixtureDifficultyByTeam, optimizer,
+    comparisonUsesKickbase, comparisonSquad, comparisonMarket, replacement,
+    openDeadlineMs, hasOpenMatchday, displayMatchday,
+  } = useTransferData();
   const leaguesQuery = useLeagues();
-  // Dieselbe Query, die useBudgetLimit unten ohnehin mountet — React Query
-  // dedupliziert über den Key, kein zusätzlicher Request beim Pull.
-  const marketQuery = useMarket(leagueId);
   const refresh = useRefresh(lineupQuery, matchdaysQuery, leaguesQuery, marketQuery);
-  // Budget lebt in LeagueSummary (`/v4/leagues/selection`), NICHT in
-  // LineupData — `lineup/overview.b` ist trotz Namens keine Kontostandsgröße,
-  // siehe toLineupData() in mappers.ts.
-  const league = useCurrentLeague();
-  const budgetLimit = useBudgetLimit();
   const saveLineup = useSaveLineup(leagueId);
-  const { rules, loaded: rulesLoaded } = useLeagueRulesContext();
   const archive = useMatchdayArchive(leagueId);
-  const { excludedIds, toggleExcluded } = useExcludedFromSaleContext();
   const [, forceTick] = useState(0);
 
   // Die Bearbeitungs-Sitzung liegt im LineupDraftProvider (LeagueLayout), nicht
@@ -128,7 +80,6 @@ export function LineupScreen() {
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
   const [planning, setPlanning] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   // Ob die Kaufen/Verkaufen-Sektion aufgeklappt ist. Hängt hier und nicht nur
   // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
@@ -157,77 +108,6 @@ export function LineupScreen() {
     const id = window.setInterval(() => forceTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
   }, []);
-
-  // Spielplan der Competition ist die verlässliche Quelle für "welcher
-  // Spieltag läuft/ist offen" — mdln/lis auf lineup/overview hängen
-  // erfahrungsgemäß hinterher (siehe utils/matchday.ts). Fällt die Query
-  // aus, degradieren wir auf die alte lis-basierte Deadline.
-  const matchdayState = useMemo(() => {
-    if (!matchdaysQuery.data) return null;
-    return resolveMatchdayState(matchdaysQuery.data, Date.now());
-  }, [matchdaysQuery.data]);
-
-  // Gegner-Härte je Verein für die 'expectedPoints'-Metrik (siehe
-  // src/utils/fixtureDifficulty.ts), gemittelt über die nächsten
-  // FIXTURE_LOOKAHEAD Spieltage ab dem nächsten noch offenen. Ohne Spielplan
-  // (Query lädt noch) bleibt die Map undefined — useLineupOptimizer
-  // degradiert dann sauber auf reine Ø-Punkte.
-  const fixtureDifficultyByTeam = useMemo(() => {
-    if (!matchdaysQuery.data) return undefined;
-    const fromDay = matchdayState?.open?.day ?? matchdaysQuery.data.currentDay ?? 1;
-    const index = buildFixtureIndex(matchdaysQuery.data);
-    const strengths = teamStrength(teamGoalRecord(matchdaysQuery.data));
-    const map = new Map<string, AverageDifficulty>();
-    for (const teamId of index.keys()) {
-      const upcoming = remainingFixtures(teamId, index, fromDay, FIXTURE_LOOKAHEAD);
-      map.set(teamId, averageDifficulty(fixtureDifficulty(upcoming, strengths)));
-    }
-    return map;
-  }, [matchdaysQuery.data, matchdayState]);
-
-  const optimizer = useLineupOptimizer(
-    data?.players ?? NO_SQUAD_PLAYERS,
-    draftIds,
-    budgetLimit?.deficit ?? 0,
-    rules,
-    fixtureDifficultyByTeam,
-    excludedIds,
-  );
-
-  // Die Kaufseite. `optimizer.constraints` und `optimizer.metric` bewusst
-  // durchgereicht statt hier neu abgeleitet: der Zugewinn eines Zukaufs wird
-  // gegen die ANGEZEIGTE Elf gemessen, also muss er unter denselben Schranken
-  // rechnen — inklusive eines Session-„Ignorieren" (siehe useReplacementAdvice).
-  const marketPlayers = marketQuery.data?.players ?? NO_MARKET_PLAYERS;
-  // Vergleiche verwenden dieselbe Grundlage auf BEIDEN Seiten, auch wenn
-  // z. B. der Kader schon vollständig geladen ist und der Markt noch nicht.
-  const comparisonUsesKickbase = lineupQuery.pointAverageState?.basis === 'kickbase' ||
-    marketQuery.pointAverageState?.basis === 'kickbase';
-  const comparisonSquad = comparisonUsesKickbase
-    ? lineupQuery.rawData?.players ?? data?.players ?? NO_SQUAD_PLAYERS
-    : data?.players ?? NO_SQUAD_PLAYERS;
-  const comparisonMarket = comparisonUsesKickbase
-    ? marketQuery.rawData?.players ?? marketPlayers : marketPlayers;
-  const replacement = useReplacementAdvice(
-    comparisonSquad,
-    comparisonMarket,
-    optimizer.metric,
-    optimizer.constraints,
-    budgetLimit,
-    fixtureDifficultyByTeam,
-  );
-
-  const fallbackDeadlineMs = data ? msUntil(data.lineupDeadline) : null;
-  const openDeadlineMs = matchdayState
-    ? matchdayState.open
-      ? msUntil(matchdayState.open.deadline)
-      : null
-    : fallbackDeadlineMs;
-  const hasOpenMatchday = matchdayState
-    ? matchdayState.open !== null
-    : openDeadlineMs !== null && openDeadlineMs > 0;
-  const displayMatchday =
-    matchdayState?.running?.day ?? matchdayState?.open?.day ?? data?.matchday ?? null;
 
   function startEditing() {
     if (!data) return;
@@ -540,38 +420,6 @@ export function LineupScreen() {
               {planning && league && (
                 <TransferPlanner squad={comparisonSquad} market={comparisonMarket} balance={league.budget}
                   difficulty={fixtureDifficultyByTeam} constraints={optimizer.constraints} onClose={() => setPlanning(false)} />
-              )}
-
-              <button type="button" className={styles.plannerButton} aria-haspopup="dialog" onClick={() => setAssistantOpen(true)}>
-                <span className={styles.plannerCopy}>
-                  <strong>KI-Transferassistent</strong>
-                  <span className={styles.navRowText}>Fragen zu Käufen, Verkäufen und Spielern stellen</span>
-                </span>
-                <span className={styles.navRowChevron} aria-hidden="true">›</span>
-              </button>
-              {assistantOpen && (
-                <TransferAssistant
-                  key={leagueId}
-                  leagueId={leagueId}
-                  competitionId={competitionId}
-                  onClose={() => setAssistantOpen(false)}
-                  getContext={() => transferContext({
-                    squad: comparisonSquad,
-                    market: marketQuery.data ? comparisonMarket : null,
-                    lineup: lineupPlayers,
-                    formation: editing ? formation : data.formation,
-                    matchday: matchdayState?.open?.day ?? displayMatchday,
-                    deadlineMinutes: openDeadlineMs === null ? null : Math.max(0, Math.ceil(openDeadlineMs / 60_000)),
-                    balance: league?.budget ?? null,
-                    budget: budgetLimit,
-                    constraints: optimizer.constraints,
-                    metric: optimizer.metric,
-                    difficulty: fixtureDifficultyByTeam,
-                    buy: replacement,
-                    sell: optimizer.sellAdvice,
-                    sellPlan: optimizer.budgetPlan,
-                  })}
-                />
               )}
 
               {hasOpenMatchday && (

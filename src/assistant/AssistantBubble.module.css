@@ -1,0 +1,27 @@
+.area {
+  composes: v from '@/theme/layout.module.css';
+  position: absolute;
+  inset: var(--space-md);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.bubble {
+  composes: pressableH from '@/theme/layout.module.css';
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-background);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.4);
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.bubble[data-dragging='true'] {
+  cursor: grabbing;
+}

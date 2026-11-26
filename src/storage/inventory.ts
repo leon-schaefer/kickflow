@@ -9,6 +9,7 @@ import {
   leagueRulesKey,
   variantsKey,
   openRouterKey,
+  assistantChatKey,
 } from './keys';
 
 /**
@@ -116,6 +117,14 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     purpose:
       'Dein API-Schlüssel für den KI-Transferassistenten, je Liga getrennt. kickflow speichert ihn im Browser und sendet ihn beim Absenden einer Frage zur Anmeldung an OpenRouter.',
     lifetime: 'Bis du das Schlüsselfeld leerst oder die lokalen Daten löschst.',
+    personal: true,
+  },
+  {
+    key: assistantChatKey('<Liga-ID>'),
+    label: 'KI-Transferchat',
+    purpose:
+      'Die letzten acht Fragen und Antworten sowie dein Frageentwurf bleiben pro Liga und Kickbase-Konto in diesem Browser, damit du den Chat fortsetzen kannst.',
+    lifetime: 'Bis du den Chat zurücksetzt oder die lokalen Daten löschst.',
     personal: true,
   },
   {

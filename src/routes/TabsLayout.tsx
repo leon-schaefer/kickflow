@@ -1,4 +1,4 @@
-import { Outlet, useParams } from 'react-router';
+import { Outlet, useOutletContext, useParams } from 'react-router';
 import { TabBar } from '@/shell/TabBar';
 import styles from './TabsLayout.module.css';
 
@@ -16,9 +16,11 @@ import styles from './TabsLayout.module.css';
 export function TabsLayout() {
   const { leagueId } = useParams<{ leagueId: string }>();
 
+  const setTabContent = useOutletContext<((node: HTMLDivElement | null) => void) | null>();
+
   return (
     <div className={styles.frame}>
-      <div className={styles.content}>
+      <div className={styles.content} ref={setTabContent}>
         <Outlet />
       </div>
       <TabBar leagueId={leagueId ?? ''} />

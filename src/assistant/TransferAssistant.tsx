@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { abortable } from '@/api/kickbase/tunnel';
+import { useAuth } from '@/auth/AuthProvider';
 import { Modal } from '@/components/Modal';
-import { openRouterKey } from '@/storage/keys';
+import { assistantChatKey, openRouterKey } from '@/storage/keys';
 import localStore from '@/storage/local';
-import { askTransferAssistant, type ChatTurn } from './openRouter';
+import { readChat, saveChat } from './chatStore';
+import { askTransferAssistant } from './openRouter';
 import type { transferContext } from './transferContext';
 import { usePlayerLookup } from './usePlayerLookup';
 import styles from './TransferAssistant.module.css';
@@ -16,11 +18,13 @@ interface Props {
 }
 
 export function TransferAssistant({ leagueId, competitionId, getContext, onClose }: Props) {
+  const { userId } = useAuth();
   const lookupPlayer = usePlayerLookup(leagueId, competitionId);
   const storageKey = openRouterKey(leagueId);
   const [apiKey, setApiKey] = useState(() => localStore.getItemSync(storageKey) ?? '');
-  const [question, setQuestion] = useState('');
-  const [history, setHistory] = useState<ChatTurn[]>([]);
+  const chatKey = userId ? assistantChatKey(leagueId, userId) : null;
+  const [chat, setChat] = useState(() => readChat(chatKey));
+  const { draft: question, history } = chat;
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null);
@@ -40,6 +44,16 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
     const key = value.trim();
     if (key) void localStore.setItem(storageKey, key);
     else void localStore.removeItem(storageKey);
+  }
+
+  function updateChat(next: typeof chat) {
+    setChat(next);
+    saveChat(chatKey, next);
+  }
+
+  function resetChat() {
+    updateChat({ draft: '', history: [] });
+    setError('');
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -66,8 +80,7 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
         signal,
       }), signal);
       signal.throwIfAborted();
-      setHistory((current) => [...current.slice(-7), { question: text, answer }]);
-      setQuestion('');
+      updateChat({ draft: '', history: [...history.slice(-7), { question: text, answer }] });
     } catch (reason) {
       if (request.current !== controller) return;
       setError(signal.aborted ? 'Die Anfrage hat zu lange gedauert. Versuche es erneut.'
@@ -88,7 +101,7 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
           Beim Senden gehen deine Frage, der jüngste Chatverlauf, Kader, Markt und Budget
           sowie bei Bedarf Spielerdetails an OpenRouter und den Modellanbieter.
           Dein OpenRouter-Schlüssel wird für diese Liga im Browser gespeichert.
-          Du kannst ihn löschen, indem du das Schlüsselfeld leerst.
+          Du kannst ihn löschen, indem du das Schlüsselfeld leerst. Dein Chat bleibt hier gespeichert.
         </p>
         {history.length > 0 && (
           <div className={styles.transcript} ref={transcript} role="log" aria-label="Chatverlauf">
@@ -110,12 +123,17 @@ export function TransferAssistant({ leagueId, competitionId, getContext, onClose
             Deine Transferfrage
             <textarea className={styles.input} rows={3} value={question} required maxLength={1200}
               placeholder="Wen sollte ich verkaufen, um mir eine Verstärkung leisten zu können?"
-              onChange={(event) => setQuestion(event.target.value)} disabled={pending} />
+              onChange={(event) => updateChat({ ...chat, draft: event.target.value })} disabled={pending} />
           </label>
           {pending && <p className={styles.notice} role="status">GPT-6 Luna prüft deine Frage …</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.actions}>
             <button className={styles.button} type="button" onClick={onClose}>Schließen</button>
+            {(history.length > 0 || question) && (
+              <button className={styles.button} type="button" disabled={pending} onClick={resetChat}>
+                Chat zurücksetzen
+              </button>
+            )}
             <button className={styles.submit} type="submit" disabled={pending || !apiKey.trim() || !question.trim()}>
               Frage senden
             </button>

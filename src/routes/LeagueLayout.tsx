@@ -1,8 +1,11 @@
+import { useState } from 'react';
+import { AssistantBubble } from '@/assistant/AssistantBubble';
 import { Outlet, useParams } from 'react-router';
 import { LeagueIdProvider } from '@/leagues/LeagueIdContext';
 import { ExcludedFromSaleProvider } from '@/lineup/ExcludedFromSaleContext';
 import { LeagueRulesProvider } from '@/lineup/LeagueRulesContext';
 import { LineupDraftProvider } from '@/lineup/LineupDraftContext';
+import { OptimizerSettingsProvider } from '@/lineup/OptimizerSettingsContext';
 import { PlayerListViewProvider } from '@/players/PlayerListViewContext';
 import styles from './LeagueLayout.module.css';
 
@@ -39,15 +42,26 @@ export function LeagueLayout() {
     <LeagueIdProvider id={leagueId}>
       <LeagueRulesProvider leagueId={leagueId ?? ''}>
         <ExcludedFromSaleProvider leagueId={leagueId ?? ''}>
-          <div key={leagueId} className={styles.content}>
-            <LineupDraftProvider>
-              <PlayerListViewProvider>
-                <Outlet />
-              </PlayerListViewProvider>
-            </LineupDraftProvider>
-          </div>
+          <LeagueFrame key={leagueId} />
         </ExcludedFromSaleProvider>
       </LeagueRulesProvider>
     </LeagueIdProvider>
+  );
+}
+
+function LeagueFrame() {
+  const [tabContent, setTabContent] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <div className={styles.content}>
+      <LineupDraftProvider>
+        <OptimizerSettingsProvider>
+          <PlayerListViewProvider>
+            <Outlet context={setTabContent} />
+            <AssistantBubble target={tabContent} />
+          </PlayerListViewProvider>
+        </OptimizerSettingsProvider>
+      </LineupDraftProvider>
+    </div>
   );
 }

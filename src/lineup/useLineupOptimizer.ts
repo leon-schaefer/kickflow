@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { SquadPlayer } from '@/api/kickbase';
+import { useOptimizerSettings } from './OptimizerSettingsContext';
 import { NO_EXCLUSIONS } from '@/lineup/excludedFromSale';
 import {
   DEFAULT_RULES,
@@ -95,6 +96,7 @@ export function useLineupOptimizer(
    * ein ausgeschlossener Spieler soll ja gerade weiter aufgestellt werden.
    */
   excludedFromSaleIds: ReadonlySet<string> = NO_EXCLUSIONS,
+  sharedSettings: ReturnType<typeof useOptimizerSettings> | null = null,
 ): LineupOptimizer {
   // Voreinstellung 'points', nicht 'valuePerMillion': eine Elf aufzustellen
   // kostet nichts — der Kader ist bereits gekauft. Ohne Budget-Nebenbedingung
@@ -106,20 +108,9 @@ export function useLineupOptimizer(
   // für das die Quotientensumme ebenfalls nur eine Heuristik wäre. Ø-Punkte/Mio
   // bleibt als Chip erhalten, denn als TRANSFER-Signal ist die Effizienz genau
   // richtig — sie treibt sellAdvice (`efficiencyResult` unten).
-  const [metric, setMetric] = useState<OptimizerMetric>('points');
-  const [balanceBudget, setBalanceBudget] = useState(false);
-  const [ignoredRuleIds, setIgnoredRuleIds] = useState<Set<LineupRule['id']>>(new Set());
-
-  // Ein Ignorieren soll nie eine geänderte Regel stillschweigend überdauern.
-  useEffect(() => {
-    // Der Funktions-Updater mit Identitäts-Check ist nicht Kosmetik: ein
-    // `setIgnoredRuleIds(new Set())` setzt IMMER einen neuen Wert, React kann
-    // also nie abbrechen. Übergibt ein Aufrufer `rules` als pro Render neu
-    // gebautes Array, dreht sich daraus eine endlose Render-Schleife —
-    // synchron, also fängt sie auch kein Test-Timeout. So bleibt der State
-    // gleich, wenn es nichts zu leeren gibt.
-    setIgnoredRuleIds((current) => (current.size === 0 ? current : new Set()));
-  }, [rules]);
+  const localSettings = useOptimizerSettings(rules);
+  const { metric, setMetric, balanceBudget, setBalanceBudget, ignoredRuleIds, setIgnoredRuleIds } =
+    sharedSettings ?? localSettings;
 
   const effectiveRules = useMemo(
     () => rules.filter((rule) => rule.enabled && !ignoredRuleIds.has(rule.id)),

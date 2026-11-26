@@ -58,6 +58,11 @@ export function openRouterKey(leagueId: string): string {
   return `kickflow.openRouter.v1.${leagueId}`;
 }
 
+/** Transferchat und Frageentwurf, pro Liga und Konto. */
+export function assistantChatKey(leagueId: string, account = '<Konto-ID>'): string {
+  return `kickflow.assistantChat.v1.${leagueId}.${account}`;
+}
+
 /** Vom Verkauf ausgeschlossene Spieler, pro Liga. */
 export function excludedFromSaleKey(leagueId: string): string {
   return `kickflow.excludedFromSale.v1.${leagueId}`;

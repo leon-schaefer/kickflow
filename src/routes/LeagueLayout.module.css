@@ -1,6 +1,7 @@
 /* Trägt den `key={leagueId}`-Remount und füllt die Höhe der Hülle. */
 .content {
   composes: v from '@/theme/layout.module.css';
+  position: relative;
   flex: 1 1 0;
   min-height: 0;
 }
