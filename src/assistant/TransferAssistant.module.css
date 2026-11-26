@@ -128,3 +128,76 @@
   color: var(--color-text-muted);
   cursor: default;
 }
+
+.markdown {
+  white-space: normal;
+}
+
+.markdown :where(h1, h2, h3, h4, h5, h6, p, blockquote, pre, ul, ol, hr, .tableScroll) {
+  margin-block: 0 var(--space-sm);
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown :where(h1, h2, h3, h4, h5, h6) {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-heading);
+}
+
+.markdown :where(ol, ul) {
+  padding-inline-start: var(--space-xl);
+}
+
+.markdown li + li {
+  margin-top: var(--space-xs);
+}
+
+.markdown a {
+  color: var(--color-accent);
+  text-underline-offset: 2px;
+}
+
+.markdown blockquote {
+  margin-inline: 0;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 2px solid var(--color-accent);
+}
+
+.markdown code,
+.markdown pre {
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+}
+
+.markdown code {
+  padding-inline: var(--space-xs);
+}
+
+.markdown pre,
+.tableScroll {
+  overflow-x: auto;
+}
+
+.markdown pre {
+  padding: var(--space-sm);
+}
+
+.markdown pre code {
+  padding: 0;
+}
+
+.markdown table {
+  border-collapse: collapse;
+}
+
+.markdown :where(th, td) {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+}
+
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}

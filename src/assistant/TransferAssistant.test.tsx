@@ -84,3 +84,37 @@ it('finishes a pending request with the dialog closed and restores the answer on
   dialog.rerender(chat('42'));
   expect(screen.getByText('Verkaufe zuerst einen Bankspieler.')).toBeVisible();
 });
+
+it('formats Markdown from saved answers and skips embedded HTML and images', async () => {
+  await localStore.setItem(assistantChatKey('42', 'manager'), JSON.stringify({
+    draft: '',
+    history: [{
+      question: 'Wen kaufen?',
+      answer: [
+        '### Empfehlung',
+        '',
+        '- **Kimmich** kaufen',
+        '',
+        '| Spieler | Preis |',
+        '| --- | --- |',
+        '| Kimmich | 10 Mio. |',
+        '',
+        '[Spielerprofil](https://example.org/player)',
+        '',
+        '[Unsicherer Link](javascript:alert%281%29)',
+        '',
+        '![Externes Bild](https://example.org/image.png)',
+        '',
+        '<img src="https://example.org/raw.png">',
+      ].join('\n'),
+    }],
+  }));
+  render(chat('42'));
+
+  expect(screen.getByRole('heading', { name: 'Empfehlung' })).toBeVisible();
+  expect(screen.getByRole('listitem').querySelector('strong')).toHaveTextContent('Kimmich');
+  expect(screen.getByRole('cell', { name: '10 Mio.' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Spielerprofil' })).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(screen.queryByRole('link', { name: 'Unsicherer Link' })).toBeNull();
+  expect(screen.queryByRole('img')).toBeNull();
+});

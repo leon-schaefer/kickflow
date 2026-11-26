@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { abortable } from '@/api/kickbase/tunnel';
 import { useAuth } from '@/auth/AuthProvider';
 import { Modal } from '@/components/Modal';
@@ -105,7 +107,26 @@ export function TransferAssistant({ open, leagueId, competitionId, getContext, o
             {history.map((turn, index) => (
               <div className={styles.turn} key={index}>
                 <p className={styles.question}><span className={styles.sender}>Du</span>{turn.question}</p>
-                <p className={styles.answer}><span className={styles.sender}>GPT-6 Luna</span>{turn.answer}</p>
+                <div className={styles.answer}>
+                  <span className={styles.sender}>GPT-6 Luna</span>
+                  <div className={styles.markdown}>
+                    <Markdown
+                      remarkPlugins={[remarkGfm]}
+                      skipHtml
+                      disallowedElements={['img']}
+                      components={{
+                        a: ({ href, children }) => href
+                          ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                          : <>{children}</>,
+                        table: ({ children }) => (
+                          <div className={styles.tableScroll}><table>{children}</table></div>
+                        ),
+                      }}
+                    >
+                      {turn.answer}
+                    </Markdown>
+                  </div>
+                </div>
               </div>
             ))}
             {pending && (
