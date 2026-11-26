@@ -12,10 +12,10 @@ const ranking = vi.hoisted(() => ({
   error: null as unknown,
   refetch: vi.fn().mockResolvedValue(undefined),
 }));
+const dayRanking = vi.hoisted(() => ({ data: undefined as LeagueRanking | undefined }));
 const matchdays = vi.hoisted(() => ({ data: undefined as MatchdaySchedule | undefined }));
 const lineup = vi.hoisted(() => ({ data: undefined as LineupData | undefined }));
-/** Was der Screen an useLeagueRanking übergibt — geprüft für den Live-Modus. */
-const rankingCalls = vi.hoisted(() => ({ options: [] as unknown[] }));
+const rankingCalls = vi.hoisted(() => ({ calls: [] as { day?: number; options: unknown }[] }));
 const rules = vi.hoisted(() => ({
   rules: [{ id: 'maxPerTeam', kind: 'maxPerTeam', enabled: true, max: 3 }] as never[],
   updateRule: vi.fn(),
@@ -25,9 +25,9 @@ const rules = vi.hoisted(() => ({
 
 vi.mock('@/auth/AuthProvider', () => ({ useAuth: () => auth }));
 vi.mock('@/queries/hooks', () => ({
-  useLeagueRanking: (_leagueId: string, _day: number | undefined, options: unknown) => {
-    rankingCalls.options.push(options);
-    return ranking;
+  useLeagueRanking: (_leagueId: string, day: number | undefined, options: unknown) => {
+    rankingCalls.calls.push({ day, options });
+    return day === undefined ? ranking : dayRanking;
   },
   useMatchdays: () => matchdays,
   useLineup: () => lineup,
@@ -87,9 +87,10 @@ beforeEach(() => {
     ],
   };
   ranking.error = null;
+  dayRanking.data = undefined;
   matchdays.data = undefined;
   lineup.data = undefined;
-  rankingCalls.options = [];
+  rankingCalls.calls = [];
   rules.loaded = true;
   rules.updateRule.mockClear();
 });
@@ -134,20 +135,46 @@ describe('LeagueScreen', () => {
     expect(screen.queryByText('Duell')).not.toBeInTheDocument();
   });
 
-  it('zeigt das Duell mit Spieltag und Duell-Platz', () => {
+  it('zeigt Gegner und Punkte des nächsten offenen Spieltags', () => {
     ranking.data!.entries[1]!.h2hOpponentUserId = 'rival';
-    ranking.data!.entries[1]!.h2hPlace = 3;
+    const opponent = entry({ userId: 'next', userName: 'Nächster Gegner', seasonPlace: 3 });
+    ranking.data!.entries.push(opponent);
     matchdays.data = {
-      currentDay: 7,
-      matchdays: [{ day: 7, firstKickoff: null, allPlayed: false, fixtures: [] }],
+      currentDay: 5,
+      matchdays: [
+        { day: 5, firstKickoff: '2020-01-01T00:00:00Z', allPlayed: true, fixtures: [] },
+        { day: 6, firstKickoff: '2100-01-01T00:00:00Z', allPlayed: false, fixtures: [] },
+      ],
+    };
+    dayRanking.data = {
+      ...ranking.data!,
+      day: 6,
+      entries: [
+        entry({ userId: 'me', h2hOpponentUserId: 'next', matchdayPoints: 22, h2hPlace: 3 }),
+        { ...opponent, matchdayPoints: 11 },
+      ],
     };
     setup();
 
-    expect(screen.getByText('Dein Duell · Spieltag 7')).toBeInTheDocument();
+    expect(rankingCalls.calls).toContainEqual({ day: 6, options: { enabled: true, live: false } });
+    expect(screen.getByRole('button', { name: /Dein Duell · Spieltag 6/ })).toHaveTextContent(
+      'Du 22 : 11 Nächster Gegner',
+    );
     expect(screen.getByText('Duell-Platz 3')).toBeInTheDocument();
-    // In der Liste suchen, nicht global: die Duell-Karte nennt den Gegner auch.
-    const rivalRow = screen.getAllByRole('listitem')[1]!;
-    expect(rivalRow).toHaveTextContent('Duell');
+    const [, oldRow, newRow] = screen.getAllByRole('listitem');
+    expect(oldRow).not.toHaveTextContent('Duell');
+    expect(newRow).toHaveTextContent('Duell');
+  });
+
+  it('blendet die alte Paarung aus, wenn Kickbase einen anderen Spieltag liefert', () => {
+    ranking.data!.entries[1]!.h2hOpponentUserId = 'rival';
+    matchdays.data = { currentDay: 6, matchdays: [] };
+    dayRanking.data = ranking.data;
+    setup();
+
+    expect(screen.queryByText(/Dein Duell/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Duell')).not.toBeInTheDocument();
+    expect(screen.getByText('Rivale')).toBeInTheDocument();
   });
 
   it('öffnet über die Duell-Karte direkt den Gegner', async () => {
@@ -205,27 +232,28 @@ describe('LeagueScreen', () => {
     expect(screen.queryByText(/Dein Duell/)).not.toBeInTheDocument();
   });
 
-  it('zieht die Tabelle im Hintergrund nach, während der Spieltag läuft', () => {
+  it('fragt während eines laufenden Spieltags dessen Duell live ab', () => {
     matchdays.data = {
       currentDay: 7,
       matchdays: [
         { day: 7, firstKickoff: '2020-01-01T00:00:00Z', allPlayed: false, fixtures: [] },
+        { day: 8, firstKickoff: '2100-01-01T00:00:00Z', allPlayed: false, fixtures: [] },
       ],
     };
     setup();
 
     // Sonst stünde der Duell-Stand bis zum nächsten Pull-to-Refresh still.
-    expect(rankingCalls.options.at(-1)).toEqual({ live: true });
+    expect(rankingCalls.calls).toContainEqual({ day: 7, options: { enabled: true, live: true } });
   });
 
-  it('lässt die Tabelle ruhen, wenn kein Spieltag läuft', () => {
+  it('fragt das Duell ohne laufenden Spieltag ohne Live-Aktualisierung ab', () => {
     matchdays.data = {
       currentDay: 7,
       matchdays: [{ day: 7, firstKickoff: null, allPlayed: false, fixtures: [] }],
     };
     setup();
 
-    expect(rankingCalls.options.at(-1)).toEqual({ live: false });
+    expect(rankingCalls.calls).toContainEqual({ day: 7, options: { enabled: true, live: false } });
   });
 
   it('zeigt den Fehler mit einem Weg zurück', async () => {

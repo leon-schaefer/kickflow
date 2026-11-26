@@ -18,7 +18,7 @@ import { AppHeader } from '@/shell/AppHeader';
 import { withOrigin } from '@/shell/useBackTarget';
 import { cx } from '@/utils/cx';
 import { formatCurrency, formatPoints } from '@/utils/format';
-import { resolveMatchdayState } from '@/utils/matchday';
+import { resolveLineupMatchday, resolveMatchdayState } from '@/utils/matchday';
 import { findOwnRankingEntry } from '@/utils/ownRankingEntry';
 import layout from '@/theme/layout.module.css';
 import styles from './LeagueScreen.module.css';
@@ -54,24 +54,28 @@ export function LeagueScreen() {
     return resolveMatchdayState(matchdaysQuery.data, now);
   }, [matchdaysQuery.data, now]);
   const running = matchdaysQuery.data?.matchdays.find((d) => d.day === matchdayState?.running?.day);
-  const matchday =
-    matchdayState?.running?.day ??
-    matchdayState?.open?.day ??
-    matchdaysQuery.data?.currentDay ??
-    null;
+  const matchday = matchdayState
+    ? resolveLineupMatchday(matchdayState, matchdaysQuery.data?.currentDay ?? null)?.day
+    : undefined;
 
-  // Läuft der Spieltag, zieht die Tabelle im Hintergrund nach: der Duell-Stand
-  // ist dann der Punktestand von zwei laufenden Elfen und wäre ohne
-  // Pull-to-Refresh minutenlang alt (siehe useLeagueRanking).
+  // Während eines laufenden Spieltags ziehen Tabelle und Duellstand nach.
   const rankingQuery = useLeagueRanking(leagueId, undefined, {
     live: matchdayState?.running != null,
   });
   const { data } = rankingQuery;
+  const duelQuery = useLeagueRanking(leagueId, matchday, {
+    enabled: matchday !== undefined,
+    live: matchdayState?.running != null,
+  });
   // Nur als Rückfallebene, wenn die eigene User-ID fehlt — siehe
   // findOwnRankingEntry. Ist sie bekannt, wird der Kader nicht geladen.
   const lineupQuery = useLineup(leagueId, { enabled: !userId });
   const { rules, updateRule, loaded, leagueMax } = useLeagueRulesContext();
-  const refresh = useRefresh(rankingQuery);
+  const refresh = useRefresh(
+    rankingQuery,
+    ...(matchday !== undefined ? [duelQuery] : []),
+    ...(competitionId ? [matchdaysQuery] : []),
+  );
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -105,10 +109,17 @@ export function LeagueScreen() {
   }
 
   const own = findOwnRankingEntry(data.entries, userId, ownPlayerIds);
+  // Die Saisonabfrage kann noch die Paarung und Punkte des letzten Spieltags
+  // liefern. Auch die Antwort auf dayNumber kann einen anderen Tag melden.
+  const duelRanking = matchday === undefined
+    ? (competitionId && matchdaysQuery.isPending ? undefined : data)
+    : duelQuery.data?.day === matchday ? duelQuery.data : undefined;
+  const duelEntries = duelRanking?.entries ?? [];
+  const duelOwn = duelEntries.find((entry) => entry.userId === own?.userId);
   // `h2hOpponentUserId` fehlt in Ligen ohne Duell-Modus komplett (siehe
   // LeagueRankingEntry) — Karte und Zeilen-Hervorhebung entfallen dann lautlos.
-  const opponent = own?.h2hOpponentUserId
-    ? (data.entries.find((e) => e.userId === own.h2hOpponentUserId) ?? null)
+  const opponent = duelOwn?.h2hOpponentUserId
+    ? (duelEntries.find((e) => e.userId === duelOwn.h2hOpponentUserId) ?? null)
     : null;
 
   return (
@@ -117,18 +128,18 @@ export function LeagueScreen() {
       <Refreshable {...refresh}>
         {(p) => (
           <div {...p} className={styles.scroll}>
-            {((own && opponent) || loaded) && (
+            {((duelOwn && opponent) || loaded) && (
               <div className={styles.headerCards}>
-                {own && opponent && (
+                {duelOwn && opponent && (
                   <DuelCard
-                    own={own}
+                    own={duelOwn}
                     opponent={opponent}
-                    matchday={matchday}
+                    matchday={matchday ?? null}
                     onClick={() => openManager(opponent)}
                   />
                 )}
-                {own && opponent && running && (
-                  <DuelFixtures leagueId={leagueId} day={running} ownId={own.userId}
+                {duelOwn && opponent && running && (
+                  <DuelFixtures leagueId={leagueId} day={running} ownId={duelOwn.userId}
                     opponentId={opponent.userId} now={now} />
                 )}
                 {loaded && (
