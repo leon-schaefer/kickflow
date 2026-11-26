@@ -2,6 +2,8 @@ import { pointAverageNotice } from '@/utils/pointAverages';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { MarketPlayer, Position, SquadPlayer } from '@/api/kickbase';
+import { TransferAssistant } from '@/assistant/TransferAssistant';
+import { transferContext } from '@/assistant/transferContext';
 import { BuyAdviceSection } from '@/components/BuyAdviceSection';
 import { LeagueSwitcher } from '@/components/LeagueSwitcher';
 import { MarketListingModal } from '@/components/MarketListingModal';
@@ -126,6 +128,7 @@ export function LineupScreen() {
   // Kaufen/Verkaufen-Sektion und damit bewusst NICHT am Edit-Modus: das Konto
   // will auch nach der Aufstellungs-Deadline ausgeglichen werden.
   const [planning, setPlanning] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
   // Ob die Kaufen/Verkaufen-Sektion aufgeklappt ist. Hängt hier und nicht nur
   // dort, weil daran die Kaufpreis-Requests hängen: einer PRO Kaderspieler
@@ -537,6 +540,38 @@ export function LineupScreen() {
               {planning && league && (
                 <TransferPlanner squad={comparisonSquad} market={comparisonMarket} balance={league.budget}
                   difficulty={fixtureDifficultyByTeam} constraints={optimizer.constraints} onClose={() => setPlanning(false)} />
+              )}
+
+              <button type="button" className={styles.plannerButton} aria-haspopup="dialog" onClick={() => setAssistantOpen(true)}>
+                <span className={styles.plannerCopy}>
+                  <strong>KI-Transferassistent</strong>
+                  <span className={styles.navRowText}>Fragen zu Käufen, Verkäufen und Spielern stellen</span>
+                </span>
+                <span className={styles.navRowChevron} aria-hidden="true">›</span>
+              </button>
+              {assistantOpen && (
+                <TransferAssistant
+                  key={leagueId}
+                  leagueId={leagueId}
+                  competitionId={competitionId}
+                  onClose={() => setAssistantOpen(false)}
+                  getContext={() => transferContext({
+                    squad: comparisonSquad,
+                    market: marketQuery.data ? comparisonMarket : null,
+                    lineup: lineupPlayers,
+                    formation: editing ? formation : data.formation,
+                    matchday: matchdayState?.open?.day ?? displayMatchday,
+                    deadlineMinutes: openDeadlineMs === null ? null : Math.max(0, Math.ceil(openDeadlineMs / 60_000)),
+                    balance: league?.budget ?? null,
+                    budget: budgetLimit,
+                    constraints: optimizer.constraints,
+                    metric: optimizer.metric,
+                    difficulty: fixtureDifficultyByTeam,
+                    buy: replacement,
+                    sell: optimizer.sellAdvice,
+                    sellPlan: optimizer.budgetPlan,
+                  })}
+                />
               )}
 
               {hasOpenMatchday && (

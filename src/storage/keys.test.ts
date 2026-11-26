@@ -8,6 +8,7 @@ import {
   SESSION_KEY,
   excludedFromSaleKey,
   leagueRulesKey,
+  openRouterKey,
 } from './keys';
 import * as keys from './keys';
 
@@ -36,12 +37,14 @@ describe('localStorage-Schlüssel', () => {
     expect(SESSION_KEY).toBe('kickflow.session.v1');
     expect(LAST_LEAGUE_KEY).toBe('kickflow.lastLeagueId');
     expect(leagueRulesKey('42')).toBe('kickflow.rules.v1.42');
+    expect(openRouterKey('42')).toBe('kickflow.openRouter.v1.42');
     expect(excludedFromSaleKey('42')).toBe('kickflow.excludedFromSale.v1.42');
     expect(INSTALL_HINT_KEY).toBe('kickflow.installHint.v1');
   });
 
   it('sind pro Liga getrennt', () => {
     expect(leagueRulesKey('1')).not.toBe(leagueRulesKey('2'));
+    expect(openRouterKey('1')).not.toBe(openRouterKey('2'));
     expect(excludedFromSaleKey('1')).not.toBe(excludedFromSaleKey('2'));
   });
 
@@ -72,6 +75,7 @@ describe('localStorage-Schlüssel', () => {
     // zweites Literal irgendwo im Baum wäre genau die Drift, gegen die die
     // Tests oben schützen sollen — deshalb hier die Gegenprobe.
     for (const relative of [
+      'assistant/TransferAssistant.tsx',
       'auth/tokenStore.ts',
       'leagues/lastLeague.ts',
       'lineup/useLeagueRules.ts',

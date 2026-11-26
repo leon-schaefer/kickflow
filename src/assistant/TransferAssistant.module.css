@@ -1,0 +1,103 @@
+.panel {
+  composes: v from '@/theme/layout.module.css';
+  max-width: 600px;
+  max-height: 86dvh;
+}
+
+.body {
+  composes: v from '@/theme/layout.module.css';
+  flex: 1 1 auto;
+  overflow-y: auto;
+  gap: var(--space-md);
+}
+
+.form,
+.field,
+.turn {
+  composes: v from '@/theme/layout.module.css';
+  gap: var(--space-sm);
+}
+
+.notice,
+.error {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-caption);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.field {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font: inherit;
+  resize: vertical;
+}
+
+.transcript {
+  composes: v from '@/theme/layout.module.css';
+  max-height: 34dvh;
+  overflow-y: auto;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-background);
+  border-radius: var(--radius-md);
+}
+
+.question,
+.answer {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: 1.5;
+}
+
+.question {
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  composes: h from '@/theme/layout.module.css';
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.button,
+.submit {
+  composes: pressableH from '@/theme/layout.module.css';
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.submit {
+  background: var(--color-accent);
+  color: var(--color-background);
+}
+
+.submit:disabled {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  cursor: default;
+}

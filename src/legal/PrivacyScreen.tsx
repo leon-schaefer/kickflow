@@ -39,7 +39,7 @@ export function PrivacyScreen() {
   const location = useLocation();
 
   return (
-    <LegalPage title={PRIVACY_TITLE} updated="2026-10-30">
+    <LegalPage title={PRIVACY_TITLE} updated="2026-11-26">
       <p className={styles.lead}>
         kickflow läuft in deinem Browser. Ein Verbindungsserver leitet verschlüsselte Daten
         zwischen deinem Browser und Kickbase weiter. Die Verschlüsselung endet bei Kickbase,
@@ -103,6 +103,25 @@ export function PrivacyScreen() {
       </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Optionaler KI-Transferassistent</h2>
+        <p className={styles.text}>
+          Wenn du eine Frage absendest, verbindet sich dein Browser direkt mit OpenRouter.
+          Er sendet deinen OpenRouter-API-Schlüssel zur Anmeldung und übermittelt deine Frage,
+          den jüngsten Chatverlauf sowie für die Beratung relevante Kader-, Markt-, Budget- und
+          Aufstellungsdaten. Bei Bedarf lädt kickflow gezielt Spielerprofile bei Kickbase und gibt
+          die für die Frage relevanten Profildaten an OpenRouter weiter. Dein Kickbase-Zugriffstoken
+          bleibt bei der Verbindung zu Kickbase.
+        </p>
+        <p className={styles.text}>
+          OpenRouter verarbeitet die Anfrage und deine IP-Adresse und leitet die Anfrageinhalte
+          an den Modellanbieter weiter. Die Anbieter haben eigene Datenschutz- und Speicherregeln.
+          kickflow speichert deinen OpenRouter-Schlüssel pro Liga im lokalen Speicher deines Browsers.
+          Der Chat bleibt im Arbeitsspeicher des geöffneten Dialogs.
+        </p>
+        <ExternalLink url="https://openrouter.ai/privacy" label="Datenschutzerklärung von OpenRouter" />
+      </section>
+
+      <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Hosting</h2>
         <p className={styles.text}>
           Die App selbst (HTML, JavaScript, Bilder) wird von Vercel ausgeliefert. Beim Abruf
@@ -125,8 +144,9 @@ export function PrivacyScreen() {
         <h2 className={styles.sectionTitle}>Was auf deinem Gerät gespeichert wird</h2>
         <p className={styles.text}>
           kickflow legt die folgenden Einträge im lokalen Speicher deines Browsers
-          (localStorage) ab. Einstellungen bleiben auf deinem Gerät. Das Zugriffstoken und die
-          für eine Aktion erforderlichen Kennungen werden verschlüsselt an Kickbase übermittelt.
+          (localStorage) ab. Das Kickbase-Zugriffstoken und die für eine Aktion erforderlichen
+          Kennungen werden verschlüsselt an Kickbase übermittelt. Beim Absenden einer Frage
+          verwendet kickflow den OpenRouter-Schlüssel zur Anmeldung bei OpenRouter.
         </p>
         <div className={styles.tableWrap}>
           <table className={styles.table}>

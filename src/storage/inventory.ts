@@ -8,6 +8,7 @@ import {
   excludedFromSaleKey,
   leagueRulesKey,
   variantsKey,
+  openRouterKey,
 } from './keys';
 
 /**
@@ -107,6 +108,14 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     label: 'Spieltagsrückblick',
     purpose: 'Kader, Formation, Aufstellung, Regeln und Zeitpunkt der Sicherung bleiben pro Liga und Konto für deinen Spieltagsrückblick auf diesem Gerät.',
     lifetime: 'Die letzten 34 gesicherten Spieltage bleiben bis zum Löschen der lokalen Daten erhalten.',
+    personal: true,
+  },
+  {
+    key: openRouterKey('<Liga-ID>'),
+    label: 'OpenRouter-API-Schlüssel',
+    purpose:
+      'Dein API-Schlüssel für den KI-Transferassistenten, je Liga getrennt. kickflow speichert ihn im Browser und sendet ihn beim Absenden einer Frage zur Anmeldung an OpenRouter.',
+    lifetime: 'Bis du das Schlüsselfeld leerst oder die lokalen Daten löschst.',
     personal: true,
   },
   {

@@ -63,7 +63,7 @@ describe('Speicher-Inventar', () => {
 
   it('kennzeichnet Anmeldung und kontobezogene Einträge als personenbezogen', () => {
     for (const entry of STORAGE_INVENTORY) {
-      expect(entry.personal).toBe(entry.key === keys.SESSION_KEY || entry.key.includes('<Konto-ID>'));
+      expect(entry.personal).toBe(entry.key === keys.SESSION_KEY || entry.key === keys.openRouterKey(PLACEHOLDER) || entry.key.includes('<Konto-ID>'));
     }
   });
 
