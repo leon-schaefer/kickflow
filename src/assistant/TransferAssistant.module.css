@@ -44,6 +44,11 @@
   resize: vertical;
 }
 
+.input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
 .transcript {
   composes: v from '@/theme/layout.module.css';
   flex: 1 1 auto;
